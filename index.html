@@ -159,13 +159,15 @@
 
     <!-- ===== PAGE: DASHBOARD ===== -->
     <section id="page-dashboard" class="page active" aria-label="Dashboard">
-      <div class="page-header">
+      <div class="page-header dashboard-header">
         <div class="page-title-group">
           <h1 class="page-title">Dashboard</h1>
           <p class="page-subtitle" id="dashboard-greeting">Good morning! Ready to learn something new today?</p>
         </div>
-        <div class="page-actions">
+        <div class="dashboard-header-center">
           <div class="clock-chip" id="dashboard-clock"></div>
+        </div>
+        <div class="page-actions">
           <div class="daily-quote-chip" id="daily-quote-chip" title="Click for new quote">💡 <span id="daily-quote-text">Loading quote...</span></div>
           <button class="btn btn-primary" id="quick-add-btn" aria-label="Add new learning entry">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -392,10 +394,10 @@
         </div>
 
 
-        <!-- Medals -->
+        <!-- Trophies -->
         <div class="widget medals-preview-widget">
           <div class="widget-header">
-            <h3>Medals</h3>
+            <h3>Trophies</h3>
           </div>
           <div class="medals-widget-row">
 
@@ -800,15 +802,33 @@
         </div>
       </div>
 
-      <!-- Medals -->
+      <!-- Trophies -->
       <div class="medals-section">
         <div class="medals-section-header">
-          <h3 class="medals-section-title">Medals</h3>
+          <h3 class="medals-section-title">Trophies</h3>
           <span class="medals-section-sub">Earned by hitting your daily learning goal</span>
         </div>
         <div class="medals-section-row">
           <div class="medal-card gold-card">
-            <div class="medal-card-icon">🥇</div>
+            <div class="medal-card-icon">
+              <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="ag1a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FEF9C3"/><stop offset="55%" stop-color="#FCD34D"/><stop offset="100%" stop-color="#B45309"/>
+                  </linearGradient>
+                  <linearGradient id="ag1b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FCD34D"/><stop offset="100%" stop-color="#B45309"/>
+                  </linearGradient>
+                </defs>
+                <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#ag1a)"/>
+                <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#ag1b)"/>
+                <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#ag1b)"/>
+                <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.45)"/>
+              </svg>
+            </div>
             <div class="medal-card-body">
               <div class="medal-card-count medal-count-gold">0</div>
               <div class="medal-card-name">Gold</div>
@@ -816,7 +836,25 @@
             </div>
           </div>
           <div class="medal-card silver-card">
-            <div class="medal-card-icon">🥈</div>
+            <div class="medal-card-icon">
+              <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="ag2a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#F1F5F9"/><stop offset="55%" stop-color="#CBD5E1"/><stop offset="100%" stop-color="#475569"/>
+                  </linearGradient>
+                  <linearGradient id="ag2b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#CBD5E1"/><stop offset="100%" stop-color="#475569"/>
+                  </linearGradient>
+                </defs>
+                <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#ag2a)"/>
+                <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#64748B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#64748B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#ag2b)"/>
+                <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#ag2b)"/>
+                <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.4)"/>
+              </svg>
+            </div>
             <div class="medal-card-body">
               <div class="medal-card-count medal-count-silver">0</div>
               <div class="medal-card-name">Silver</div>
@@ -824,7 +862,25 @@
             </div>
           </div>
           <div class="medal-card bronze-card">
-            <div class="medal-card-icon">🥉</div>
+            <div class="medal-card-icon">
+              <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="ag3a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FED7AA"/><stop offset="55%" stop-color="#FB923C"/><stop offset="100%" stop-color="#7C2D12"/>
+                  </linearGradient>
+                  <linearGradient id="ag3b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FB923C"/><stop offset="100%" stop-color="#7C2D12"/>
+                  </linearGradient>
+                </defs>
+                <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#ag3a)"/>
+                <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#B45309" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#B45309" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#ag3b)"/>
+                <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#ag3b)"/>
+                <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.4)"/>
+              </svg>
+            </div>
             <div class="medal-card-body">
               <div class="medal-card-count medal-count-bronze">0</div>
               <div class="medal-card-name">Bronze</div>
@@ -838,7 +894,7 @@
       <details class="rewards-guide" open>
         <summary class="rewards-guide-summary">
           <span class="rewards-guide-summary-text">How to Earn Rewards</span>
-          <span class="rewards-guide-summary-sub">XP formula, streak bonuses, medals &amp; levels</span>
+          <span class="rewards-guide-summary-sub">XP formula, streak bonuses, trophies &amp; levels</span>
           <svg class="rewards-guide-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </summary>
         <div class="rewards-guide-body">
@@ -876,7 +932,7 @@
               <div class="rewards-guide-row"><span>14-day streak</span><span class="rgv">1.6× all XP</span></div>
               <div class="rewards-guide-row highlight-row"><span>30-day streak</span><span class="rgv accent">2.0× all XP</span></div>
             </div>
-            <div class="rewards-guide-card-title" style="margin-top:var(--s-4)">🏅 Medals</div>
+            <div class="rewards-guide-card-title" style="margin-top:var(--s-4)">🏆 Trophies</div>
             <div class="rewards-guide-rows">
               <div class="rewards-guide-row"><span>🥉 Bronze</span><span class="rgv">Weighted score ≥ 1.5× goal</span></div>
               <div class="rewards-guide-row"><span>🥈 Silver</span><span class="rgv">Weighted score ≥ 2× goal</span></div>

@@ -143,6 +143,12 @@ const App = (() => {
       console.error('[App] Load error:', err);
     }
 
+    // One-time startup check: if reminder was saved as enabled but permission is gone, reset silently
+    if (_prefs.reminder && (!('Notification' in window) || Notification.permission !== 'granted')) {
+      _prefs.reminder = false;
+      Storage.setPref('reminder', false);
+    }
+
     applyTheme(_prefs.theme);
     applyAccent(_prefs.accent);
     applyCompact(_prefs.compact);
@@ -3373,15 +3379,18 @@ const App = (() => {
 
   function setupReminder() {
     // Wire Test button
-    document.getElementById('test-reminder-btn')?.addEventListener('click', () => {
+    document.getElementById('test-reminder-btn')?.addEventListener('click', async () => {
       if (!('Notification' in window)) {
         showToast('Your browser does not support notifications.', 'error');
         return;
       }
-      if (Notification.permission !== 'granted') {
-        showToast('Notification permission not granted. Enable the reminder toggle first.', 'warning');
+      let perm = Notification.permission;
+      if (perm === 'default') perm = await Notification.requestPermission();
+      if (perm === 'denied') {
+        showToast('Notifications are blocked. Enable them in your browser settings, then try again.', 'warning');
         return;
       }
+      if (perm !== 'granted') return;
       fireReminder(true);
       showToast('Test notification sent!', 'success');
     });

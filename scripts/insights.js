@@ -86,14 +86,6 @@ const Insights = (() => {
       icon:  '⏱️',
     });
 
-    // Consistency
-    insights.push({
-      label: 'Consistency',
-      value: `${consistency}%`,
-      sub:   'Last 30 days',
-      icon:  '🎯',
-    });
-
     // Top topic
     const topicDist = Analytics.calculateTopicDistribution(entries);
     if (topicDist.length > 0) {
@@ -102,27 +94,6 @@ const Insights = (() => {
         value: topicDist[0].label,
         sub:   `${Analytics.formatDuration(topicDist[0].minutes)} total`,
         icon:  '📚',
-      });
-    }
-
-
-    // Streak insight
-    if (streak.current > 0) {
-      insights.push({
-        label: 'Current Streak',
-        value: `${streak.current} days`,
-        sub:   `Best: ${streak.longest} days`,
-        icon:  '🔥',
-      });
-    }
-
-    // Total hours
-    if (stats.totalMinutes > 0) {
-      insights.push({
-        label: 'Total Hours',
-        value: Analytics.formatDuration(stats.totalMinutes),
-        sub:   `Across ${stats.uniqueDays} active day${stats.uniqueDays === 1 ? '' : 's'}`,
-        icon:  '🕐',
       });
     }
 
