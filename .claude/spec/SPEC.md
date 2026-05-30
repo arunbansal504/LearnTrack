@@ -1,6 +1,6 @@
 # LearnTrack — As-Built Product Specification
 
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Last updated:** 2026-05-30  
 **Status:** Implemented & live
 
@@ -16,7 +16,7 @@ LearnTrack is a frontend-only, browser-based SPA for tracking daily learning act
 
 | Layer | Technology |
 |---|---|
-| Markup | HTML5 |
+| Markup | HTML5 (+ `manifest.json` for PWA install) |
 | Styles | CSS3, CSS custom properties |
 | Logic | Vanilla JavaScript ES6+ (IIFE module pattern) |
 | Charts | Chart.js (CDN) |
@@ -33,11 +33,14 @@ No React, Vue, Angular, or backend server.
 ```
 /Learn Tracker
 ├── index.html              — Single HTML file, all pages
+├── manifest.json           — PWA web app manifest (install support)
 ├── styles/
-│   └── main.css            — All styles, CSS variables, responsive, themes
+│   ├── main.css            — All styles, CSS variables, responsive, themes
+│   ├── dashboard.css       — Dashboard-specific widget styles
+│   └── animations.css      — Keyframe animations, transitions
 ├── scripts/
-│   ├── app.js              — Core app, routing, page renderers, PDF report
-│   ├── storage.js          — IndexedDB wrapper, per-user stores
+│   ├── app.js              — Core app, routing, page renderers, UserManager, PDF report
+│   ├── storage.js          — IndexedDB wrapper, per-user stores, soft-delete
 │   ├── analytics.js        — Stats, streak, heatmap, distribution functions
 │   ├── charts.js           — All Chart.js chart renderers
 │   ├── rewards.js          — XP, levels, medals, achievements engine
@@ -56,41 +59,54 @@ No React, Vue, Angular, or backend server.
 The app is a single-page app. Pages are `<section data-page="...">` elements shown/hidden by `navigateTo()`.
 
 ### Sidebar (desktop)
-- App logo + LearnTrack title
-- Nav links: Dashboard, Daily Log, Analytics, Calendar, Achievements, Profiles, Settings, Backup
+- User avatar (initials circle, color-coded), username, level badge
+- XP progress bar with current / next-level XP label
+- Streak chip (🔥 N day streak)
+- Nav links: Dashboard, Daily Log, Deleted Logs, Calendar, Achievements, Reports, Profiles, Settings, Backup
 - Dark/Light theme toggle switch
+- Auto-backup status chip (shows time since last auto-backup)
 - App version label
+- Sidebar collapse toggle button
 
 ### Bottom nav (mobile)
-Five items: Home (Dashboard), Log, + (FAB — opens Add Entry modal), Stats (Analytics), Awards (Achievements)
+Four items: Home (Dashboard), Log, + (FAB — opens Add Entry modal), Awards (Achievements)
 
-### Pages (8 total)
+### Pages (9 total)
 
-| Page id | Route | Description |
+| Page id | Nav label | Description |
 |---|---|---|
-| `dashboard` | default | Overview, stats, widgets |
+| `dashboard` | Dashboard | Overview, stats, charts, insights, recent activity |
 | `log` | Daily Log | Entry list, search, filter |
-| `analytics` | Analytics | Charts, insights, PDF report |
+| `deleted-logs` | Deleted Logs | Recycle bin — soft-deleted entries, restore or permanently delete |
+| `reports` | Reports | PDF monthly report generation with month picker and preview |
 | `calendar` | Calendar | Month grid, day panel, streaks |
 | `achievements` | Achievements | Badges, XP, level, medals |
 | `profiles` | Profiles | Multi-user management |
 | `settings` | Settings | Appearance, goals, categories |
-| `backup` | Backup & Restore | JSON export/import per user |
+| `backup` | Backup | JSON export/import per user |
+
+> **No separate Analytics page.** The analytics charts (daily time, monthly, category, heatmap) and insights strip are embedded directly in the Dashboard.
 
 ---
 
 ## 1. Dashboard
 
-### Stats Grid (6 cards)
-- **Total Hours** — cumulative time studied, with weekly trend indicator
-- **Current Streak** — active streak days; sub-stat shows longest streak
-- **Total Entries** — all-time log count
-- **Avg Hours/Day** — total hours ÷ active days
-- **Consistency** — % of last 30 days with at least one entry
-- **Level** — current XP level with inline progress bar
+### Page Header
+- Personalized greeting (time-of-day based, with username)
+- Live clock chip
+- Daily quote chip (click to randomize)
+- "Add Entry" primary button
 
-### Insights Strip (7 cards, auto-fit grid)
-Cards rendered by `insights.js generateInsights()`. No horizontal scroll — grid fills full width.
+### Stats Grid (6 cards)
+- **Total Hours** — cumulative time studied, formatted `Xh Ym`
+- **Current Streak** — active streak days; sub-stat shows longest streak
+- **Total Entries** — all-time log count (animated counter)
+- **Avg Hours/Day** — total minutes ÷ active unique days
+- **Consistency** — % of last 30 days with at least one entry (animated counter)
+- **Level** — current XP level (animated counter) with inline XP progress bar
+
+### Insights Strip (up to 7 cards, auto-fit grid)
+Cards rendered by `Insights.generateInsights()`. Grid fills full width.
 
 1. Best Day to Learn — day-of-week with highest avg session
 2. Avg Session — total minutes ÷ total entries
@@ -102,11 +118,11 @@ Cards rendered by `insights.js generateInsights()`. No horizontal scroll — gri
 
 ### Goal Progress
 - **Daily Goal ring** — SVG circle showing today's logged time vs. daily goal (minutes)
-- **Weekly Goal dots** — 7 day-of-week circles (green = goal met, amber = partial, gray = no entry)
+- **Weekly Goal dots** — 7 day-of-week circles (green = goal met, amber = partial with %, gray = no entry)
 - **Today Summary** — time logged today, entry count, top topic, "+ Log Entry" button
 
 ### Summary Row (3 cards)
-- This Week — hours, entries, 7-day mini bar chart
+- This Week — hours, entries, 7-day mini bar chart (inline rendered bars, not Chart.js)
 - This Month — hours, entries, progress bar vs. monthly goal (hours)
 - Next Milestone — closest unearned achievement with progress bar
 
@@ -119,7 +135,14 @@ Separate widget. Mini badge grid of earned badges. "View all" link → Achieveme
 > **Note:** Medals and Achievements are two separate cards, with Medals appearing first.
 
 ### Recent Activity Feed
-Last 5 entries. Each shows topic, duration, category. "View all" links to Daily Log.
+Last **8** entries. Each shows topic, category pill, date (relative), duration. Clicking an item opens the Edit modal.
+
+### Analytics Section (on Dashboard)
+Full analytics embedded in the Dashboard with tabbed range selectors:
+- **Daily Learning Time** (line chart) — range tabs: 7 / 30 / 90 / 365 days
+- **Monthly Progress** (bar chart) — range tabs: 3 / 6 / 12 months
+- **Category Breakdown** (doughnut chart) — range tabs: 7 / 30 / 90 days
+- **Activity Heatmap** (custom grid) — 52-week GitHub-style contribution heatmap, 5-level intensity
 
 ---
 
@@ -133,7 +156,7 @@ Last 5 entries. Each shows topic, duration, category. "View all" links to Daily 
 | Duration | Number input (minutes) | Required, 1–1440 |
 | Topic | Text input | Required |
 | Category | Select dropdown (user-defined list) | — |
-| Difficulty | Select: Beginner / Intermediate / Advanced / Expert | — |
+| Difficulty | Select: Easy / Medium / Hard | — |
 | Mood | 5-button selector (😞 😐 🙂 😊 🚀, values 1–5) | — |
 | Tags | Comma-separated text | — |
 | Notes | Textarea (5 rows) with character count | Autosaves with indicator |
@@ -144,6 +167,7 @@ Notes autosave triggers after 800 ms of inactivity. Visual indicator shows: Savi
 ### Entry List
 - Grouped by month (collapsible sections)
 - Each card shows: date badge, topic, category pill, difficulty, mood emoji, duration badge, tags, notes preview (90 chars), resource link icons, overflow menu (Edit / Duplicate / Delete)
+- Delete moves entry to soft-delete (Deleted Logs) — it does **not** permanently remove immediately
 - Pagination: 20 entries per page with "Load more"
 
 ### Search & Filter
@@ -155,29 +179,32 @@ Notes autosave triggers after 800 ms of inactivity. Visual indicator shows: Savi
 
 ---
 
-## 3. Analytics
+## 3. Deleted Logs (Recycle Bin)
 
-### Charts (4 total)
+Soft-deleted entries are stored in the `deletedEntries` IndexedDB store and displayed here.
 
-| Chart | Type | Description |
-|---|---|---|
-| Daily Learning Time | Line | Hours per day for selected range |
-| Topic Distribution | Doughnut | Top 10 topics by total time |
-| Monthly Progress | Bar | Last 12 months total hours |
-| Activity Heatmap | Custom grid | 52-week GitHub-style contribution heatmap, 5-level intensity |
+- Grouped by month (collapsible sections)
+- Each entry card shows topic, category, date, duration, difficulty, plus checkbox for bulk selection
+- **Month-level "select all"** checkbox for bulk operations
+- **Bulk action bar** — appears when entries are selected: Restore selected / Permanently delete selected
+- Individual entry buttons: Restore / Permanently Delete
+- Search and filter controls (same fields as Daily Log)
+- Pagination: 20 per page with "Load more"
 
-> **Learning Curve chart was removed.** The `calculateLearningCurve()` analytics function still exists but is not rendered as a visualization anywhere in the UI.
+---
 
-### Time Range Selector
-Dropdown: Last 7 days / Last 30 days / Last 90 days / Last year / All time
+## 4. Reports
 
-### Insights Strip
-Same 7-card strip as Dashboard (re-rendered with selected range data).
+Dedicated page for PDF monthly report generation.
 
-### PDF Monthly Report
-Triggered by "PDF Report" button. Uses **jsPDF** for native vector PDF (text is selectable/searchable).
+- **Month picker** — select any month with data
+- **Report options** checkboxes: Include Notes / Include Resources
+- **Preview button** — renders a visual HTML preview of the report inline on the page
+- **Download PDF button** — generates and downloads via jsPDF
 
-Report contents:
+### PDF Report Contents
+Uses **jsPDF directly** — no html2canvas, no DOM capture. Everything drawn with `pdf.text()`, `pdf.rect()`, `pdf.line()`, `pdf.link()`. Coordinates are in points (pt).
+
 - Header band (LearnTrack branding, month, username, generated date)
 - 4 summary cards: Total Time, Sessions, Daily Goal %, Avg Mood
 - Goal progress bars (daily + monthly)
@@ -191,41 +218,41 @@ Report contents:
 **All Entries table column widths:**
 - Date, Category, Duration, Difficulty — content-based (`colFit`, measures actual text)
 - Topic, Notes, Resources — fixed percentage of remaining space: Topic 15%, Notes 70%, Resources 15%
-- Table always spans full page width
-- Text wraps within all columns (no clipping)
-- Difficulty values are title-cased (Beginner, not beginner)
-- Cell content is vertically centered
+- Table always spans full page width; text wraps within all columns
+- Difficulty values are title-cased
 - Resource titles are clickable links; URL shown as plain gray text below
 
-Report options checkboxes: Include Notes / Include Resources
+Helper functions defined inside `generateMonthlyReport()`: `tx()`, `fillR()`, `strokeR()`, `hline()`, `needsPage()`.
+- `needsPage(h)` checks if `y + h > PH - MB` and adds a new page, resetting `y = MT`
+- Column widths for Date/Category/Duration/Difficulty measured via `colFit()`
 
 ---
 
-## 4. Calendar
+## 5. Calendar
 
 - Full month grid with day-header row (Sun–Sat)
-- Day cells: date number + activity dot (4 intensity levels based on minutes) + entry count
+- Day cells: date number + activity dot (4 intensity levels based on minutes vs 300 min max) + entry count
 - Other-month days shown dimmed
 - Today highlighted; selected day highlighted
 - Prev/Next/Today navigation buttons
-- Click a day → right-side **Day Panel** shows entry list for that date
+- Click a day → right-side **Day Panel** shows entry list for that date; click an entry → opens Edit modal
 - Day Panel: day header, entry list (topic + duration + category), Quick Add button (today only), View Entries button
 
 ### Streak Stats (below calendar)
 - Current Streak
 - Longest Streak
-- Missed Days (last 30 days)
+- Missed Days (last N days — label shows window size)
 - Motivational streak message
 
 ---
 
-## 5. Achievements
+## 6. Achievements
 
 ### XP Hero Section
 - Level ring (SVG circle progress)
-- Level name + XP progress bar (current XP / next level threshold)
-- Total XP card
-- Badges earned count
+- Level name + XP progress bar (current XP into level / XP needed for next)
+- Total XP card (animated counter)
+- Badges earned count (animated counter)
 
 ### Levels (12 total)
 
@@ -246,53 +273,58 @@ Report options checkboxes: Include Notes / Include Resources
 
 ### XP Calculation
 - Base: 1 XP per minute logged
-- Difficulty multiplier: Beginner 1×, Intermediate 1.5×, Advanced 2.2×, Expert 3×
-- Mood bonus multiplier: mood 1 → 0.8×, mood 5 → 1.25× (linear)
-- Daily goal bonus: `goal_minutes × 0.5` XP (once per day, when goal met)
-- Streak multiplier (applied on top): 3-day 1.2×, 7-day 1.4×, 14-day 1.6×, 30-day 2.0×
+- Difficulty multiplier: Easy 1×, Medium 1.5×, Hard 3×
+- Mood bonus multiplier: mood 1 → 0.8×, mood 2 → 0.9×, mood 3 → 1.0×, mood 4 → 1.1×, mood 5 → 1.25×
+- Daily goal bonus: `goal_minutes × 0.5` XP (once per day, when goal met; uses `goalHistory` for historical goal values)
+- Streak multiplier (applied on top of total): 3-day 1.2×, 7-day 1.4×, 14-day 1.6×, 30-day 2.0×
 
 ### Medals (Daily Performance)
-Based on difficulty-weighted score for the day vs. daily goal:
-- Bronze: score ≥ 1.5× daily goal
-- Silver: score ≥ 2× daily goal
-- Gold: score ≥ 3× daily goal
+Based on difficulty-weighted score for the day vs. daily goal.  
+Difficulty weights for medal scoring: Easy 0.9×, Medium 1.0×, Hard 1.5×
+
+- Bronze: weighted score ≥ 1.5× daily goal
+- Silver: weighted score ≥ 2× daily goal
+- Gold: weighted score ≥ 3× daily goal
+
+Both XP and medals use `goalHistory` to look up the goal that was active on each historical date.
 
 ### Achievements Grid
-40+ badges across 9 categories. Filter tabs: All / Earned / Locked.
+40+ badges across categories. Filter tabs: All / Earned / Locked.
 
-Each badge card: icon, name, description, progress bar, XP reward, lock/unlock state.
+Each badge card: icon, name, description, progress bar, XP reward, lock/unlock state, earned date (if earned).
 
-**Categories:**
-1. First Steps — first entry, 10/25/50/100 entries
-2. Streaks — 3/7/14/30/100-day streaks, Comeback Kid
-3. Total Hours — 5/10/25/50/100/200/500 hours
-4. Daily Goal — first goal met, 7-day goal streak, 30 days, Overachiever
-5. Single Day — Deep Focus (3 h), Marathon Day (5 h)
-6. Quality — Advanced/Expert Learner, Polymath, Thoughtful Notes, Resource Collector
-7. Topics — Topic Master, Category Explorer, Multi-topic, Diverse Learner
-8. Time of Day — Early Bird, Lunch Learner, Night Owl, Weekend Warrior
-9. Consistency & Long-term — Consistency Master, Perfect Week, Monthly Dedication, Veteran (90 days)
+**Categories and badges:**
+1. First Steps — First Step (1 entry), Habit Builder (10), On a Roll (25), Committed (50), Century Club (100)
+2. Streaks — 3-Day Streak, Week Warrior (7d), Fortnight Focus (14d), Monthly Master (30d), Centurion (100d), Comeback Kid (return after 7+ day break)
+3. Total Hours — Getting Started (5h), Tenacious (10h), Quarter Century (25h), Dedicated Scholar (50h), 100 Hours!, Learning Machine (200h), Half a Thousand (500h)
+4. Daily Goal — Goal Getter (first goal met), Week of Wins (7-day goal streak), Consistent Champion (30 days), Overachiever (2× daily goal in one day)
+5. Single Day — Deep Focus (single session ≥ 3h), Marathon Day (5h in one day)
+6. Quality — Hard Learner (10 hard sessions), Polymath (all 3 difficulty levels), Thoughtful Notes (10 entries with notes), Resource Collector (20 entries with resources)
+7. Topics — Topic Master (10h on one topic), Category Explorer (3 categories), Multi-Topic Explorer (5 categories), Diverse Learner (7 categories)
+8. Time of Day — Early Bird (before 8 AM), Lunch Learner (12–2 PM), Night Owl (after 10 PM), Weekend Warrior (Sat + Sun same week)
+9. Consistency & Long-term — Consistency Master (80% consistency), Perfect Week (daily goal every day for a full week), Monthly Dedication (20+ days in a month), Veteran (90 days span from first to latest)
 
 ### Badge Unlock Flow
 - Modal animation on first unlock
-- Confetti celebration (canvas-confetti)
-- Queue system: shows one badge at a time if multiple unlock together
+- Confetti celebration (canvas-confetti) — different patterns for achievements, level-ups, streaks
+- Queue system: shows one badge at a time if multiple unlock simultaneously
+- `Rewards.revokeStaleAchievements()` re-checks earned badges and removes those whose condition is no longer met (e.g., after import or data deletion)
 
 ### Rewards Guide (collapsible)
 In-page expandable section explaining XP sources, streak multipliers, medal logic, and level thresholds.
 
 ---
 
-## 6. Profiles
+## 7. Profiles
 
 Multi-user system. Each user gets a separate IndexedDB database.
 
 - **Default user** → `LearnTrackDB`
-- **Additional users** → `LearnTrackDB_u${timestamp}`
-- Per-user localStorage keys for preferences
+- **Additional users** → `LearnTrackDB_${userId}` (userId = `u${timestamp}`)
+- Per-user localStorage keys for preferences (prefix `lt_${userId}_`)
 
 ### Profile List
-Each row: avatar (initials circle, color-coded), username, created date, Edit / Delete / Switch buttons.
+Each row: avatar (initials circle, color-coded from 6-color palette), username, created date, Edit / Delete / Switch buttons.
 
 ### Add Profile
 Modal with username field. New profile starts with empty data.
@@ -302,7 +334,7 @@ Full app reload with new user's data.
 
 ---
 
-## 7. Settings
+## 8. Settings
 
 ### Profile
 - Display Name
@@ -328,65 +360,74 @@ Full app reload with new user's data.
 
 ---
 
-## 8. Backup & Restore
+## 9. Backup & Restore
 
 Per-profile JSON backup using **File System Access API** (with file-picker fallback for unsupported browsers).
 
+### First-Launch Gate
+On first launch, the app shows a blocking modal requiring the user to choose a backup folder before the app is accessible. This folder is persisted in a separate IndexedDB (`LearnTrackHandles`) so it survives profile switching.
+
+### Auto-Backup
+After every entry save/delete, an auto-backup is triggered (1.5 s debounce). The sidebar shows "Auto-backed up — Xm ago" status chip after each backup.
+
 ### Backup
 - Shows profile name, entry count, last backup date, filename
-- "Backup Now" — writes `learntrack-backup-${profileName}.json` to user-selected folder
-- Folder selection persisted; same folder used for future backups
+- "Backup Now" — writes `learntrack-backup-${profileName}.json` to configured folder
+- Folder selection persisted in `LearnTrackHandles` IndexedDB; same folder used for future backups
 
 ### Restore
-- "Load Backup" — auto-reads from configured folder (if available)
+- "Load Backup" — auto-reads from configured folder
 - "Browse File" — manual file picker
 - Validates JSON structure before import
-- First-launch import: replaces default empty profile
-- Existing-data import: creates new profile with imported username
+- Merge strategy: keep entry with newest `updatedAt`; achievements and preferences don't overwrite existing
 - Reports merge stats: new / updated / skipped entry counts
 
 ### Backup History
 Last 5 backup/import operations with timestamp and type (💾 export / 📂 import).
 
-### Backup JSON Format
+### Backup JSON Format (v2.0)
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "appName": "LearnTrack",
-  "timestamp": 1234567890,
+  "exportedAt": 1234567890,
   "data": {
     "entries": [],
+    "deletedEntries": [],
     "achievements": [],
-    "preferences": {},
-    "backupLog": []
+    "preferences": {}
   }
 }
 ```
 
+> **Note:** The `version` field was `"1.0"` in older exports. The `deletedEntries` array and `exportedAt` top-level field are additions in v2.0.
+
 ---
 
-## 9. Pomodoro Timer & Stopwatch
+## 10. Pomodoro Timer & Stopwatch
 
-Floating panel (bottom-right FAB, 🍅 icon). Collapsible.
+Floating panel (bottom-right FAB, 🍅 icon). Collapsible. Fullscreen toggle (Escape key exits).
 
 ### Pomodoro
 - 3 modes: Focus (25 min default), Short Break (5 min), Long Break (15 min)
-- Adjustable durations: work 1–90 min, breaks 1–30/60 min
+- Adjustable durations: work 1–90 min, short break 1–30 min, long break 1–60 min
 - Presets: 15 / 25 / 45 / 60 min for work mode
-- Countdown ring visualization
-- Audio alert on completion (different tones for work vs. break)
-- Session counter
-- Gradient background changes per mode
-- Browser title updates while running
+- Progress bar visualization
+- "Time's up!" screen with dismiss button before transitioning to next mode
+- Audio alert on completion — ascending arpeggio for work, descending chime for breaks
+- Session counter; every 4 work sessions auto-advances to Long Break
+- Gradient background cycles through 3 color schemes (🎨 palette button)
+- Browser title updates while running (`MM:SS · LearnTrack`)
 - Requests notification permission for completion alerts
+- Progress state saved per mode when switching tabs; resumes if still running
 
 ### Stopwatch
 - Start / Pause / Resume / Reset
-- Displays up to hours
+- Displays `HH:MM:SS` when ≥ 1 hour, else `MM:SS`
 
 ---
 
-## 10. Data Models
+## 11. Data Models
 
 ### Learning Entry
 ```javascript
@@ -396,7 +437,7 @@ Floating panel (bottom-right FAB, 🍅 icon). Collapsible.
   topic: "string",             // required
   category: "string",
   durationMinutes: number,     // required, 1–1440
-  difficulty: "beginner|intermediate|advanced|expert",
+  difficulty: "easy|medium|hard",
   moodScore: number,           // 1–5
   notes: "string",
   tags: ["string"],
@@ -408,28 +449,37 @@ Floating panel (bottom-right FAB, 🍅 icon). Collapsible.
 }
 ```
 
+### Deleted Entry
+Same shape as Learning Entry, plus:
+```javascript
+{
+  ...entry,
+  deletedAt: timestamp,        // when it was soft-deleted
+}
+```
+
 ### Preferences
 ```javascript
 {
   username: string,
   theme: "light|dark",
   accent: "purple|blue|green|orange|pink|red",
-  compact: boolean,            // default true
+  compact: boolean,            // always true (only mode)
   dailyGoalMin: number,
   monthlyGoalHr: number,
   reminder: boolean,
   reminderTime: "HH:MM",
   categories: [string],
-  goalHistory: []              // for consistent XP calculation across time
+  goalHistory: [{ from: "YYYY-MM-DD", goalMin: number }]  // for XP calculation across time
 }
 ```
 
 ---
 
-## 11. Storage Engine
+## 12. Storage Engine
 
 **Module:** `storage.js`  
-**Primary:** IndexedDB  
+**Primary:** IndexedDB (`DB_VERSION = 2`)  
 **Fallback:** localStorage
 
 ### Object Stores (per user DB)
@@ -438,104 +488,122 @@ Floating panel (bottom-right FAB, 🍅 icon). Collapsible.
 |---|---|---|
 | `entries` | Learning log entries | date, category, topic |
 | `achievements` | Earned badge records | — |
-| `preferences` | User settings | — |
+| `preferences` | User settings (key/value) | — |
 | `notes` | Full notes text (keyed by entry id) | — |
 | `backupLog` | Last 5 backup/import operations | — |
+| `deletedEntries` | Soft-deleted entries | deletedAt |
+
+### Directory Handle Storage
+A separate IndexedDB `LearnTrackHandles` stores the File System Access API directory handle globally (not per-user), so the backup folder survives profile switches.
 
 ### Key Functions
 - `Storage.init(userId)` — open or create per-user DB
-- `Storage.addEntry()`, `getEntry()`, `updateEntry()`, `deleteEntry()`, `getAllEntries()`
-- `Storage.getAchievements()`, `setAchievements()`
+- `Storage.saveEntry()`, `getEntry()`, `getAllEntries()`, `deleteEntry()`
+- `Storage.softDeleteEntry(id)` — moves entry to `deletedEntries` store
+- `Storage.getDeletedEntries()` — returns all soft-deleted entries sorted by `deletedAt` desc
+- `Storage.restoreEntry(id)` — moves back from `deletedEntries` to `entries`
+- `Storage.permanentlyDeleteEntry(id)` — removes from `deletedEntries` permanently
+- `Storage.getAchievement()`, `getAllAchievements()`, `saveAchievement()`
 - `Storage.getPref()`, `setPref()`, `getAllPrefs()`
-- `Storage.getNotes()`, `setNotes()`
-- `Storage.getBackupLog()`, `addBackupLog()`
-- `Storage.importAll()`, `exportAll()`
+- `Storage.getNotes()`, `setNotes()` (via low-level `get`/`put`)
+- `Storage.getBackupLog()`, `addBackupLog()`, `clearBackupLog()`
+- `Storage.exportAll()` — returns v2.0 JSON with entries + deletedEntries + achievements + preferences
+- `Storage.importAll(backup)` — merge strategy: newest `updatedAt` wins for entries
+- `Storage.resetAll()` — clears all stores for current user
+- `Storage.saveDirectoryHandle()`, `getDirectoryHandle()` — persist folder handle in `LearnTrackHandles`
 
 ---
 
-## 12. Analytics Engine
+## 13. Analytics Engine
 
 **Module:** `analytics.js`
 
 | Function | Output |
 |---|---|
-| `toDateStr(date)` | `"YYYY-MM-DD"` local |
+| `toDateStr(date)` | `"YYYY-MM-DD"` local (via `Intl.DateTimeFormat`) |
 | `today()` | Today's date string |
 | `daysAgo(n)` | Date n days back |
 | `daysBetween(a, b)` | Integer day count |
-| `formatDuration(min)` | `"Xh Ym"` or `"Xm"` |
+| `startOfWeek(dateStr)` | Monday of the week containing the date |
+| `formatDuration(min)` | `"Xh Ym"`, `"Xh"`, or `"Xm"` |
+| `formatHours(min)` | Alias for `formatDuration` |
 | `buildDateMap(entries)` | `{ date: [entries] }` |
 | `calculateStreaks(entries)` | `{ current, longest, activeDates }` |
 | `calculateTotalStats(entries)` | `{ totalMinutes, totalHours, totalEntries, uniqueDays, avgMinutesPerDay }` |
 | `calculateConsistency(entries, days)` | `%` active days in window |
-| `calculateWeeklySummary(entries)` | Week totals + daily breakdown |
+| `calculateWeeklySummary(entries)` | Week totals + daily breakdown (Mon–Sun) |
 | `calculateMonthlySummary(entries)` | Month totals + goal % |
-| `calculateMonthlyTotals(entries, months)` | Last N months |
+| `calculateMonthlyTotals(entries, months)` | Last N months as `[{ label, minutes, hours }]` |
 | `calculateDailyTimeSeries(entries, days)` | Daily hours array |
-| `calculateTopicDistribution(entries)` | `[{ label, minutes, count }]` sorted |
-| `calculateHeatmapData(entries)` | 52-week grid with 5-level intensity |
-| `calculateLearningCurve(entries)` | `{ points, momentum, plateau, burnout }` — computed but not charted |
-| `bestLearningDay(entries)` | Day-of-week name |
+| `calculateTopicDistribution(entries, knownCategories?)` | `[{ label, minutes, hours }]` sorted; optional category whitelist groups unknowns as "Uncategorized" |
+| `calculateHeatmapData(entries)` | 52-week grid with 5-level intensity (0–4) |
+| `calculateLearningCurve(entries)` | `{ points, momentum, plateau, burnout }` — computed but **not charted** |
+| `bestLearningDay(entries)` | Day-of-week name (3-letter) |
 | `missedDays(entries, days)` | `{ missed, window }` |
 
 ---
 
-## 13. Charts
+## 14. Charts
 
 **Module:** `charts.js` (Chart.js wrappers)
 
 | Function | Chart type | Used on |
 |---|---|---|
-| `renderDailyTimeChart(id, data)` | Line | Analytics |
-| `renderTopicChart(id, data)` | Doughnut | Analytics |
-| `renderMonthlyChart(id, data)` | Bar | Analytics |
-| `renderHeatmap(containerId, data)` | Custom DOM grid | Analytics |
-| `renderWeekBars(id, data)` | Mini bar | Dashboard (This Week card) |
-| `renderGoalRing(id, pct)` | SVG ring | Dashboard |
+| `renderDailyTimeChart(id, data)` | Line | Dashboard (daily range tab) |
+| `renderTopicChart(id, data)` | Doughnut | Dashboard (category range tab) |
+| `renderMonthlyChart(id, data)` | Bar | Dashboard (monthly range tab) |
+| `renderHeatmap(containerId, data)` | Custom DOM grid | Dashboard |
+| `renderSparklineChart(id, data)` | Mini line | Dashboard weekly summary card |
+| `renderLearningCurveChart(id, curveData)` | Line (dual dataset) | Exists in charts.js but **not called** |
+| `renderDashboardCurve(id, curveData)` | Mini line | Exists in charts.js but **not called** |
+| `refreshAllCharts()` | — | Re-applies theme colors to all active charts |
 | `destroyChart(id)` | — | Cleanup before re-render |
 
-> `renderLearningCurveChart()` and `renderDashboardCurve()` still exist in charts.js but are no longer called.
+Charts read accent/text/border colors live from CSS custom properties via `getComputedStyle`, so they update automatically on theme/accent changes.
 
 ---
 
-## 14. Insights Engine
+## 15. Insights Engine
 
 **Module:** `insights.js`
 
 | Function | Purpose |
 |---|---|
-| `getDailyQuote()` | Rotating motivational quote (changes daily) |
+| `getDailyQuote()` | Rotating motivational quote (changes daily, index by day number) |
 | `getRandomQuote()` | Random quote on demand |
-| `getGreeting(username)` | Time-of-day greeting message |
-| `generateInsights(entries, streak, stats, consistency, curve)` | Returns 7 insight card objects |
+| `getGreeting(username)` | Time-of-day greeting (morning/afternoon/evening) |
+| `generateInsights(entries, streak, stats, consistency, curve)` | Returns up to 7 insight card objects |
 | `renderInsightsRow(containerId, insights)` | Renders insights grid to DOM |
 | `renderCurveInsights(containerId, curve)` | Renders momentum/plateau/burnout chips |
-| `getStreakInsight(streak)` | Returns motivational string |
-| `getNextMilestone(achievements, entries)` | Closest unearned achievement |
-| `generateRecommendations(entries, stats)` | Learning tip cards |
+| `getStreakInsight(streak, consistency)` | Returns motivational string |
+| `getNextMilestone(entries, streak, stats)` | Closest incomplete milestone (from fixed candidate list) |
+| `generateRecommendations(entries, streak, stats, consistency)` | Learning tip cards |
 
 ---
 
-## 15. Rewards Engine
+## 16. Rewards Engine
 
 **Module:** `rewards.js`
 
 | Function | Purpose |
 |---|---|
 | `calculateEntryXP(entry)` | XP for a single entry (base × difficulty × mood) |
-| `calculateDailyGoalXP(entries, date, goalMin)` | Bonus XP when daily goal met |
-| `calculateMedals(entries, goalMin)` | Count of gold/silver/bronze days |
-| `calculateTotalXP(entries, prefs)` | Total XP across all entries |
-| `getLevelForXP(xp)` | Returns `{ level, name, xpForLevel, xpForNext }` |
-| `checkAchievements(entries, prefs, streak)` | Returns newly unlocked achievements |
-| `calculateAchievementProgress(id, entries, prefs, streak)` | Progress value for a badge |
+| `calculateDailyGoalXP(entries, dailyGoalMin, goalHistory)` | Bonus XP for each day goal was met (uses historical goal values) |
+| `calculateMedals(entries, dailyGoalMin, goalHistory)` | Count of gold/silver/bronze days |
+| `calculateTotalXP(entries, streak, dailyGoalMin, goalHistory)` | Total XP = entry XP + goal bonus, then streak multiplier |
+| `getLevelInfo(totalXP)` | Returns `{ level, title, xpIntoLevel, xpNeededForNext, progressPct, nextLevel, totalXP }` |
+| `checkAndAwardAchievements(entries, streak, stats, consistency, goalMin, goalHistory)` | Checks all ACHIEVEMENTS, saves newly unlocked to Storage, returns array of newly earned |
+| `revokeStaleAchievements(entries, streak, stats, consistency, goalMin, goalHistory)` | Removes achievements from Storage whose condition is no longer met |
+| `buildAchievementList(entries, streak, stats, consistency, goalMin, goalHistory)` | Full list of all achievements with earned state and progress for display |
+| `fireConfetti(type)` | Confetti burst — types: `'achievement'`, `'levelup'`, `'streak'` |
+| `showXPFloat(amount, originEl)` | Animates `+N XP` float near the triggering element |
 
 ---
 
-## 16. UI & Design System
+## 17. UI & Design System
 
 ### CSS Custom Properties (variables)
-- `--accent` — accent color (changes with theme)
+- `--accent` — accent color (changes with theme and accent setting)
 - `--surface`, `--surface-2` — card backgrounds
 - `--border` — divider/border color
 - `--text-1`, `--text-2`, `--text-3` — text hierarchy
@@ -544,7 +612,7 @@ Floating panel (bottom-right FAB, 🍅 icon). Collapsible.
 - `--shadow-sm`, `--shadow-md`, `--shadow-lg` — shadow levels
 
 ### Compact Mode
-App always launches in compact mode (`compact: true` default). Compact mode applies tighter padding, smaller font sizes, and reduced gaps across all sections via `.compact-mode` class on `<body>`.
+App always launches in compact mode (`compact: true` default). Compact mode applies tighter padding, smaller font sizes, and reduced gaps via `.compact-mode` class on `<body>`. This is the only supported layout mode.
 
 ### Themes
 - Light and Dark modes, toggled by sidebar switch or Settings page
@@ -555,26 +623,30 @@ App always launches in compact mode (`compact: true` default). Compact mode appl
 - Page fade-in transitions
 - Hover lift effect (`.hover-lift`)
 - Confetti on badge unlock
-- Animated XP counter
+- Animated XP counter (`animateCounter()`)
+- XP float animation (`.xp-float`)
 - Smooth chart transitions (Chart.js animations)
 - Toast notifications (slide-in/out)
+- Sidebar backup status chip pop animation (`sbs-pop`)
 
 ---
 
-## 17. Toast Notifications
+## 18. Toast Notifications
 
 4 types: info, success, warning, error.  
 Auto-dismiss after 3.5 s. Manual close button. Stack vertically.
 
 ---
 
-## 18. Accessibility
+## 19. Accessibility
 
 - Semantic HTML (nav, main, section, article, button, label)
 - ARIA labels on icon-only buttons
-- Keyboard navigation (Enter / Space on custom controls)
+- ARIA `role="gridcell"` on heatmap cells
+- ARIA `aria-current="page"` on active nav items
+- ARIA `aria-live="polite"` on backup status chip
+- Keyboard navigation (Enter / Space on custom controls; Escape exits Pomodoro fullscreen)
 - Focus indicators
-- Role attributes on custom interactive elements
 - Color contrast ratios meet WCAG AA for default themes
 
 ---
@@ -583,9 +655,9 @@ Auto-dismiss after 3.5 s. Manual close button. Stack vertically.
 
 | Feature | Status |
 |---|---|
-| Learning Curve chart | Function exists (`calculateLearningCurve`), no chart rendered |
+| Learning Curve chart | `calculateLearningCurve()` and `renderLearningCurveChart()` exist, but no chart is rendered anywhere in the UI |
 | CSV export | Not implemented; only JSON backup + PDF report |
-| Service worker / offline-first PWA | Not implemented |
+| Service worker / offline-first PWA | `manifest.json` is present; no service worker |
 | AI-generated insights | Not implemented |
 | Drag-and-drop dashboard widgets | Not implemented |
 | Social / sharing features | Not implemented |

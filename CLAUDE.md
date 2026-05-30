@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Your Role
+
+You are an expert front-end developer with 20+ years of experience building highly professional, production-grade web applications — including large-scale projects at companies like Google. Apply that depth of expertise to every code suggestion, review, and architectural decision in this project.
+
 ---
 
 ## Running the App
@@ -36,7 +40,8 @@ const ModuleName = (() => {
 })();
 ```
 
-Modules: `App`, `Storage`, `Analytics`, `Charts`, `Rewards`, `Calendar`, `Insights`, `PomodoroTimer`, `UserManager`.
+Modules: `Storage`, `Analytics`, `Charts`, `Rewards`, `Calendar`, `Insights`, `PomodoroTimer`.  
+`app.js` contains two globals: `UserManager` (IIFE at the top) and `App` (main IIFE).
 
 **Script load order in `index.html` matters** — there is no bundler. Dependencies must appear before their consumers:
 `storage.js` → `analytics.js` → `charts.js` → `rewards.js` → `calendar.js` → `insights.js` → `timer.js` → `app.js`
@@ -57,6 +62,26 @@ Each user profile maps to a separate IndexedDB database:
 
 `UserManager` (top of `app.js`) reads the user list and active user from plain `localStorage` keys (`lt_users`, `lt_active_user`) because IndexedDB isn't open yet when the user picker runs.
 
+A separate IndexedDB `LearnTrackHandles` stores the File System Access API directory handle globally across all profiles.
+
+---
+
+## Pages (9 total)
+
+| Page id | Purpose |
+|---|---|
+| `dashboard` | Stats, insights, charts, activity feed |
+| `log` | Entry list, search, filter, add/edit |
+| `deleted-logs` | Recycle bin — restore or permanently delete soft-deleted entries |
+| `reports` | PDF monthly report generation with preview |
+| `calendar` | Month grid, day panel |
+| `achievements` | XP, levels, badges, medals |
+| `profiles` | Multi-user management |
+| `settings` | Appearance, goals, categories |
+| `backup` | JSON export/import per user |
+
+> There is **no separate Analytics page**. All charts and insights are embedded in the Dashboard.
+
 ---
 
 ## Key Patterns
@@ -69,17 +94,25 @@ Each user profile maps to a separate IndexedDB database:
 
 ### Adding a new chart
 
-Use `Charts.destroyChart(canvasId)` before calling any render function. Chart.js throws if you try to create a chart on a canvas that already has one. Every chart renderer in `charts.js` should call `destroyChart` at its top.
+Use `Charts.destroyChart(canvasId)` before calling any render function. Chart.js throws if you try to create a chart on a canvas that already has one. Every chart renderer in `charts.js` calls `destroyChart` at its top.
 
 ### Adding a new achievement
 
-In `rewards.js`, add an entry to the `ACHIEVEMENTS` array (id, name, description, icon, xp, maxProgress, condition function). The condition receives `(entries, prefs, streak)`. Progress is computed by `calculateAchievementProgress()`.
+In `rewards.js`, add an entry to the `ACHIEVEMENTS` array with: `id`, `name`, `icon`, `desc`, `xp`, `check(context)`, `progress(context)`. The context object has `{ entries, streak, stats, consistency, dailyGoalMin, goalForDate }`. Progress returns `{ current, max }`.
+
+### Difficulty levels
+
+Entries use three difficulty values: `"easy"`, `"medium"`, `"hard"`. The old four-level system (beginner/intermediate/advanced/expert) was replaced. All analytics, XP, and medal calculations use these three values.
 
 ### CSS theming
 
 All colors, spacing, and radii are CSS custom properties defined at `:root` in `main.css`. Dark mode overrides live on `[data-theme="dark"]`. Accent colors override `--accent` and related variables on `[data-accent="..."]`.
 
 Compact mode is the default (`compact: true` in `DEFAULT_PREFS`). It applies reduced padding/font via `.compact-mode` on `<body>`. Never assume non-compact layout.
+
+### Soft Delete
+
+`Storage.deleteEntry(id)` (hard delete) is **not used** in the UI. The Daily Log calls `Storage.softDeleteEntry(id)` instead, which moves the entry to the `deletedEntries` store. The Deleted Logs page lets users restore or permanently remove them. Use soft delete for any user-triggered deletion.
 
 ### PDF Report (jsPDF)
 
@@ -88,6 +121,10 @@ The report in `generateMonthlyReport()` (bottom of `app.js`) uses **jsPDF direct
 - `needsPage(h)` checks if `y + h > PH - MB` and adds a new page, resetting `y = MT`
 - Column widths for Date/Category/Duration/Difficulty are content-measured via `colFit()`
 - Topic/Notes/Resources split the remaining width at 15%/70%/15%
+
+### Auto-Backup
+
+After every entry save/delete, `triggerAutoBackup()` is called (1.5 s debounce). It writes to the persisted backup folder. On first launch, a blocking modal requires the user to pick a backup folder before accessing the app.
 
 ---
 
@@ -109,4 +146,6 @@ There is no CSS preprocessor. Variables use native `var(--name)` syntax.
 - Don't use `async/await` at the top level of any module — the IIFE executes synchronously; async work happens inside methods
 - Don't re-render an entire page on every data change — page renderers are called once on navigation; partial updates use targeted `setEl()` / `innerHTML` calls
 - Don't call `Storage.*` inside analytics functions — they are pure and synchronous; data is passed in as arguments
+- Don't use `Storage.deleteEntry()` directly in UI code — use `Storage.softDeleteEntry()` so entries go to Deleted Logs first
 - The `calculateLearningCurve()` function in `analytics.js` exists but its output is intentionally not charted — don't add a chart for it without discussing first
+- Don't use `"beginner"`, `"intermediate"`, `"advanced"`, or `"expert"` as difficulty values — the only valid values are `"easy"`, `"medium"`, `"hard"`
