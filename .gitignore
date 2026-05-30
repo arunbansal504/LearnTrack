@@ -1,0 +1,21 @@
+# Claude Code — local permission overrides (machine-specific paths)
+.claude/settings.local.json
+
+# Playwright MCP session artifacts (browser automation logs/snapshots)
+.playwright-mcp/
+
+# User backup files that may land in the project root
+learntrack-backup*.json
+learning-tracker-backup*.json
+
+# Temporary screenshots captured during development
+*.png
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor folders
+.vscode/
+.idea/

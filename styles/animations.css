@@ -1,0 +1,328 @@
+/* ===================================================
+   LEARNTRACK — ANIMATIONS & TRANSITIONS
+   =================================================== */
+
+/* ---- KEYFRAMES ----------------------------------- */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeInDown {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(20px) scale(0.95); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.92); }
+}
+
+@keyframes badgePop {
+  0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes counterUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes ringFill {
+  from { stroke-dashoffset: 276.5; }
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-60px) scale(0.8); opacity: 0; }
+}
+
+@keyframes xpFloat {
+  0%   { transform: translateY(0); opacity: 1; }
+  80%  { transform: translateY(-40px); opacity: 1; }
+  100% { transform: translateY(-50px); opacity: 0; }
+}
+
+@keyframes levelUp {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.3); }
+  60%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes streakFlame {
+  0%, 100% { transform: scaleY(1) rotate(-2deg); }
+  50%       { transform: scaleY(1.1) rotate(2deg); }
+}
+
+@keyframes skeletonShimmer {
+  0%   { background-position: -300px 0; }
+  100% { background-position: 300px 0; }
+}
+
+/* ---- SKELETON LOADING ---------------------------- */
+.skeleton {
+  border-radius: var(--r-md);
+  background: linear-gradient(90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.5s ease infinite;
+}
+
+.skeleton-text {
+  height: 14px;
+  border-radius: var(--r-full);
+  margin-bottom: var(--s-2);
+}
+
+.skeleton-text.w-75 { width: 75%; }
+.skeleton-text.w-50 { width: 50%; }
+.skeleton-text.w-33 { width: 33%; }
+
+.skeleton-card {
+  height: 100px;
+  border-radius: var(--r-lg);
+}
+
+/* ---- LOADING STATES ------------------------------ */
+
+/* Spinner (small, inline) */
+.spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+/* ---- PAGE TRANSITIONS ---------------------------- */
+.page {
+  animation: pageFadeIn 0.25s ease;
+}
+
+/* Stat card counter animation */
+.stat-value.animating {
+  animation: counterUp 0.4s ease;
+}
+
+/* ---- STREAK FLAME ANIMATION ---------------------- */
+.streak-flame {
+  display: inline-block;
+  animation: streakFlame 1.5s ease infinite;
+  transform-origin: bottom center;
+}
+
+/* ---- XP FLOATING TEXT ---------------------------- */
+.xp-float {
+  position: fixed;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent);
+  pointer-events: none;
+  z-index: 5000;
+  animation: xpFloat 1.2s ease forwards;
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ---- LEVEL UP ANIMATION -------------------------- */
+.level-up-burst {
+  animation: levelUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ---- BUTTON CLICK EFFECT ------------------------- */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ---- HOVER LIFT ---------------------------------- */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- CARD SHIMMER GRADIENT ----------------------- */
+.card-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg,
+    transparent 20%,
+    rgba(255,255,255,0.04) 40%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0.04) 60%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s ease infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ---- HEATMAP CELL HOVER -------------------------- */
+.heatmap-day {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.heatmap-day:hover {
+  transform: scale(1.3);
+  z-index: 2;
+}
+
+/* ---- CHART ANIMATIONS ---------------------------- */
+/* Chart.js uses its own animation engine but we ensure smooth appearance */
+.chart-container canvas {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.chart-container.loading canvas { opacity: 0.3; }
+
+/* ---- MODAL BACKDROP BLUR ------------------------- */
+.modal-overlay {
+  animation: fadeIn 0.2s ease;
+}
+
+/* ---- ACHIEVEMENT CARD UNLOCK GLOW ---------------- */
+@keyframes achievementGlow {
+  0%   { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%  { box-shadow: 0 0 0 8px var(--accent-glow); }
+  100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+}
+
+.achievement-card.just-earned {
+  animation: achievementGlow 1s ease 3;
+}
+
+/* ---- DRAG OVER DROP ZONE ------------------------- */
+.import-drop-zone.drag-over {
+  animation: pulse 0.6s ease infinite;
+}
+
+/* ---- MICRO-INTERACTION: RIPPLE ------------------- */
+.ripple-container { position: relative; overflow: hidden; }
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transform: scale(0);
+  animation: rippleEffect 0.5s ease;
+  pointer-events: none;
+}
+
+@keyframes rippleEffect {
+  to { transform: scale(3); opacity: 0; }
+}
+
+/* ---- PROGRESS RING ANIMATION --------------------- */
+.ring-fill {
+  animation: ringFill 1.2s ease both;
+}
+
+/* ---- SIDEBAR TRANSITION -------------------------- */
+.sidebar {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- NOTIFICATION BELL RING ---------------------- */
+@keyframes bellRing {
+  0%   { transform: rotate(0); }
+  10%  { transform: rotate(10deg); }
+  30%  { transform: rotate(-10deg); }
+  50%  { transform: rotate(8deg); }
+  70%  { transform: rotate(-6deg); }
+  90%  { transform: rotate(4deg); }
+  100% { transform: rotate(0); }
+}
+
+.bell-ring { animation: bellRing 0.8s ease; }
+
+/* ---- WEEK BAR GROW ANIMATION --------------------- */
+.week-bar-fill {
+  animation: growUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: bottom;
+}
+
+@keyframes growUp {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* ---- CALENDAR DAY HOVER -------------------------- */
+.cal-day {
+  transition: background 0.15s ease, outline 0.15s ease;
+}
+
+/* ---- AUTOSAVE INDICATOR -------------------------- */
+.autosave-indicator.saving #autosave-text::after {
+  content: '';
+  display: inline-block;
+  animation: ellipsisDots 1.2s steps(4, end) infinite;
+  width: 1.5em;
+}
+
+@keyframes ellipsisDots {
+  0%  { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
+/* ---- REDUCED MOTION SUPPORT ---------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

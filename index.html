@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI-Powered Learning Tracker — track daily learning, visualize progress, stay motivated." />
+  <meta name="theme-color" content="#6c63ff" />
+  <title>LearnTrack — Your Learning Journey</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/dashboard.css" />
+  <link rel="stylesheet" href="styles/animations.css" />
+</head>
+<body>
+
+<!-- ========== LOADING OVERLAY ========== -->
+<div id="loading-overlay" class="loading-overlay" role="status" aria-label="Loading application">
+  <div class="loading-spinner">
+    <div class="spinner-ring"></div>
+    <div class="spinner-logo">LT</div>
+  </div>
+  <p class="loading-text">Loading your learning journey...</p>
+</div>
+
+<!-- ========== APP SHELL ========== -->
+<div id="app" class="app-shell" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">🎯</div>
+        <div class="logo-text">
+          <span class="logo-title">LearnTrack</span>
+          <span class="logo-subtitle">Your Learning OS</span>
+        </div>
+      </div>
+      <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- User Profile Strip -->
+    <div class="user-strip">
+      <div class="user-avatar" id="user-avatar">
+        <span id="user-initials">L</span>
+        <div class="user-level-badge" id="sidebar-level">1</div>
+      </div>
+      <div class="user-info">
+        <div class="user-name-row">
+          <div class="user-name" id="sidebar-username">Learner</div>
+          <button class="user-switch-btn" id="user-switch-btn" title="Switch Profile" aria-label="Switch Profile">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </button>
+        </div>
+        <div class="user-xp-bar">
+          <div class="xp-bar-fill" id="sidebar-xp-bar" style="width:0%"></div>
+        </div>
+        <div class="user-xp-text" id="sidebar-xp-text">0 XP</div>
+      </div>
+    </div>
+
+    <!-- Streak Chip -->
+    <div class="streak-chip" id="sidebar-streak">
+      <span class="streak-flame">🔥</span>
+      <span id="sidebar-streak-count">0</span>
+      <span class="streak-label">day streak</span>
+    </div>
+
+    <!-- Nav Links -->
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard" aria-current="page">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="nav-label">Dashboard</span>
+        <span class="nav-badge" id="nav-badge-dashboard" style="display:none"></span>
+      </a>
+      <a href="#" class="nav-item" data-page="log">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span class="nav-label">Daily Log</span>
+      </a>
+      <a href="#" class="nav-item" data-page="analytics">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="nav-label">Analytics</span>
+      </a>
+      <a href="#" class="nav-item" data-page="calendar">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="nav-label">Calendar</span>
+      </a>
+      <a href="#" class="nav-item" data-page="achievements">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+        <span class="nav-label">Achievements</span>
+        <span class="nav-badge new-badge" id="nav-badge-achievements" style="display:none">New</span>
+      </a>
+      <a href="#" class="nav-item" data-page="profiles">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="nav-label">Profiles</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="nav-label">Settings</span>
+      </a>
+      <a href="#" class="nav-item" data-page="backup">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        <span class="nav-label">Backup</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-toggle-row">
+        <span class="sidebar-toggle-label sidebar-label-left">Light</span>
+        <label class="sidebar-switch" aria-label="Toggle theme">
+          <input type="checkbox" id="theme-toggle" />
+          <span class="sidebar-switch-track"></span>
+        </label>
+        <span class="sidebar-toggle-label sidebar-label-right">Dark</span>
+      </div>
+
+      <div class="app-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="main-content">
+
+    <!-- ===== PAGE: DASHBOARD ===== -->
+    <section id="page-dashboard" class="page active" aria-label="Dashboard">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle" id="dashboard-greeting">Good morning! Ready to learn something new today?</p>
+        </div>
+        <div class="page-actions">
+          <div class="clock-chip" id="dashboard-clock"></div>
+          <div class="daily-quote-chip" id="daily-quote-chip" title="Click for new quote">💡 <span id="daily-quote-text">Loading quote...</span></div>
+          <button class="btn btn-primary" id="quick-add-btn" aria-label="Add new learning entry">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Entry
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card" data-stat="total-hours">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-total-hours">0</div>
+            <div class="stat-label">Total Hours <i class="info-tip tip-down" data-tip="Sum of all logged session durations across every entry, displayed as hours and minutes.">i</i></div>
+          </div>
+          <div class="stat-trend" id="stat-trend-hours"></div>
+        </div>
+        <div class="stat-card highlight" data-stat="streak">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-streak">0</div>
+            <div class="stat-label">Current Streak <i class="info-tip tip-down" data-tip="Consecutive days on which at least one entry was logged. Resets to 0 if a full calendar day is missed.">i</i></div>
+            <div class="stat-sub" id="stat-longest-streak">Longest: 0 days</div>
+          </div>
+        </div>
+        <div class="stat-card" data-stat="entries">
+          <div class="stat-icon">📝</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-entries">0</div>
+            <div class="stat-label">Total Entries <i class="info-tip tip-down" data-tip="Total count of individual learning sessions you have logged across all time.">i</i></div>
+          </div>
+        </div>
+        <div class="stat-card" data-stat="avg-hours">
+          <div class="stat-icon">📈</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-avg-hours">0h</div>
+            <div class="stat-label">Avg / Day <i class="info-tip tip-down" data-tip="Total learning time ÷ number of days on which at least one entry was logged (active days only, not calendar days).">i</i></div>
+          </div>
+        </div>
+        <div class="stat-card" data-stat="consistency">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-consistency">0%</div>
+            <div class="stat-label">Consistency <i class="info-tip tip-down" data-tip="Days with at least one entry in the last 30 calendar days ÷ 30, shown as a percentage.">i</i></div>
+            <div class="stat-sub">Last 30 days</div>
+          </div>
+        </div>
+        <div class="stat-card" data-stat="level">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-level">1</div>
+            <div class="stat-label">Level <i class="info-tip tip-down" data-tip="Earned by accumulating XP. XP = minutes × difficulty multiplier × mood bonus. Add daily goal bonuses, then multiply everything by your streak bonus (up to 2× at 30-day streak).">i</i></div>
+            <div class="xp-progress">
+              <div class="xp-progress-bar" id="stat-xp-bar" style="width:0%"></div>
+            </div>
+            <div class="stat-sub" id="stat-xp-text">0 / 100 XP</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Goal + Today Row -->
+      <div class="goal-row">
+      <div class="goal-progress-card" id="goal-progress-card">
+        <div class="goal-today-section">
+          <div class="goal-ring-wrap">
+            <svg class="goal-ring-svg" viewBox="0 0 80 80" aria-hidden="true">
+              <circle cx="40" cy="40" r="34" class="goal-ring-bg"/>
+              <circle cx="40" cy="40" r="34" class="goal-ring-fill" id="goal-ring-fill"/>
+            </svg>
+            <div class="goal-ring-inner">
+              <span class="goal-ring-pct" id="goal-today-pct">0%</span>
+            </div>
+          </div>
+          <div class="goal-today-info">
+            <div class="goal-section-title">Daily Goal <i class="info-tip" data-tip="Today's logged time vs your daily goal (set in Settings). Ring turns green when the goal is met, amber when you're halfway there.">i</i></div>
+            <div class="goal-today-numbers" id="goal-today-progress">0 min / 60 min</div>
+            <div class="goal-today-status" id="goal-today-status">Not started yet</div>
+          </div>
+        </div>
+        <div class="goal-divider"></div>
+        <div class="goal-week-section">
+          <div class="goal-section-title week-label">This Week <i class="info-tip" data-tip="Each circle = one day of the week. Uses difficulty-weighted minutes vs your daily goal. Green ✓ = goal met. Amber = partial. Gray dot = nothing logged.">i</i></div>
+          <div class="goal-week-days" id="goal-week-days"></div>
+        </div>
+      </div>
+
+      <div class="today-summary-card" id="today-summary-card">
+        <div class="today-summary-left">
+          <div class="goal-section-title">Today <i class="info-tip" data-tip="Total learning time and session count logged today (IST date). Shows your top topic by time spent.">i</i></div>
+          <div class="today-time" id="today-time">0m</div>
+          <div class="today-meta" id="today-meta">No entries yet</div>
+          <div class="today-topic" id="today-topic"></div>
+        </div>
+        <button class="btn btn-primary btn-sm today-log-btn" id="today-log-btn">+ Log Entry</button>
+      </div>
+      </div><!-- end .goal-row -->
+
+      <!-- Weekly / Monthly Summary Row -->
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="summary-header">
+            <h3>This Week <i class="info-tip" data-tip="Total logged time for the current Mon–Sun week. Bar heights are proportional to each day's duration relative to the week's peak day.">i</i></h3>
+            <span class="summary-period" id="week-period"></span>
+          </div>
+          <div class="summary-body">
+            <div class="summary-big" id="week-hours">0h</div>
+            <div class="summary-meta" id="week-entries">0 entries</div>
+            <div class="week-bars" id="week-bars">
+              <!-- 7 day bars rendered by JS -->
+            </div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-header">
+            <h3>This Month <i class="info-tip" data-tip="Total logged time for the current calendar month vs your monthly goal (set in Settings). Progress bar shows % of monthly goal reached.">i</i></h3>
+            <span class="summary-period" id="month-period"></span>
+          </div>
+          <div class="summary-body">
+            <div class="summary-big" id="month-hours">0h</div>
+            <div class="summary-meta" id="month-entries">0 entries</div>
+            <div class="month-progress">
+              <div class="month-progress-bar" id="month-progress-bar" style="width:0%"></div>
+            </div>
+            <div class="summary-sub" id="month-goal-text">0% of monthly goal</div>
+          </div>
+        </div>
+        <div class="summary-card upcoming-milestone-card">
+          <div class="summary-header">
+            <h3>Next Milestone <i class="info-tip" data-tip="The closest unearned achievement based on your current progress. Progress bar shows how far along you are toward unlocking it.">i</i></h3>
+          </div>
+          <div class="summary-body" id="next-milestone-body">
+            <div class="milestone-icon" id="milestone-icon">🏆</div>
+            <div class="milestone-name" id="milestone-name">First Entry</div>
+            <div class="milestone-progress">
+              <div class="milestone-progress-bar" id="milestone-bar" style="width:0%"></div>
+            </div>
+            <div class="milestone-meta" id="milestone-meta">0% complete</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Bottom Row -->
+      <div class="dashboard-bottom">
+        <!-- Activity Feed -->
+        <div class="widget activity-feed-widget">
+          <div class="widget-header">
+            <h3>Recent Activity <i class="info-tip" data-tip="Your most recent learning entries sorted by date. Shows topic, category, duration, and difficulty at a glance.">i</i></h3>
+            <a href="#" class="widget-action" data-page="log">View all</a>
+          </div>
+          <div class="activity-list" id="activity-list">
+            <div class="empty-state-small">
+              <span>📭</span>
+              <p>No learning entries yet. Start your journey!</p>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Medals -->
+        <div class="widget medals-preview-widget">
+          <div class="widget-header">
+            <h3>Medals</h3>
+          </div>
+          <div class="medals-widget-row">
+            <div class="medal-widget-item">
+              <span class="medal-widget-icon">🥇</span>
+              <div class="medal-widget-body">
+                <span class="medal-count-gold">0</span>
+                <span class="medal-widget-label">Gold</span>
+              </div>
+            </div>
+            <div class="medal-widget-item">
+              <span class="medal-widget-icon">🥈</span>
+              <div class="medal-widget-body">
+                <span class="medal-count-silver">0</span>
+                <span class="medal-widget-label">Silver</span>
+              </div>
+            </div>
+            <div class="medal-widget-item">
+              <span class="medal-widget-icon">🥉</span>
+              <div class="medal-widget-body">
+                <span class="medal-count-bronze">0</span>
+                <span class="medal-widget-label">Bronze</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Achievements Preview -->
+        <div class="widget achievements-preview-widget">
+          <div class="widget-header">
+            <h3>Achievements <i class="info-tip" data-tip="Badges unlocked by hitting milestones — streaks, hours, sessions, difficulty, topics, and more. Each badge also awards bonus XP.">i</i></h3>
+            <a href="#" class="widget-action" data-page="achievements">View all</a>
+          </div>
+          <div class="badges-grid-mini" id="badges-grid-mini">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: DAILY LOG ===== -->
+    <section id="page-log" class="page" aria-label="Daily learning log">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Daily Log</h1>
+          <p class="page-subtitle">Record your learning sessions</p>
+        </div>
+        <div class="page-actions">
+          <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="log-search" placeholder="Search entries..." aria-label="Search learning entries" />
+          </div>
+          <button class="btn btn-secondary" id="filter-toggle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filter
+          </button>
+          <button class="btn btn-primary" id="add-entry-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Entry
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Panel -->
+      <div class="filter-panel" id="filter-panel" style="display:none">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Date From</label>
+            <input type="date" id="filter-date-from" />
+          </div>
+          <div class="filter-group">
+            <label>Date To</label>
+            <input type="date" id="filter-date-to" />
+          </div>
+          <div class="filter-group">
+            <label>Category</label>
+            <select id="filter-category">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Difficulty</label>
+            <select id="filter-difficulty">
+              <option value="">All levels</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Sort by</label>
+            <select id="filter-sort">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="duration-desc">Longest first</option>
+              <option value="duration-asc">Shortest first</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" id="filter-clear">Clear filters</button>
+        </div>
+      </div>
+
+      <!-- Log Entries List -->
+      <div class="entries-container" id="entries-container">
+        <div class="empty-state" id="log-empty-state">
+          <div class="empty-icon">📚</div>
+          <h3>No learning entries yet</h3>
+          <p>Start tracking your learning journey by adding your first entry.</p>
+          <button class="btn btn-primary" onclick="document.getElementById('add-entry-btn').click()">Add First Entry</button>
+        </div>
+      </div>
+
+      <!-- Load More -->
+      <div class="load-more-container" id="load-more-container" style="display:none">
+        <button class="btn btn-ghost" id="load-more-btn">Load more entries</button>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: ANALYTICS ===== -->
+    <section id="page-analytics" class="page" aria-label="Analytics">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Analytics</h1>
+          <p class="page-subtitle">Deep insights into your learning patterns</p>
+        </div>
+        <div class="page-actions">
+          <select id="analytics-range" class="select-input">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+            <option value="all">All time</option>
+          </select>
+          <div class="report-download-group">
+            <select id="report-month" class="select-input"></select>
+            <div class="report-opts">
+              <label class="report-opt-label">
+                <input type="checkbox" id="report-inc-notes">
+                <span>Notes</span>
+              </label>
+              <label class="report-opt-label">
+                <input type="checkbox" id="report-inc-resources">
+                <span>Resources</span>
+              </label>
+            </div>
+            <button id="download-report-btn" class="btn btn-outline btn-sm report-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insights Cards -->
+      <div class="insights-row" id="insights-row">
+        <!-- Rendered by insights.js -->
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="charts-grid">
+        <div class="chart-card full-width">
+          <div class="chart-header">
+            <h3>Daily Learning Time</h3>
+            <span class="chart-hint">Hours per day</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="daily-time-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Topic Distribution</h3>
+            <span class="chart-hint">By time spent</span>
+          </div>
+          <div class="chart-container chart-container-sm">
+            <canvas id="topic-distribution-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Monthly Progress</h3>
+            <span class="chart-hint">Hours per month</span>
+          </div>
+          <div class="chart-container chart-container-sm">
+            <canvas id="monthly-progress-chart"></canvas>
+          </div>
+        </div>
+
+
+        <div class="chart-card full-width">
+          <div class="chart-header">
+            <h3>Activity Heatmap</h3>
+            <span class="chart-hint">GitHub-style contribution graph</span>
+          </div>
+          <div class="heatmap-container" id="heatmap-container">
+            <!-- Rendered by charts.js -->
+          </div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-legend-cells">
+              <div class="heatmap-cell" data-level="0"></div>
+              <div class="heatmap-cell" data-level="1"></div>
+              <div class="heatmap-cell" data-level="2"></div>
+              <div class="heatmap-cell" data-level="3"></div>
+              <div class="heatmap-cell" data-level="4"></div>
+            </div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: CALENDAR ===== -->
+    <section id="page-calendar" class="page" aria-label="Calendar view">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Calendar</h1>
+          <p class="page-subtitle">Your learning activity at a glance</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost" id="cal-prev">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <h2 class="calendar-month-title" id="cal-month-title">May 2026</h2>
+          <button class="btn btn-ghost" id="cal-next">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="btn btn-ghost" id="cal-today">Today</button>
+        </div>
+      </div>
+      <div class="calendar-layout">
+        <div class="calendar-main">
+          <div class="calendar-grid" id="calendar-grid">
+            <!-- Rendered by calendar.js -->
+          </div>
+        </div>
+        <div class="calendar-sidebar">
+          <div class="cal-day-panel" id="cal-day-panel">
+            <div class="cal-day-header" id="cal-day-header">Select a day</div>
+            <div class="cal-day-entries" id="cal-day-entries">
+              <div class="empty-state-small">
+                <span>📅</span>
+                <p>Click a day to see entries</p>
+              </div>
+            </div>
+            <div id="cal-day-actions" style="display:none; flex-direction:column; gap:8px; padding:12px 16px 16px;">
+              <button class="btn btn-primary btn-full" id="cal-quick-add">
+                + Add Entry for this Day
+              </button>
+              <button class="btn btn-primary btn-full" id="cal-view-entries">
+                View Entries for this Day
+              </button>
+            </div>
+          </div>
+          <div class="streak-calendar-card">
+            <h3>🔥 Streak</h3>
+            <div class="streak-stats">
+              <div class="streak-stat">
+                <div class="streak-num" id="cal-current-streak">0</div>
+                <div class="streak-label">Current</div>
+              </div>
+              <div class="streak-stat">
+                <div class="streak-num" id="cal-longest-streak">0</div>
+                <div class="streak-label">Longest</div>
+              </div>
+              <div class="streak-stat">
+                <div class="streak-num" id="cal-missed-days">0</div>
+                <div class="streak-label" id="streak-missed-label">Missed (29d)</div>
+              </div>
+            </div>
+            <div class="streak-message" id="streak-message">Keep it up!</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: ACHIEVEMENTS ===== -->
+    <section id="page-achievements" class="page" aria-label="Achievements">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Achievements</h1>
+          <p class="page-subtitle">Your trophies and milestones</p>
+        </div>
+      </div>
+
+      <!-- XP / Level Hero -->
+      <div class="level-hero">
+        <div class="level-hero-left">
+          <div class="level-ring">
+            <svg viewBox="0 0 100 100" class="level-ring-svg">
+              <circle cx="50" cy="50" r="44" class="ring-bg"/>
+              <circle cx="50" cy="50" r="44" class="ring-fill" id="level-ring-fill" style="stroke-dashoffset: 276.5"/>
+            </svg>
+            <div class="level-ring-inner">
+              <div class="level-num" id="achievement-level">1</div>
+              <div class="level-label">Level</div>
+            </div>
+          </div>
+          <div class="level-info">
+            <div class="level-title" id="level-title">Beginner</div>
+            <div class="level-xp" id="level-xp">0 / 100 XP</div>
+            <div class="xp-progress level-xp-bar">
+              <div class="xp-progress-bar" id="level-xp-bar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="level-hero-right">
+          <div class="total-xp-card">
+            <div class="total-xp-label">Total XP Earned</div>
+            <div class="total-xp-value" id="total-xp">0</div>
+          </div>
+          <div class="badges-earned-card">
+            <div class="total-xp-label">Badges Earned</div>
+            <div class="total-xp-value" id="badges-earned-count">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medals -->
+      <div class="medals-section">
+        <div class="medals-section-header">
+          <h3 class="medals-section-title">Medals</h3>
+          <span class="medals-section-sub">Earned by hitting your daily learning goal</span>
+        </div>
+        <div class="medals-section-row">
+          <div class="medal-card gold-card">
+            <div class="medal-card-icon">🥇</div>
+            <div class="medal-card-body">
+              <div class="medal-card-count medal-count-gold">0</div>
+              <div class="medal-card-name">Gold</div>
+              <div class="medal-card-desc">Difficulty-weighted score reaches 3× your daily goal</div>
+            </div>
+          </div>
+          <div class="medal-card silver-card">
+            <div class="medal-card-icon">🥈</div>
+            <div class="medal-card-body">
+              <div class="medal-card-count medal-count-silver">0</div>
+              <div class="medal-card-name">Silver</div>
+              <div class="medal-card-desc">Difficulty-weighted score reaches 2× your daily goal</div>
+            </div>
+          </div>
+          <div class="medal-card bronze-card">
+            <div class="medal-card-icon">🥉</div>
+            <div class="medal-card-body">
+              <div class="medal-card-count medal-count-bronze">0</div>
+              <div class="medal-card-name">Bronze</div>
+              <div class="medal-card-desc">Difficulty-weighted score reaches 1.5× your daily goal</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How to Earn Rewards -->
+      <details class="rewards-guide" open>
+        <summary class="rewards-guide-summary">
+          <span class="rewards-guide-summary-text">How to Earn Rewards</span>
+          <span class="rewards-guide-summary-sub">XP formula, streak bonuses, medals &amp; levels</span>
+          <svg class="rewards-guide-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="rewards-guide-body">
+          <!-- XP Sources -->
+          <div class="rewards-guide-card">
+            <div class="rewards-guide-card-title">⚡ XP Sources</div>
+            <div class="rewards-guide-rows">
+              <div class="rewards-guide-row">
+                <span>Base rate</span><span class="rgv accent">1 XP / min</span>
+              </div>
+              <div class="rewards-guide-row">
+                <span>Beginner sessions</span><span class="rgv">1×</span>
+              </div>
+              <div class="rewards-guide-row">
+                <span>Intermediate sessions</span><span class="rgv">1.5×</span>
+              </div>
+              <div class="rewards-guide-row">
+                <span>Advanced sessions</span><span class="rgv">2.2×</span>
+              </div>
+              <div class="rewards-guide-row">
+                <span>Expert sessions</span><span class="rgv">3×</span>
+              </div>
+              <div class="rewards-guide-row">
+                <span>Mood 5/5 bonus</span><span class="rgv">1.25×</span>
+              </div>
+              <div class="rewards-guide-row highlight-row">
+                <span>Daily goal met bonus</span><span class="rgv accent">goal min × 0.5 XP / day</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Streak Multiplier + Medals -->
+          <div class="rewards-guide-card">
+            <div class="rewards-guide-card-title">🔥 Streak Multiplier</div>
+            <div class="rewards-guide-rows">
+              <div class="rewards-guide-row"><span>3-day streak</span><span class="rgv">1.2× all XP</span></div>
+              <div class="rewards-guide-row"><span>7-day streak</span><span class="rgv">1.4× all XP</span></div>
+              <div class="rewards-guide-row"><span>14-day streak</span><span class="rgv">1.6× all XP</span></div>
+              <div class="rewards-guide-row highlight-row"><span>30-day streak</span><span class="rgv accent">2.0× all XP</span></div>
+            </div>
+            <div class="rewards-guide-card-title" style="margin-top:var(--s-4)">🏅 Medals</div>
+            <div class="rewards-guide-rows">
+              <div class="rewards-guide-row"><span>🥉 Bronze</span><span class="rgv">Weighted score ≥ 1.5× goal</span></div>
+              <div class="rewards-guide-row"><span>🥈 Silver</span><span class="rgv">Weighted score ≥ 2× goal</span></div>
+              <div class="rewards-guide-row highlight-row"><span>🥇 Gold</span><span class="rgv accent">Weighted score ≥ 3× goal</span></div>
+            </div>
+          </div>
+
+          <!-- Level Progression -->
+          <div class="rewards-guide-card">
+            <div class="rewards-guide-card-title">🏆 Level Progression</div>
+            <div class="rewards-guide-rows">
+              <div class="rewards-guide-row"><span>Lv 1 · Beginner</span><span class="rgv">0 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 2 · Curious Mind</span><span class="rgv">100 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 3 · Explorer</span><span class="rgv">250 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 4 · Apprentice</span><span class="rgv">500 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 5 · Learner</span><span class="rgv">900 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 6 · Practitioner</span><span class="rgv">1,500 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 7 · Adept</span><span class="rgv">2,500 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 8 · Scholar</span><span class="rgv">4,000 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 9 · Expert</span><span class="rgv">6,500 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 10 · Master</span><span class="rgv">10,000 XP</span></div>
+              <div class="rewards-guide-row"><span>Lv 11 · Grand Master</span><span class="rgv">15,000 XP</span></div>
+              <div class="rewards-guide-row highlight-row"><span>Lv 12 · Legend</span><span class="rgv accent">22,000 XP</span></div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Achievements Grid -->
+      <div class="achievements-filter">
+        <button class="filter-pill active" data-filter="all">All</button>
+        <button class="filter-pill" data-filter="earned">Earned</button>
+        <button class="filter-pill" data-filter="locked">Locked</button>
+      </div>
+      <div class="achievements-grid" id="achievements-grid">
+        <!-- Rendered by rewards.js -->
+      </div>
+    </section>
+
+    <!-- ===== PAGE: PROFILES ===== -->
+    <section id="page-profiles" class="page" aria-label="Profiles">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Profiles</h1>
+          <p class="page-subtitle">Manage learning profiles — each has its own data, streaks, and achievements</p>
+        </div>
+      </div>
+      <div class="settings-layout">
+        <div class="settings-section">
+          <div class="settings-card">
+            <div id="users-management-list" class="users-management-list"></div>
+            <button class="btn btn-secondary btn-sm" id="add-profile-btn" style="margin-top:var(--s-3)">+ Add New Profile</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: SETTINGS ===== -->
+    <section id="page-settings" class="page" aria-label="Settings">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Settings</h1>
+          <p class="page-subtitle">Customize your experience</p>
+        </div>
+      </div>
+
+      <div class="settings-layout">
+        <div class="settings-section">
+          <h2 class="settings-section-title">Profile</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <label class="setting-label" for="setting-username">Display Name</label>
+              <input type="text" id="setting-username" class="setting-input" placeholder="Your name" />
+            </div>
+            <div class="setting-row">
+              <label class="setting-label" for="setting-daily-goal">Daily Goal (minutes)</label>
+              <input type="number" id="setting-daily-goal" class="setting-input" placeholder="60" min="5" max="720" />
+            </div>
+            <div class="setting-row">
+              <label class="setting-label" for="setting-monthly-goal">Monthly Goal (hours)</label>
+              <input type="number" id="setting-monthly-goal" class="setting-input" placeholder="20" min="1" max="200" />
+            </div>
+            <button class="btn btn-primary" id="save-profile-btn">Save Profile</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h2 class="settings-section-title">Appearance</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <label class="setting-label">Theme</label>
+              <div class="theme-options">
+                <button class="theme-option" data-theme="dark">🌙 Dark</button>
+                <button class="theme-option" data-theme="light">☀️ Light</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-label">Accent Color</label>
+              <div class="accent-options" id="accent-options">
+                <button class="accent-swatch active" data-accent="purple" style="background:#6c63ff" aria-label="Purple accent"></button>
+                <button class="accent-swatch" data-accent="blue" style="background:#3b82f6" aria-label="Blue accent"></button>
+                <button class="accent-swatch" data-accent="green" style="background:#10b981" aria-label="Green accent"></button>
+                <button class="accent-swatch" data-accent="orange" style="background:#f59e0b" aria-label="Orange accent"></button>
+                <button class="accent-swatch" data-accent="pink" style="background:#ec4899" aria-label="Pink accent"></button>
+                <button class="accent-swatch" data-accent="red" style="background:#ef4444" aria-label="Red accent"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h2 class="settings-section-title">Categories</h2>
+          <div class="settings-card">
+            <p class="settings-hint">Manage learning categories used in log entries.</p>
+            <div class="categories-list" id="categories-list"></div>
+            <div class="add-category-row">
+              <input type="text" id="new-category-input" class="setting-input" placeholder="New category name" />
+              <button class="btn btn-secondary" id="add-category-btn">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h2 class="settings-section-title">Notifications</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <label class="setting-label">Daily Reminder</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-reminder" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+            <div class="setting-row" id="reminder-time-row" style="display:none">
+              <label class="setting-label" for="setting-reminder-time">Reminder Time</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="time" id="setting-reminder-time" class="setting-input" value="20:00" />
+                <button class="btn btn-secondary btn-sm" id="test-reminder-btn">Test</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section danger-zone">
+          <h2 class="settings-section-title">Danger Zone</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Reset All Data</div>
+                <div class="settings-hint">Permanently delete all learning entries and achievements.</div>
+              </div>
+              <button class="btn btn-danger" id="reset-data-btn">Reset Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: BACKUP ===== -->
+    <section id="page-backup" class="page" aria-label="Backup and restore">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Backup & Restore</h1>
+          <p class="page-subtitle">Keep your data safe — each profile has its own backup file</p>
+        </div>
+      </div>
+
+      <div class="backup-layout">
+        <!-- Backup Section -->
+        <div class="backup-card">
+          <div class="backup-card-icon">💾</div>
+          <div class="backup-card-content">
+            <h2>Backup</h2>
+            <p>Save your learning data. Each profile is backed up as a separate file in your configured folder.</p>
+            <div class="backup-info" id="backup-info">
+              <div class="backup-info-row">
+                <span>Profile:</span>
+                <strong id="backup-profile-name">—</strong>
+              </div>
+              <div class="backup-info-row">
+                <span>Entries:</span>
+                <strong id="backup-entries-count">0</strong>
+              </div>
+              <div class="backup-info-row">
+                <span>Last backup:</span>
+                <strong id="last-backup-date">Never</strong>
+              </div>
+              <div class="backup-info-row">
+                <span>File name:</span>
+                <strong id="backup-filename">—</strong>
+              </div>
+            </div>
+
+            <!-- Folder configured -->
+            <div id="backup-folder-configured" class="backup-folder-row hidden">
+              <span class="backup-folder-label">📁 Folder:</span>
+              <strong id="backup-folder-name">—</strong>
+              <button class="btn btn-ghost btn-sm" id="change-folder-btn">Change</button>
+            </div>
+
+            <!-- Folder not configured -->
+            <div id="backup-folder-unconfigured" class="backup-configure-prompt">
+              <span class="configure-warning-text">⚠️ No backup folder configured</span>
+              <button class="btn btn-secondary btn-sm" id="configure-folder-btn">Configure Folder</button>
+            </div>
+
+            <div class="backup-actions">
+              <button class="btn btn-primary" id="backup-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Backup Now
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Restore Section -->
+        <div class="backup-card">
+          <div class="backup-card-icon">📂</div>
+          <div class="backup-card-content">
+            <h2>Load Backup</h2>
+            <p>Automatically restore the backup for the current profile from your configured folder.</p>
+            <div class="backup-info">
+              <div class="backup-info-row">
+                <span>Profile:</span>
+                <strong id="restore-profile-name">—</strong>
+              </div>
+              <div class="backup-info-row">
+                <span>Expected file:</span>
+                <strong id="restore-filename">—</strong>
+              </div>
+            </div>
+
+            <!-- Folder configured -->
+            <div id="restore-folder-info" class="backup-folder-row hidden">
+              <span class="backup-folder-label">📁 Loading from:</span>
+              <strong id="restore-folder-name">—</strong>
+            </div>
+
+            <!-- Folder not configured -->
+            <div id="restore-folder-unconfigured" class="backup-configure-prompt">
+              <span class="configure-warning-text">⚠️ Configure a backup folder to enable restore</span>
+            </div>
+
+            <div class="backup-actions">
+              <button class="btn btn-secondary" id="load-backup-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Load Backup
+              </button>
+              <button class="btn btn-secondary" id="browse-backup-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Browse File
+              </button>
+              <input type="file" id="browse-backup-input" accept=".json" style="display:none" />
+            </div>
+            <div class="import-status" id="import-status" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- Backup Log -->
+        <div class="backup-card wide-card">
+          <div class="backup-card-icon">📋</div>
+          <div class="backup-card-content">
+            <div style="margin:0 0 var(--s-3);">
+              <h2 style="margin:0 0 2px;">Backup / Restore History</h2>
+              <span style="font-size:12px;color:var(--text-3);">Last 5 entries</span>
+            </div>
+            <div class="backup-history-list" id="backup-history-list">
+              <div class="empty-state-small"><span>📭</span><p>No backups recorded yet.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== MODAL: USER PICKER ===== -->
+<div id="user-picker-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="user-picker-title" style="display:none">
+  <div class="modal user-picker-modal">
+    <div class="modal-header">
+      <h2 id="user-picker-title">Switch Profile</h2>
+    </div>
+    <div class="modal-body">
+      <div id="user-list-section" class="user-list-section">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="user-create-divider"><span>New Profile</span></div>
+      <div class="user-create-row">
+        <input type="text" id="new-user-name-input" class="setting-input" placeholder="Enter a name..." maxlength="30" autocomplete="off" />
+        <button class="btn btn-primary" id="create-user-submit-btn">Create</button>
+      </div>
+    </div>
+    <div class="modal-footer" id="user-picker-footer" style="display:none">
+      <button class="btn btn-ghost" id="user-picker-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ADD / EDIT ENTRY ===== -->
+<div id="entry-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">New Learning Entry</h2>
+      <button class="modal-close" id="modal-close" aria-label="Close modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="entry-form" novalidate>
+        <input type="hidden" id="entry-id" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="entry-date">Date</label>
+            <input type="date" id="entry-date" readonly />
+          </div>
+          <div class="form-group">
+            <label for="entry-duration">Duration (minutes) <span class="required">*</span></label>
+            <input type="number" id="entry-duration" required min="1" max="1440" placeholder="e.g. 60" aria-required="true" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="entry-topic">Topic <span class="required">*</span></label>
+            <input type="text" id="entry-topic" required placeholder="e.g. JavaScript Closures" aria-required="true" />
+          </div>
+          <div class="form-group">
+            <label for="entry-category">Category</label>
+            <select id="entry-category">
+              <option value="">Select category</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="entry-difficulty">Difficulty</label>
+            <select id="entry-difficulty">
+              <option value="beginner">🟢 Beginner</option>
+              <option value="intermediate" selected>🟡 Intermediate</option>
+              <option value="advanced">🔴 Advanced</option>
+              <option value="expert">⚡ Expert</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="entry-mood">Mood / Productivity</label>
+            <div class="mood-selector" id="mood-selector">
+              <button type="button" class="mood-btn" data-mood="1" title="Very low">😞</button>
+              <button type="button" class="mood-btn" data-mood="2" title="Low">😐</button>
+              <button type="button" class="mood-btn" data-mood="3" title="Okay" aria-pressed="true">🙂</button>
+              <button type="button" class="mood-btn active" data-mood="4" title="Good">😊</button>
+              <button type="button" class="mood-btn" data-mood="5" title="Excellent">🚀</button>
+            </div>
+            <input type="hidden" id="entry-mood" value="4" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="entry-tags">Tags (comma-separated)</label>
+          <input type="text" id="entry-tags" placeholder="e.g. javascript, webdev, fundamentals" />
+        </div>
+
+        <div class="form-group">
+          <div class="notes-label-row">
+            <label for="entry-notes">Notes & Reflections</label>
+            <div class="autosave-indicator" id="autosave-indicator">
+              <span class="autosave-dot"></span>
+              <span id="autosave-text"></span>
+            </div>
+          </div>
+          <textarea id="entry-notes" rows="5" placeholder="What did you learn? Any key insights, challenges, or reflections..."></textarea>
+          <div class="notes-footer">
+            <span class="char-count" id="notes-char-count">0 characters</span>
+            <span class="last-saved" id="notes-last-saved"></span>
+          </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="form-group">
+          <label>Resources</label>
+          <div class="resources-list" id="resources-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="add-resource-btn">+ Add Resource</button>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <button type="button" class="btn btn-ghost btn-sm" id="duplicate-entry-btn" style="display:none">
+          Duplicate
+        </button>
+      </div>
+      <div class="modal-footer-right">
+        <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button type="submit" form="entry-form" class="btn btn-primary" id="modal-save">Save Entry</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: BADGE UNLOCK ===== -->
+<div id="badge-modal" class="modal-overlay badge-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="badge-modal-title" style="display:none">
+  <div class="modal badge-modal">
+    <div class="badge-unlock-animation">
+      <div class="badge-glow"></div>
+      <div class="badge-icon-large" id="badge-modal-icon">🏆</div>
+    </div>
+    <h2 id="badge-modal-title">Achievement Unlocked!</h2>
+    <div class="badge-modal-name" id="badge-modal-name">First Step</div>
+    <div class="badge-modal-desc" id="badge-modal-desc">You made your first entry!</div>
+    <div class="badge-modal-xp" id="badge-modal-xp">+50 XP</div>
+    <button class="btn btn-primary" id="badge-modal-close">Awesome! 🎉</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: CONFIRM ===== -->
+<div id="confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="confirm-modal-title">Confirm Action</h2>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-modal-message"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== POMODORO FAB ===== -->
+<button id="pomo-fab" class="pomo-fab" aria-label="Open Timer">
+  <span id="pomo-fab-content">🍅</span>
+</button>
+
+<!-- ===== TIMER PANEL ===== -->
+<div id="pomo-panel" class="pomo-panel" style="display:none" role="complementary" aria-label="Timer" data-grad="1">
+  <!-- Header: tabs + close -->
+  <div class="pomo-header">
+    <div class="pomo-tabs">
+      <button class="pomo-tab" id="pomo-tab-sw">⏱ Stopwatch</button>
+      <button class="pomo-tab active" id="pomo-tab-pomo">🍅 Pomodoro</button>
+    </div>
+    <button class="pomo-close" id="pomo-close" aria-label="Close">✕</button>
+  </div>
+
+  <!-- ── STOPWATCH SECTION ── -->
+  <div class="timer-section" id="timer-section-sw" style="display:none">
+    <div class="pomo-big-time" id="sw-time">00:00</div>
+    <div class="pomo-controls">
+      <button class="pomo-btn pomo-btn-primary" id="sw-start-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start
+      </button>
+      <button class="pomo-btn pomo-btn-ghost" id="sw-reset-btn" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- ── POMODORO SECTION ── -->
+  <div class="timer-section" id="timer-section-pomo">
+    <!-- Mode selector (hidden while running) -->
+    <div class="pomo-modes" id="pomo-modes">
+      <button class="pomo-mode-btn active" data-mode="work">Focus</button>
+      <button class="pomo-mode-btn" data-mode="shortBreak">Short Break</button>
+      <button class="pomo-mode-btn" data-mode="longBreak">Long Break</button>
+    </div>
+
+    <!-- Idle controls: presets + adjuster (work mode only, hidden while running) -->
+    <div id="pomo-idle-controls">
+      <div class="pomo-presets">
+        <button class="pomo-preset" data-min="15">15 min</button>
+        <button class="pomo-preset active" data-min="25">25 min</button>
+        <button class="pomo-preset" data-min="45">45 min</button>
+        <button class="pomo-preset" data-min="60">60 min</button>
+      </div>
+      <div class="pomo-duration-row">
+        <button class="pomo-dur-btn" id="pomo-dur-minus" aria-label="Decrease">−</button>
+        <span class="pomo-dur-label" id="pomo-dur-label">25 min</span>
+        <button class="pomo-dur-btn" id="pomo-dur-plus" aria-label="Increase">+</button>
+      </div>
+    </div>
+
+    <div class="pomo-big-time" id="pomo-time">25:00</div>
+    <div class="pomo-mode-label" id="pomo-mode-label"></div>
+
+    <div class="pomo-progress-wrap" id="pomo-progress-wrap" style="visibility:hidden">
+      <div class="pomo-progress-fill" id="pomo-progress-fill" style="width:0%"></div>
+    </div>
+
+    <!-- Time's up celebration row (shown when timer hits 0) -->
+    <div id="pomo-timesup-row" style="display:none">
+      <button class="pomo-btn pomo-btn-timesup" id="pomo-timesup-btn">🎉&nbsp; Time's up!</button>
+    </div>
+
+    <div class="pomo-controls">
+      <button class="pomo-btn pomo-btn-primary" id="pomo-start-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start
+      </button>
+      <button class="pomo-btn pomo-btn-ghost" id="pomo-reset-btn" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Corner buttons -->
+  <button class="pomo-corner-btn pomo-corner-left" id="pomo-expand" aria-label="Expand">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+  </button>
+  <button class="pomo-corner-btn pomo-corner-right" id="pomo-palette" aria-label="Change gradient" title="Change colour">🎨</button>
+</div>
+
+<!-- ===== TOAST NOTIFICATIONS ===== -->
+<div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ===== CONFETTI CANVAS ===== -->
+<canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999"></canvas>
+
+<!-- ===== MOBILE BOTTOM NAV ===== -->
+<nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+  <a href="#" class="mobile-nav-item active" data-page="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>Home</span>
+  </a>
+  <a href="#" class="mobile-nav-item" data-page="log">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    <span>Log</span>
+  </a>
+  <a href="#" class="mobile-nav-item fab-center" data-action="add-entry">
+    <div class="fab-circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+  </a>
+  <a href="#" class="mobile-nav-item" data-page="analytics">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    <span>Stats</span>
+  </a>
+  <a href="#" class="mobile-nav-item" data-page="achievements">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+    <span>Awards</span>
+  </a>
+</nav>
+
+<!-- Scripts (module order matters) -->
+<script src="scripts/storage.js"></script>
+<script src="scripts/analytics.js"></script>
+<script src="scripts/rewards.js"></script>
+<script src="scripts/charts.js"></script>
+<script src="scripts/calendar.js"></script>
+<script src="scripts/insights.js"></script>
+<script src="scripts/timer.js"></script>
+<script src="scripts/app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+</body>
+</html>
