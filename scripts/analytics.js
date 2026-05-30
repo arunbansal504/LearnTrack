@@ -255,10 +255,12 @@ const Analytics = (() => {
 
   /* ---- Topic Distribution ---------------------------- */
 
-  function calculateTopicDistribution(entries) {
+  function calculateTopicDistribution(entries, knownCategories) {
+    const catSet = knownCategories ? new Set(knownCategories) : null;
     const map = {};
     for (const e of entries) {
-      const key = e.category || e.topic || 'Other';
+      const raw = e.category || e.topic || '';
+      const key = catSet ? (catSet.has(raw) ? raw : 'Uncategorized') : (raw || 'Uncategorized');
       map[key] = (map[key] || 0) + (e.durationMinutes || 0);
     }
     return Object.entries(map)

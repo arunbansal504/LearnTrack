@@ -97,9 +97,9 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         <span class="nav-label">Daily Log</span>
       </a>
-      <a href="#" class="nav-item" data-page="analytics">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span class="nav-label">Analytics</span>
+      <a href="#" class="nav-item" data-page="deleted-logs">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        <span class="nav-label">Deleted Logs</span>
       </a>
       <a href="#" class="nav-item" data-page="calendar">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -109,6 +109,10 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
         <span class="nav-label">Achievements</span>
         <span class="nav-badge new-badge" id="nav-badge-achievements" style="display:none">New</span>
+      </a>
+      <a href="#" class="nav-item" data-page="reports">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span class="nav-label">Reports</span>
       </a>
       <a href="#" class="nav-item" data-page="profiles">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -134,6 +138,18 @@
         <span class="sidebar-toggle-label sidebar-label-right">Dark</span>
       </div>
 
+      <div id="sidebar-backup-status" class="sbs-chip" style="display:none" aria-live="polite">
+        <div class="sbs-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        </div>
+        <div class="sbs-text">
+          <span class="sbs-label">Auto-backed up</span>
+          <span class="sbs-time" id="sidebar-backup-time">just now</span>
+        </div>
+      </div>
       <div class="app-version">v1.0.0</div>
     </div>
   </aside>
@@ -248,6 +264,9 @@
       </div>
       </div><!-- end .goal-row -->
 
+      <!-- Insights (contextual AI cards) -->
+      <div class="insights-row" id="insights-row"></div>
+
       <!-- Weekly / Monthly Summary Row -->
       <div class="summary-row">
         <div class="summary-card">
@@ -292,6 +311,70 @@
         </div>
       </div>
 
+      <!-- Charts -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Daily Learning Time</h3>
+            <div class="chart-range-tabs" id="daily-range-tabs">
+              <button class="chart-range-tab" data-val="7">7d</button>
+              <button class="chart-range-tab" data-val="14">14d</button>
+              <button class="chart-range-tab active" data-val="30">30d</button>
+              <button class="chart-range-tab" data-val="90">90d</button>
+              <button class="chart-range-tab" data-val="all">All</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="daily-time-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Monthly Progress</h3>
+            <div class="chart-range-tabs" id="monthly-range-tabs">
+              <button class="chart-range-tab" data-val="3">3m</button>
+              <button class="chart-range-tab" data-val="6">6m</button>
+              <button class="chart-range-tab active" data-val="12">12m</button>
+            </div>
+          </div>
+          <div class="chart-container chart-container-sm">
+            <canvas id="monthly-progress-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Category Distribution</h3>
+            <div class="chart-range-tabs" id="category-range-tabs">
+              <button class="chart-range-tab active" data-val="30">30d</button>
+              <button class="chart-range-tab" data-val="90">90d</button>
+              <button class="chart-range-tab" data-val="365">1yr</button>
+              <button class="chart-range-tab" data-val="all">All</button>
+            </div>
+          </div>
+          <div class="chart-container chart-container-sm">
+            <canvas id="topic-distribution-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card full-width">
+          <div class="chart-header">
+            <h3>Activity Heatmap</h3>
+            <span class="chart-hint">Last 52 weeks</span>
+          </div>
+          <div class="heatmap-container" id="heatmap-container"></div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-legend-cells">
+              <div class="heatmap-cell" data-level="0"></div>
+              <div class="heatmap-cell" data-level="1"></div>
+              <div class="heatmap-cell" data-level="2"></div>
+              <div class="heatmap-cell" data-level="3"></div>
+              <div class="heatmap-cell" data-level="4"></div>
+            </div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Dashboard Bottom Row -->
       <div class="dashboard-bottom">
         <!-- Activity Feed -->
@@ -315,27 +398,82 @@
             <h3>Medals</h3>
           </div>
           <div class="medals-widget-row">
-            <div class="medal-widget-item">
-              <span class="medal-widget-icon">🥇</span>
-              <div class="medal-widget-body">
-                <span class="medal-count-gold">0</span>
-                <span class="medal-widget-label">Gold</span>
+
+            <!-- Gold -->
+            <div class="mw-card gold-tier">
+              <div class="mw-trophy">
+                <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="mg1a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FEF9C3"/><stop offset="55%" stop-color="#FCD34D"/><stop offset="100%" stop-color="#B45309"/>
+                    </linearGradient>
+                    <linearGradient id="mg1b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FCD34D"/><stop offset="100%" stop-color="#B45309"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#mg1a)"/>
+                  <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#mg1b)"/>
+                  <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#mg1b)"/>
+                  <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.45)"/>
+                </svg>
               </div>
+              <div class="mw-count medal-count-gold">0</div>
+              <div class="mw-label">Gold</div>
             </div>
-            <div class="medal-widget-item">
-              <span class="medal-widget-icon">🥈</span>
-              <div class="medal-widget-body">
-                <span class="medal-count-silver">0</span>
-                <span class="medal-widget-label">Silver</span>
+
+            <!-- Silver -->
+            <div class="mw-card silver-tier">
+              <div class="mw-trophy">
+                <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="mg2a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#F1F5F9"/><stop offset="55%" stop-color="#CBD5E1"/><stop offset="100%" stop-color="#475569"/>
+                    </linearGradient>
+                    <linearGradient id="mg2b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#CBD5E1"/><stop offset="100%" stop-color="#475569"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#mg2a)"/>
+                  <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#64748B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#64748B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#mg2b)"/>
+                  <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#mg2b)"/>
+                  <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.4)"/>
+                </svg>
               </div>
+              <div class="mw-count medal-count-silver">0</div>
+              <div class="mw-label">Silver</div>
             </div>
-            <div class="medal-widget-item">
-              <span class="medal-widget-icon">🥉</span>
-              <div class="medal-widget-body">
-                <span class="medal-count-bronze">0</span>
-                <span class="medal-widget-label">Bronze</span>
+
+            <!-- Bronze -->
+            <div class="mw-card bronze-tier">
+              <div class="mw-trophy">
+                <svg width="42" height="48" viewBox="0 0 42 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="mg3a" x1="21" y1="2" x2="21" y2="36" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FED7AA"/><stop offset="55%" stop-color="#FB923C"/><stop offset="100%" stop-color="#7C2D12"/>
+                    </linearGradient>
+                    <linearGradient id="mg3b" x1="21" y1="38" x2="21" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FB923C"/><stop offset="100%" stop-color="#7C2D12"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M8 3h26v19c0 8.56-5.82 15.5-13 15.5S8 30.56 8 22V3z" fill="url(#mg3a)"/>
+                  <path d="M8 8H5a4 4 0 0 0 0 8h3" stroke="#B45309" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <path d="M34 8h3a4 4 0 0 1 0 8h-3" stroke="#B45309" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                  <rect x="18" y="37" width="6" height="6" rx="1.5" fill="url(#mg3b)"/>
+                  <rect x="11" y="43" width="20" height="5" rx="2.5" fill="url(#mg3b)"/>
+                  <path d="M13 9c2-1 5-1.5 8-1" stroke="rgba(255,255,255,0.65)" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M21 16l1.5 3h3.2l-2.6 2 1 3.1-3.1-1.8-3.1 1.8 1-3.1-2.6-2h3.2z" fill="rgba(255,255,255,0.4)"/>
+                </svg>
               </div>
+              <div class="mw-count medal-count-bronze">0</div>
+              <div class="mw-label">Bronze</div>
             </div>
+
           </div>
         </div>
 
@@ -347,6 +485,9 @@
           </div>
           <div class="badges-grid-mini" id="badges-grid-mini">
             <!-- Rendered by JS -->
+          </div>
+          <div class="badges-mini-footer">
+            <span id="badges-mini-summary" class="badges-mini-count"></span>
           </div>
         </div>
       </div>
@@ -431,97 +572,118 @@
       </div>
     </section>
 
-    <!-- ===== PAGE: ANALYTICS ===== -->
-    <section id="page-analytics" class="page" aria-label="Analytics">
+    <!-- ===== PAGE: DELETED LOGS ===== -->
+    <section id="page-deleted-logs" class="page" aria-label="Deleted logs">
       <div class="page-header">
         <div class="page-title-group">
-          <h1 class="page-title">Analytics</h1>
-          <p class="page-subtitle">Deep insights into your learning patterns</p>
+          <h1 class="page-title">Deleted Logs</h1>
+          <p class="page-subtitle">Entries moved here can be restored or permanently removed.</p>
         </div>
         <div class="page-actions">
-          <select id="analytics-range" class="select-input">
-            <option value="7">Last 7 days</option>
-            <option value="30" selected>Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="365">Last year</option>
-            <option value="all">All time</option>
-          </select>
-          <div class="report-download-group">
-            <select id="report-month" class="select-input"></select>
-            <div class="report-opts">
-              <label class="report-opt-label">
-                <input type="checkbox" id="report-inc-notes">
-                <span>Notes</span>
-              </label>
-              <label class="report-opt-label">
-                <input type="checkbox" id="report-inc-resources">
-                <span>Resources</span>
-              </label>
-            </div>
-            <button id="download-report-btn" class="btn btn-outline btn-sm report-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              PDF Report
-            </button>
+          <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="dl-search" placeholder="Search deleted entries..." aria-label="Search deleted entries" />
           </div>
+          <button class="btn btn-secondary" id="dl-filter-toggle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filter
+          </button>
         </div>
       </div>
 
-      <!-- Insights Cards -->
-      <div class="insights-row" id="insights-row">
-        <!-- Rendered by insights.js -->
+      <!-- Filter Panel -->
+      <div class="filter-panel" id="dl-filter-panel" style="display:none">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Date From</label>
+            <input type="date" id="dl-filter-date-from" />
+          </div>
+          <div class="filter-group">
+            <label>Date To</label>
+            <input type="date" id="dl-filter-date-to" />
+          </div>
+          <div class="filter-group">
+            <label>Category</label>
+            <select id="dl-filter-category">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Difficulty</label>
+            <select id="dl-filter-difficulty">
+              <option value="">All levels</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Sort by</label>
+            <select id="dl-filter-sort">
+              <option value="deleted-newest">Recently deleted</option>
+              <option value="deleted-oldest">Oldest deletion</option>
+              <option value="newest">Entry date (newest)</option>
+              <option value="oldest">Entry date (oldest)</option>
+              <option value="duration-desc">Longest first</option>
+              <option value="duration-asc">Shortest first</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" id="dl-filter-clear">Clear filters</button>
+        </div>
       </div>
 
-      <!-- Charts Grid -->
-      <div class="charts-grid">
-        <div class="chart-card full-width">
-          <div class="chart-header">
-            <h3>Daily Learning Time</h3>
-            <span class="chart-hint">Hours per day</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="daily-time-chart"></canvas>
-          </div>
+      <!-- Selection bar: visible whenever entries exist -->
+      <div id="dl-selection-bar" style="display:none;align-items:center;gap:0.75rem;padding:0.5rem 0 0.75rem;border-bottom:1px solid var(--border);margin-bottom:0.25rem;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:13px;font-weight:500;user-select:none">
+          <input type="checkbox" id="dl-select-all" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" />
+          <span id="dl-selection-label">Select all</span>
+        </label>
+        <div id="dl-bulk-actions" style="display:none;align-items:center;gap:0.5rem">
+          <button class="btn btn-sm btn-danger" id="dl-bulk-delete-btn">Delete Permanently</button>
+          <button class="btn btn-sm btn-ghost" id="dl-bulk-restore-btn">Restore Selected</button>
+          <button class="btn btn-sm btn-ghost" id="dl-clear-selection-btn">Clear</button>
         </div>
+      </div>
 
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3>Topic Distribution</h3>
-            <span class="chart-hint">By time spent</span>
-          </div>
-          <div class="chart-container chart-container-sm">
-            <canvas id="topic-distribution-chart"></canvas>
-          </div>
+      <!-- Entries Container -->
+      <div class="entries-container" id="dl-entries-container"></div>
+
+      <!-- Load More -->
+      <div class="load-more-container" id="dl-load-more-container" style="display:none">
+        <button class="btn btn-ghost" id="dl-load-more-btn">Load more entries</button>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: REPORTS ===== -->
+    <section id="page-reports" class="page" aria-label="Reports">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Monthly Report</h1>
+          <p class="page-subtitle">Generate and download a PDF summary of your learning activity</p>
         </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3>Monthly Progress</h3>
-            <span class="chart-hint">Hours per month</span>
-          </div>
-          <div class="chart-container chart-container-sm">
-            <canvas id="monthly-progress-chart"></canvas>
-          </div>
-        </div>
-
-
-        <div class="chart-card full-width">
-          <div class="chart-header">
-            <h3>Activity Heatmap</h3>
-            <span class="chart-hint">GitHub-style contribution graph</span>
-          </div>
-          <div class="heatmap-container" id="heatmap-container">
-            <!-- Rendered by charts.js -->
-          </div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="heatmap-legend-cells">
-              <div class="heatmap-cell" data-level="0"></div>
-              <div class="heatmap-cell" data-level="1"></div>
-              <div class="heatmap-cell" data-level="2"></div>
-              <div class="heatmap-cell" data-level="3"></div>
-              <div class="heatmap-cell" data-level="4"></div>
+      </div>
+      <div class="report-page-body">
+        <div class="report-config-card">
+          <div class="report-config-row">
+            <div class="report-config-group">
+              <label class="report-config-label">Select Month</label>
+              <select id="report-month" class="select-input"></select>
             </div>
-            <span>More</span>
+            <div class="report-config-group">
+              <label class="report-config-label">Include in Report</label>
+              <div class="report-opts">
+                <label class="report-opt-label"><input type="checkbox" id="report-inc-notes"><span>Session Notes</span></label>
+                <label class="report-opt-label"><input type="checkbox" id="report-inc-resources"><span>Resources</span></label>
+              </div>
+            </div>
+            <div class="report-config-group">
+              <label class="report-config-label">&nbsp;</label>
+              <button id="download-report-btn" class="btn btn-primary report-btn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF Report
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -909,7 +1071,7 @@
             <div id="backup-folder-configured" class="backup-folder-row hidden">
               <span class="backup-folder-label">📁 Folder:</span>
               <strong id="backup-folder-name">—</strong>
-              <button class="btn btn-ghost btn-sm" id="change-folder-btn">Change</button>
+<button class="btn btn-ghost btn-sm" id="change-folder-btn">Change</button>
             </div>
 
             <!-- Folder not configured -->
@@ -1253,15 +1415,26 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
   </a>
-  <a href="#" class="mobile-nav-item" data-page="analytics">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-    <span>Stats</span>
-  </a>
   <a href="#" class="mobile-nav-item" data-page="achievements">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
     <span>Awards</span>
   </a>
 </nav>
+
+<!-- ===== MODAL: BACKUP FOLDER REQUIRED ===== -->
+<div id="backup-required-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="backup-required-title" style="display:none;z-index:10001">
+  <div class="modal modal-sm" style="text-align:center;max-width:420px">
+    <div style="font-size:2.8rem;margin-bottom:0.75rem">📁</div>
+    <h2 id="backup-required-title" style="margin-bottom:0.75rem">Backup Folder Required</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1.5rem">
+      Learn Tracker automatically backs up your data after every change.
+      Please choose a folder on your device to store backup files before continuing.
+    </p>
+    <button id="backup-required-btn" class="btn btn-primary" style="width:100%">
+      Choose Backup Folder
+    </button>
+  </div>
+</div>
 
 <!-- Scripts (module order matters) -->
 <script src="scripts/storage.js"></script>

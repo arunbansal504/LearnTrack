@@ -312,6 +312,70 @@ const Charts = (() => {
     });
   }
 
+  /* ---- Dashboard Sparkline (14-day mini trend) ----- */
+
+  function renderSparklineChart(canvasId, data) {
+    destroyChart(canvasId);
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const accent   = getAccentColor();
+    const ctx      = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 130);
+    gradient.addColorStop(0, accent + '40');
+    gradient.addColorStop(1, accent + '00');
+
+    _charts[canvasId] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels:   data.map(d => d.label),
+        datasets: [{
+          data:             data.map(d => d.hours),
+          borderColor:      accent,
+          backgroundColor:  gradient,
+          borderWidth:      2,
+          tension:          0.4,
+          fill:             true,
+          pointRadius:      0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: accent,
+        }],
+      },
+      options: {
+        responsive:          true,
+        maintainAspectRatio: false,
+        animation:           { duration: 500 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15,15,19,0.9)',
+            borderColor:     'rgba(255,255,255,0.1)',
+            borderWidth:     1,
+            bodyColor:       '#a0a0b8',
+            padding:         8,
+            cornerRadius:    6,
+            callbacks: {
+              title: (items) => items[0].label,
+              label: (ctx)   => ` ${Analytics.formatDuration(Math.round(ctx.raw * 60))}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              color:         getTextColor(),
+              font:          { family: 'Inter', size: 10 },
+              maxTicksLimit: 7,
+              maxRotation:   0,
+            },
+            grid: { display: false },
+          },
+          y: { display: false, beginAtZero: true },
+        },
+      },
+    });
+  }
+
   function smoothData(data, window) {
     return data.map((_, i) => {
       const start = Math.max(0, i - Math.floor(window / 2));
@@ -470,6 +534,7 @@ const Charts = (() => {
     renderMonthlyChart,
     renderLearningCurveChart,
     renderDashboardCurve,
+    renderSparklineChart,
     renderHeatmap,
     refreshAllCharts,
     destroyChart,

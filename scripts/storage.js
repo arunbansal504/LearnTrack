@@ -9,14 +9,15 @@
 const Storage = (() => {
 
   let _dbName      = 'LearnTrackDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let _lsPrefix    = 'lt_';
   const STORES = {
-    entries:      'entries',
-    achievements: 'achievements',
-    preferences:  'preferences',
-    notes:        'notes',
-    backupLog:    'backupLog',
+    entries:        'entries',
+    achievements:   'achievements',
+    preferences:    'preferences',
+    notes:          'notes',
+    backupLog:      'backupLog',
+    deletedEntries: 'deletedEntries',
   };
 
   let _db = null;
@@ -52,6 +53,11 @@ const Storage = (() => {
 
         if (!db.objectStoreNames.contains(STORES.backupLog)) {
           db.createObjectStore(STORES.backupLog, { keyPath: 'id', autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.deletedEntries)) {
+          const ds = db.createObjectStore(STORES.deletedEntries, { keyPath: 'id' });
+          ds.createIndex('deletedAt', 'deletedAt');
         }
       };
 
@@ -239,6 +245,31 @@ const Storage = (() => {
     return remove(STORES.entries, id);
   }
 
+  async function softDeleteEntry(id) {
+    const entry = await get(STORES.entries, id);
+    if (!entry) return;
+    await put(STORES.deletedEntries, { ...entry, deletedAt: Date.now() });
+    return remove(STORES.entries, id);
+  }
+
+  async function getDeletedEntries() {
+    const entries = await getAll(STORES.deletedEntries);
+    return entries.sort((a, b) => b.deletedAt - a.deletedAt);
+  }
+
+  async function restoreEntry(id) {
+    const entry = await get(STORES.deletedEntries, id);
+    if (!entry) return;
+    const { deletedAt: _dropped, ...restored } = entry;
+    restored.updatedAt = Date.now();
+    await put(STORES.entries, restored);
+    return remove(STORES.deletedEntries, id);
+  }
+
+  async function permanentlyDeleteEntry(id) {
+    return remove(STORES.deletedEntries, id);
+  }
+
   /* ---- Achievement CRUD ------------------------------ */
 
   async function getAchievement(id) {
@@ -277,18 +308,20 @@ const Storage = (() => {
   /* ---- Full Export ----------------------------------- */
 
   async function exportAll() {
-    const [entries, achievements, prefs] = await Promise.all([
+    const [entries, deletedEntries, achievements, prefs] = await Promise.all([
       getAllEntries(),
+      getDeletedEntries(),
       getAllAchievements(),
       getAllPrefs(),
     ]);
 
     return {
-      version:    '1.0',
+      version:    '2.0',
       exportedAt: Date.now(),
       appName:    'LearnTrack',
       data: {
         entries,
+        deletedEntries,
         achievements,
         preferences: prefs,
       },
@@ -302,7 +335,7 @@ const Storage = (() => {
       throw new Error('Invalid backup file format');
     }
 
-    const { entries = [], achievements = [], preferences = {} } = backup.data;
+    const { entries = [], deletedEntries = [], achievements = [], preferences = {} } = backup.data;
     let imported = 0, skipped = 0, updated = 0;
 
     // Merge entries: keep newest updatedAt
@@ -322,6 +355,13 @@ const Storage = (() => {
           skipped++;
         }
       }
+    }
+
+    // Merge deleted entries
+    for (const incoming of deletedEntries) {
+      if (!incoming.id) continue;
+      const existing = await get(STORES.deletedEntries, incoming.id);
+      if (!existing) await put(STORES.deletedEntries, incoming);
     }
 
     // Merge achievements
@@ -385,6 +425,7 @@ const Storage = (() => {
       clearStore(STORES.preferences),
       clearStore(STORES.notes),
       clearStore(STORES.backupLog),
+      clearStore(STORES.deletedEntries),
     ]);
   }
 
@@ -399,6 +440,10 @@ const Storage = (() => {
     getAllEntries,
     getEntry,
     deleteEntry,
+    softDeleteEntry,
+    getDeletedEntries,
+    restoreEntry,
+    permanentlyDeleteEntry,
     // Achievements
     getAchievement,
     getAllAchievements,

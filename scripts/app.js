@@ -60,9 +60,15 @@ const App = (() => {
   let _entries      = [];
   let _prefs        = {};
   let _earnedAch    = [];
-  let _autoSaveTimer = null;
+  let _autoSaveTimer   = null;
+  let _autoBackupTimer = null;
+  let _lastAutoBackup  = 0;
   let _currentPage  = 'dashboard';
-  let _analyticsRange = 30;
+  let _deletedPage  = 1;
+  let _deletedSelection = new Set();
+  let _dailyRange    = 30;
+  let _monthlyRange  = 12;
+  let _categoryRange = 30;
   let _logPage      = 1;
   const LOG_PAGE_SIZE = 20;
   let _monthCollapsedState = {}; // key "YYYY-MM" -> true (collapsed) / false (expanded)
@@ -97,6 +103,7 @@ const App = (() => {
     setupMobileNav();
     setupEntryModal();
     setupFilterPanel();
+    setupDeletedLogsPage();
     setupSettings();
     setupBackup();
     setupThemeToggle();
@@ -104,6 +111,10 @@ const App = (() => {
     setupReminder();
     setupPomodoro();
     setupClock();
+    const _backupTsKey   = `lt_last_auto_backup_${UserManager.getActive()?.id || 'default'}`;
+    const storedBackupTs = parseInt(localStorage.getItem(_backupTsKey) || '0', 10);
+    if (storedBackupTs) { _lastAutoBackup = storedBackupTs; updateSidebarBackupStatus(false); }
+    setInterval(updateSidebarBackupStatus, 60000);
 
     // Ensure at least one user profile exists (auto-create on first launch)
     let users = UserManager.getUsers();
@@ -136,6 +147,15 @@ const App = (() => {
     applyAccent(_prefs.accent);
     applyCompact(_prefs.compact);
 
+    // Enforce backup folder setup before the user can interact with the app
+    const existingHandle = await Storage.getDirectoryHandle();
+    if (!existingHandle) {
+      const modal = document.getElementById('backup-required-modal');
+      if (modal) modal.style.display = 'flex';
+      await waitForBackupFolderSetup();
+      if (modal) modal.style.display = 'none';
+    }
+
     updateSidebarUser();
     navigateTo('dashboard');
 
@@ -147,6 +167,63 @@ const App = (() => {
         document.getElementById('app').style.display = 'block';
       }, 400);
     }, 600);
+  }
+
+  /* ---- Backup folder gate -------------------------- */
+
+  function waitForBackupFolderSetup() {
+    return new Promise(resolve => {
+      const btn = document.getElementById('backup-required-btn');
+      if (!btn) { resolve(); return; }
+
+      async function handler() {
+        btn.disabled = true;
+        btn.textContent = 'Choosing…';
+        const ok = await configureBackupFolder();
+        if (ok) {
+          btn.removeEventListener('click', handler);
+          resolve();
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Choose Backup Folder';
+        }
+      }
+      btn.addEventListener('click', handler);
+    });
+  }
+
+  /* ---- Auto Backup --------------------------------- */
+
+  function triggerAutoBackup() {
+    clearTimeout(_autoBackupTimer);
+    _autoBackupTimer = setTimeout(async () => {
+      try {
+        await backupCurrentProfile(true);
+      } catch (err) {
+        showToast('Auto-backup failed — check your backup folder.', 'warning');
+      }
+    }, 1500);
+  }
+
+  function updateSidebarBackupStatus(fresh = false) {
+    const el   = document.getElementById('sidebar-backup-status');
+    const time = document.getElementById('sidebar-backup-time');
+    if (!el || !_lastAutoBackup) return;
+
+    const diffMin = Math.floor((Date.now() - _lastAutoBackup) / 60000);
+    const diffHr  = Math.floor(diffMin / 60);
+    time.textContent = diffMin < 1  ? 'Just now'
+                     : diffMin < 60 ? `${diffMin}m ago`
+                     : diffHr < 24  ? `${diffHr}h ago`
+                     : 'Over a day ago';
+
+    el.style.display = 'flex';
+
+    if (fresh) {
+      el.classList.remove('sbs-pop');
+      void el.offsetWidth; // force reflow to restart animation
+      el.classList.add('sbs-pop');
+    }
   }
 
   /* ---- Navigation ---------------------------------- */
@@ -190,6 +267,12 @@ const App = (() => {
     document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
     const target = document.getElementById(`page-${page}`);
     if (target) target.classList.add('active');
+
+    // Reset deleted logs state when navigating away
+    if (page !== 'deleted-logs') {
+      _deletedPage = 1;
+      _deletedSelection.clear();
+    }
 
     renderPage(page);
 
@@ -248,14 +331,15 @@ const App = (() => {
 
   function renderPage(page) {
     switch (page) {
-      case 'dashboard':    renderDashboard();   break;
-      case 'log':          renderLog();         break;
-      case 'analytics':    renderAnalytics();   break;
-      case 'calendar':     renderCalendar();    break;
-      case 'achievements': renderAchievements();break;
-      case 'profiles':     renderProfiles();    break;
-      case 'settings':     renderSettings();    break;
-      case 'backup':       renderBackup();      break;
+      case 'dashboard':    renderDashboard();    break;
+      case 'log':          renderLog();          break;
+      case 'deleted-logs': renderDeletedLogs();  break;
+      case 'reports':      renderReports();      break;
+      case 'calendar':     renderCalendar();     break;
+      case 'achievements': renderAchievements(); break;
+      case 'profiles':     renderProfiles();     break;
+      case 'settings':     renderSettings();     break;
+      case 'backup':       renderBackup();       break;
     }
   }
 
@@ -339,6 +423,9 @@ const App = (() => {
     // Badges mini grid + medals
     renderBadgesMini();
     renderMedals();
+
+    // Full analytics section
+    renderDashboardAnalytics();
   }
 
   function renderWeekBars(days) {
@@ -351,7 +438,7 @@ const App = (() => {
       const cls = d.isToday ? 'today' : d.minutes === 0 ? 'empty' : '';
       return `
         <div class="week-bar-item">
-          <div class="week-bar-fill ${cls}" style="height:${Math.max(3, pct * 0.4)}px" title="${d.date}: ${Analytics.formatDuration(d.minutes)}"></div>
+          <div class="week-bar-fill ${cls}" style="height:${Math.max(3, pct * 0.28)}px" title="${d.date}: ${Analytics.formatDuration(d.minutes)}"></div>
           <div class="week-bar-label">${d.label}</div>
         </div>
       `;
@@ -449,11 +536,13 @@ const App = (() => {
     }
 
     container.innerHTML = recent.map(e => `
-      <div class="activity-item" data-id="${e.id}" role="button" tabindex="0">
-        <div class="activity-dot"></div>
+      <div class="activity-item" data-id="${e.id}" data-difficulty="${e.difficulty || 'beginner'}" role="button" tabindex="0">
         <div class="activity-info">
           <div class="activity-topic">${escapeHtml(e.topic)}</div>
-          <div class="activity-meta">${formatRelativeDate(e.date)}${e.category ? ` · ${escapeHtml(e.category)}` : ''}</div>
+          <div class="activity-meta">
+            <span>${formatRelativeDate(e.date)}</span>
+            ${e.category ? `<span class="activity-category-pill">${escapeHtml(e.category)}</span>` : ''}
+          </div>
         </div>
         <div class="activity-duration">${Analytics.formatDuration(e.durationMinutes || 0)}</div>
       </div>
@@ -468,15 +557,24 @@ const App = (() => {
     const container = document.getElementById('badges-grid-mini');
     if (!container) return;
 
-    const earnedIds = new Set(_earnedAch.map(a => a.id));
+    const earnedMap = new Map(_earnedAch.map(a => [a.id, a.earnedAt || 0]));
     const allAch    = Rewards.ACHIEVEMENTS;
 
-    container.innerHTML = allAch.slice(0, 8).map(ach => `
-      <div class="badge-mini ${earnedIds.has(ach.id) ? 'earned' : 'locked'}" title="${ach.name}">
+    // Earned first (most recently earned), then unearned in definition order
+    const earned   = allAch.filter(a =>  earnedMap.has(a.id))
+                           .sort((a, b) => (earnedMap.get(b.id) || 0) - (earnedMap.get(a.id) || 0));
+    const unearned = allAch.filter(a => !earnedMap.has(a.id));
+    const display  = [...earned, ...unearned].slice(0, 15);
+
+    container.innerHTML = display.map(ach => `
+      <div class="badge-mini ${earnedMap.has(ach.id) ? 'earned' : 'locked'}" title="${ach.name}">
         ${ach.icon}
         <span class="badge-mini-tooltip">${ach.name}</span>
       </div>
     `).join('');
+
+    const summaryEl = document.getElementById('badges-mini-summary');
+    if (summaryEl) summaryEl.textContent = `${earned.length} of ${allAch.length} earned`;
   }
 
   function renderMedals() {
@@ -540,11 +638,14 @@ const App = (() => {
           <div class="month-group-header">
             <div class="month-group-title-row">
               <span class="month-group-title">${label}</span>
-              <span class="month-group-meta">${count} ${count === 1 ? 'entry' : 'entries'} &middot; ${Analytics.formatDuration(totalMin)}</span>
+              <span class="month-group-count">${count} ${count === 1 ? 'entry' : 'entries'}</span>
             </div>
-            <svg class="month-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            <div class="month-group-header-right">
+              <span class="month-group-time">${Analytics.formatDuration(totalMin)}</span>
+              <svg class="month-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
           </div>
           <div class="month-group-body">
             ${entries.map(e => createEntryCard(e)).join('')}
@@ -633,7 +734,7 @@ const App = (() => {
       : '';
 
     return `
-      <div class="entry-card" data-id="${entry.id}" tabindex="0" role="article">
+      <div class="entry-card" data-id="${entry.id}" data-difficulty="${entry.difficulty || 'beginner'}" tabindex="0" role="article">
         <div class="entry-date-col">
           <div class="entry-date-day">${d.getDate()}</div>
           <div class="entry-date-mon">${d.toLocaleDateString('en-US',{month:'short'})}</div>
@@ -648,7 +749,7 @@ const App = (() => {
               <span class="difficulty-dot ${entry.difficulty}"></span>
               ${capitalise(entry.difficulty || 'beginner')}
             </span>
-            ${loggedTime ? `<span class="entry-meta-item">${loggedTime}</span>` : ''}
+            ${loggedTime ? `<span class="entry-meta-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.6"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${loggedTime}</span>` : ''}
           </div>
           ${notesHtml}
           ${resourceLinksHtml ? `<div class="entry-resource-links">${resourceLinksHtml}</div>` : ''}
@@ -1034,6 +1135,7 @@ const App = (() => {
     // Refresh current page
     renderPage(_currentPage);
     updateSidebarUser();
+    triggerAutoBackup();
   }
 
   /* ---- Resource Rows ------------------------------- */
@@ -1126,13 +1228,14 @@ const App = (() => {
   /* ---- Delete / Duplicate -------------------------- */
 
   function confirmDeleteEntry(id) {
-    showConfirm('Delete this entry?', 'This action cannot be undone.', async () => {
-      await Storage.deleteEntry(id);
+    showConfirm('Delete this entry?', 'It will move to Deleted Logs where you can restore it.', async () => {
+      await Storage.softDeleteEntry(id);
       _entries = _entries.filter(e => e.id !== id);
       await checkAchievements();
-      showToast('Entry deleted', 'info');
+      showToast('Entry moved to Deleted Logs', 'info');
       renderPage(_currentPage);
       updateSidebarUser();
+      triggerAutoBackup();
     });
   }
 
@@ -1152,44 +1255,409 @@ const App = (() => {
     }, 50);
   }
 
-  /* ---- ANALYTICS PAGE ------------------------------ */
+  /* ---- DELETED LOGS PAGE --------------------------- */
 
-  function renderAnalytics() {
-    const days    = _analyticsRange === 'all' ? 3650 : parseInt(_analyticsRange, 10);
-    const cutoff  = Analytics.daysAgo(days);
-    const scoped  = _analyticsRange === 'all' ? _entries : _entries.filter(e => e.date >= cutoff);
-
-    const streak  = Analytics.calculateStreaks(_entries);
-    const stats   = Analytics.calculateTotalStats(_entries);
-    const consistency = Analytics.calculateConsistency(_entries);
-    const curve   = Analytics.calculateLearningCurve(scoped);
-
-    // Insights row
-    const insights = Insights.generateInsights(scoped, streak, stats, consistency, curve);
-    Insights.renderInsightsRow('insights-row', insights);
-
-    // Charts (slight delay for DOM)
-    setTimeout(() => {
-      const dailyData = Analytics.calculateDailyTimeSeries(scoped, Math.min(days, 90));
-      Charts.renderDailyTimeChart('daily-time-chart', dailyData);
-
-      const topicData = Analytics.calculateTopicDistribution(scoped);
-      Charts.renderTopicChart('topic-distribution-chart', topicData);
-
-      const monthlyData = Analytics.calculateMonthlyTotals(scoped, 12);
-      Charts.renderMonthlyChart('monthly-progress-chart', monthlyData);
-
-      const heatmapData = Analytics.calculateHeatmapData(_entries);
-      Charts.renderHeatmap('heatmap-container', heatmapData);
-    }, 50);
-
-    // Range selector
-    document.getElementById('analytics-range')?.addEventListener('change', e => {
-      _analyticsRange = e.target.value;
-      renderAnalytics();
+  function setupDeletedLogsPage() {
+    document.getElementById('dl-filter-toggle')?.addEventListener('click', () => {
+      const panel = document.getElementById('dl-filter-panel');
+      if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     });
 
-    // Report month selector + download button (populate once, bind once)
+    document.getElementById('dl-filter-clear')?.addEventListener('click', () => {
+      ['dl-filter-date-from','dl-filter-date-to','dl-filter-category','dl-filter-difficulty'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const sort = document.getElementById('dl-filter-sort');
+      if (sort) sort.value = 'deleted-newest';
+      _deletedPage = 1;
+      renderDeletedLogs();
+    });
+
+    ['dl-search','dl-filter-date-from','dl-filter-date-to','dl-filter-category','dl-filter-difficulty','dl-filter-sort'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => { _deletedPage = 1; renderDeletedLogs(); });
+      document.getElementById(id)?.addEventListener('input',  () => { _deletedPage = 1; renderDeletedLogs(); });
+    });
+
+    document.getElementById('dl-load-more-btn')?.addEventListener('click', () => {
+      _deletedPage++;
+      renderDeletedLogs();
+    });
+
+    document.getElementById('dl-select-all')?.addEventListener('change', e => {
+      const checked = e.target.checked;
+      document.querySelectorAll('.dl-checkbox').forEach(cb => {
+        cb.checked = checked;
+        checked ? _deletedSelection.add(cb.dataset.id) : _deletedSelection.delete(cb.dataset.id);
+      });
+      updateDlBulkBar();
+    });
+
+    document.getElementById('dl-clear-selection-btn')?.addEventListener('click', () => {
+      _deletedSelection.clear();
+      document.querySelectorAll('.dl-checkbox').forEach(cb => { cb.checked = false; });
+      const all = document.getElementById('dl-select-all');
+      if (all) all.checked = false;
+      updateDlBulkBar();
+    });
+
+    document.getElementById('dl-bulk-delete-btn')?.addEventListener('click', () => {
+      if (!_deletedSelection.size) return;
+      const n = _deletedSelection.size;
+      showConfirm(
+        `Permanently delete ${n} ${n === 1 ? 'entry' : 'entries'}?`,
+        'This cannot be undone.',
+        async () => {
+          await Promise.all([..._deletedSelection].map(id => Storage.permanentlyDeleteEntry(id)));
+          _deletedSelection.clear();
+          showToast(`${n} ${n === 1 ? 'entry' : 'entries'} permanently deleted`, 'info');
+          _deletedPage = 1;
+          await renderDeletedLogs();
+          triggerAutoBackup();
+        }
+      );
+    });
+
+    document.getElementById('dl-bulk-restore-btn')?.addEventListener('click', async () => {
+      if (!_deletedSelection.size) return;
+      const ids = [..._deletedSelection];
+      await Promise.all(ids.map(id => Storage.restoreEntry(id)));
+      for (const id of ids) {
+        const restored = await Storage.getEntry(id);
+        if (restored) _entries.push(restored);
+      }
+      _entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+      _deletedSelection.clear();
+      await checkAchievements();
+      showToast(`${ids.length} ${ids.length === 1 ? 'entry' : 'entries'} restored to Daily Log`, 'success');
+      _deletedPage = 1;
+      await renderDeletedLogs();
+      updateSidebarUser();
+      triggerAutoBackup();
+    });
+  }
+
+  function updateDlBulkBar() {
+    const selBar   = document.getElementById('dl-selection-bar');
+    const bulkActs = document.getElementById('dl-bulk-actions');
+    const label    = document.getElementById('dl-selection-label');
+    const allCheck = document.getElementById('dl-select-all');
+    const allCbs   = document.querySelectorAll('.dl-checkbox');
+    const total    = allCbs.length;
+    const n        = _deletedSelection.size;
+
+    // Show selection bar only when entries are rendered
+    if (selBar) selBar.style.display = total > 0 ? 'flex' : 'none';
+
+    // Top-level select-all state
+    if (allCheck) {
+      allCheck.indeterminate = n > 0 && n < total;
+      allCheck.checked = total > 0 && n === total;
+    }
+
+    // Label: "Select all (N)" when nothing selected, "N of M selected" otherwise
+    if (label) label.textContent = n === 0 ? `Select all (${total})` : `${n} of ${total} selected`;
+
+    // Bulk action buttons: only when something is selected
+    if (bulkActs) bulkActs.style.display = n > 0 ? 'flex' : 'none';
+
+    // Sync selected visual state on cards
+    document.querySelectorAll('.dl-entry-card').forEach(card => {
+      card.classList.toggle('dl-selected', _deletedSelection.has(card.dataset.id));
+    });
+
+    // Month-level checkbox states
+    document.querySelectorAll('.dl-month-checkbox').forEach(mcb => {
+      const monthCbs  = document.querySelectorAll(`.dl-checkbox[data-month-key="${mcb.dataset.month}"]`);
+      const selCount  = [...monthCbs].filter(cb => _deletedSelection.has(cb.dataset.id)).length;
+      mcb.indeterminate = selCount > 0 && selCount < monthCbs.length;
+      mcb.checked = monthCbs.length > 0 && selCount === monthCbs.length;
+    });
+  }
+
+  function applyDeletedFilters(entries) {
+    let list = [...entries];
+
+    const search   = (document.getElementById('dl-search')?.value || '').toLowerCase().trim();
+    const dateFrom = document.getElementById('dl-filter-date-from')?.value;
+    const dateTo   = document.getElementById('dl-filter-date-to')?.value;
+    const category = document.getElementById('dl-filter-category')?.value;
+    const diff     = document.getElementById('dl-filter-difficulty')?.value;
+    const sort     = document.getElementById('dl-filter-sort')?.value || 'deleted-newest';
+
+    if (search)   list = list.filter(e =>
+      e.topic?.toLowerCase().includes(search) ||
+      e.notes?.toLowerCase().includes(search) ||
+      e.category?.toLowerCase().includes(search) ||
+      e.tags?.some(t => t.toLowerCase().includes(search))
+    );
+    if (dateFrom) list = list.filter(e => e.date >= dateFrom);
+    if (dateTo)   list = list.filter(e => e.date <= dateTo);
+    if (category) list = list.filter(e => e.category === category);
+    if (diff)     list = list.filter(e => e.difficulty === diff);
+
+    switch (sort) {
+      case 'deleted-newest':  list.sort((a, b) => b.deletedAt - a.deletedAt); break;
+      case 'deleted-oldest':  list.sort((a, b) => a.deletedAt - b.deletedAt); break;
+      case 'newest':          list.sort((a, b) => b.date.localeCompare(a.date)); break;
+      case 'oldest':          list.sort((a, b) => a.date.localeCompare(b.date)); break;
+      case 'duration-desc':   list.sort((a, b) => (b.durationMinutes||0) - (a.durationMinutes||0)); break;
+      case 'duration-asc':    list.sort((a, b) => (a.durationMinutes||0) - (b.durationMinutes||0)); break;
+    }
+    return list;
+  }
+
+  function createDeletedEntryCard(entry) {
+    const mood  = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
+    const d     = new Date(entry.date + 'T12:00:00');
+    const diffMin = Math.floor((Date.now() - entry.deletedAt) / 60000);
+    const diffHr  = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+    const deletedAgo = diffDay > 0  ? `${diffDay}d ago`
+                     : diffHr  > 0  ? `${diffHr}h ago`
+                     : diffMin > 0  ? `${diffMin}m ago`
+                     : 'just now';
+    const deletedFull = new Date(entry.deletedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      + ' · ' + new Date(entry.deletedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    const checked  = _deletedSelection.has(entry.id) ? 'checked' : '';
+    const selClass = _deletedSelection.has(entry.id) ? ' dl-selected' : '';
+    const notesText = (entry.notes || '').trim();
+
+    return `
+      <div class="dl-entry-card${selClass}" data-id="${entry.id}" tabindex="0" role="article">
+        <div class="dl-card-checkbox">
+          <label style="display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+            <input type="checkbox" class="dl-checkbox" data-id="${entry.id}" data-month-key="${entry.date.slice(0,7)}" ${checked}
+              style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent)" />
+          </label>
+        </div>
+        <div class="dl-card-date">
+          <div class="dl-card-date-day">${d.getDate()}</div>
+          <div class="dl-card-date-mon">${d.toLocaleDateString('en-US',{month:'short'})}</div>
+        </div>
+        <div class="dl-card-body">
+          <div class="dl-card-header">
+            <span class="dl-card-topic">${escapeHtml(entry.topic)}</span>
+            ${entry.category ? `<span class="entry-category">${escapeHtml(entry.category)}</span>` : ''}
+          </div>
+          <div class="dl-card-meta">
+            <span class="entry-meta-item"><span class="difficulty-dot ${entry.difficulty}"></span>${capitalise(entry.difficulty || 'beginner')}</span>
+            <span>${mood}</span>
+            <span class="entry-duration-badge">${Analytics.formatDuration(entry.durationMinutes || 0)}</span>
+          </div>
+          ${notesText ? `<div class="entry-notes-preview">${escapeHtml(notesText.length > 90 ? notesText.slice(0,90) + '…' : notesText)}</div>` : ''}
+          ${entry.tags && entry.tags.length ? `<div class="entry-tags">${entry.tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="dl-card-actions">
+          <div class="dl-deleted-badge" title="${deletedFull}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            ${deletedAgo}
+          </div>
+          <div class="dl-action-row">
+            <button class="dl-restore-btn" data-restore="${entry.id}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Restore
+            </button>
+            <button class="dl-delete-icon-btn" data-perm-delete="${entry.id}" title="Delete permanently">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function renderDeletedLogs() {
+    const container    = document.getElementById('dl-entries-container');
+    const loadMoreCon  = document.getElementById('dl-load-more-container');
+    if (!container) return;
+
+    populateCategorySelects();
+
+    const allDeleted = await Storage.getDeletedEntries();
+    const filtered   = applyDeletedFilters(allDeleted);
+    const paginated  = filtered.slice(0, _deletedPage * LOG_PAGE_SIZE);
+
+    if (filtered.length === 0) {
+      const isEmpty = allDeleted.length === 0;
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">${isEmpty ? '🗑️' : '🔍'}</div>
+          <h3>${isEmpty ? 'Recycle bin is empty' : 'No matching entries'}</h3>
+          <p>${isEmpty ? 'Deleted entries will appear here.' : 'Try adjusting your search or filters.'}</p>
+        </div>`;
+      if (loadMoreCon) loadMoreCon.style.display = 'none';
+      updateDlBulkBar();
+      return;
+    }
+
+    // Group by month
+    const groups = {};
+    paginated.forEach(e => {
+      const key = e.date.slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    });
+    const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+    container.innerHTML = sortedKeys.map(key => {
+      const entries  = groups[key];
+      const totalMin = entries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+      const count    = entries.length;
+      const label    = new Date(key + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      return `
+        <div class="month-group" data-month="${key}">
+          <div class="month-group-header">
+            <label style="display:flex;align-items:center;margin-right:6px;cursor:pointer" onclick="event.stopPropagation()">
+              <input type="checkbox" class="dl-month-checkbox" data-month="${key}" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" />
+            </label>
+            <div class="month-group-title-row">
+              <span class="month-group-title">${label}</span>
+              <span class="month-group-meta">${count} ${count === 1 ? 'entry' : 'entries'} &middot; ${Analytics.formatDuration(totalMin)}</span>
+            </div>
+            <svg class="month-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div class="month-group-body">
+            ${entries.map(e => createDeletedEntryCard(e)).join('')}
+          </div>
+        </div>`;
+    }).join('');
+
+    // Collapse toggle
+    container.querySelectorAll('.month-group-header').forEach(header => {
+      header.addEventListener('click', () => header.closest('.month-group').classList.toggle('collapsed'));
+    });
+
+    // Month-level select all
+    container.querySelectorAll('.dl-month-checkbox').forEach(mcb => {
+      mcb.addEventListener('change', e => {
+        e.stopPropagation();
+        const monthCbs = container.querySelectorAll(`.dl-checkbox[data-month-key="${mcb.dataset.month}"]`);
+        monthCbs.forEach(cb => {
+          cb.checked = mcb.checked;
+          mcb.checked ? _deletedSelection.add(cb.dataset.id) : _deletedSelection.delete(cb.dataset.id);
+        });
+        updateDlBulkBar();
+      });
+    });
+
+    // Checkbox change
+    container.querySelectorAll('.dl-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        e.stopPropagation();
+        cb.checked ? _deletedSelection.add(cb.dataset.id) : _deletedSelection.delete(cb.dataset.id);
+        updateDlBulkBar();
+      });
+    });
+
+    // Restore / permanent delete buttons
+    container.querySelectorAll('[data-restore]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); restoreDeletedEntry(btn.dataset.restore); });
+    });
+    container.querySelectorAll('[data-perm-delete]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); permanentDeleteEntry(btn.dataset.permDelete); });
+    });
+
+    if (loadMoreCon) loadMoreCon.style.display = filtered.length > paginated.length ? 'flex' : 'none';
+    updateDlBulkBar();
+  }
+
+  async function restoreDeletedEntry(id) {
+    await Storage.restoreEntry(id);
+    const restored = await Storage.getEntry(id);
+    if (restored) _entries.push(restored);
+    _entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    _deletedSelection.delete(id);
+    await checkAchievements();
+    showToast('Entry restored to Daily Log', 'success');
+    await renderDeletedLogs();
+    updateSidebarUser();
+    triggerAutoBackup();
+  }
+
+  function permanentDeleteEntry(id) {
+    showConfirm('Delete permanently?', 'This cannot be undone — the entry will be gone forever.', async () => {
+      await Storage.permanentlyDeleteEntry(id);
+      _deletedSelection.delete(id);
+      showToast('Entry permanently deleted', 'info');
+      await renderDeletedLogs();
+      triggerAutoBackup();
+    });
+  }
+
+  /* ---- ANALYTICS (embedded in dashboard) ----------- */
+
+  function _scopedEntries(rangeVal) {
+    if (rangeVal === 'all') return _entries;
+    const days = parseInt(rangeVal, 10);
+    return _entries.filter(e => e.date >= Analytics.daysAgo(days));
+  }
+
+  function _wireChartTabs(containerId, getVal, setVal, onRefresh) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!container._wired) {
+      container._wired = true;
+      container.addEventListener('click', e => {
+        const btn = e.target.closest('.chart-range-tab');
+        if (!btn) return;
+        setVal(btn.dataset.val);
+        container.querySelectorAll('.chart-range-tab').forEach(b =>
+          b.classList.toggle('active', b === btn)
+        );
+        onRefresh();
+      });
+    }
+    container.querySelectorAll('.chart-range-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.val === String(getVal()));
+    });
+  }
+
+  function renderDashboardDailyChart() {
+    const days = _dailyRange === 'all' ? 3650 : parseInt(_dailyRange, 10);
+    Charts.renderDailyTimeChart('daily-time-chart',
+      Analytics.calculateDailyTimeSeries(_scopedEntries(_dailyRange), Math.min(days, 90)));
+  }
+
+  function renderDashboardMonthlyChart() {
+    Charts.renderMonthlyChart('monthly-progress-chart',
+      Analytics.calculateMonthlyTotals(_entries, parseInt(_monthlyRange, 10)));
+  }
+
+  function renderDashboardCategoryChart() {
+    Charts.renderTopicChart('topic-distribution-chart',
+      Analytics.calculateTopicDistribution(_scopedEntries(_categoryRange), _prefs.categories || DEFAULT_PREFS.categories));
+  }
+
+  function renderDashboardAnalytics() {
+    const streak      = Analytics.calculateStreaks(_entries);
+    const stats       = Analytics.calculateTotalStats(_entries);
+    const consistency = Analytics.calculateConsistency(_entries);
+    const curve       = Analytics.calculateLearningCurve(_entries);
+    const insights    = Insights.generateInsights(_entries, streak, stats, consistency, curve);
+    Insights.renderInsightsRow('insights-row', insights);
+
+    setTimeout(() => {
+      renderDashboardDailyChart();
+      renderDashboardMonthlyChart();
+      renderDashboardCategoryChart();
+      Charts.renderHeatmap('heatmap-container', Analytics.calculateHeatmapData(_entries));
+    }, 50);
+
+    _wireChartTabs('daily-range-tabs',
+      () => _dailyRange,    v => { _dailyRange    = v; }, renderDashboardDailyChart);
+    _wireChartTabs('monthly-range-tabs',
+      () => _monthlyRange,  v => { _monthlyRange  = v; }, renderDashboardMonthlyChart);
+    _wireChartTabs('category-range-tabs',
+      () => _categoryRange, v => { _categoryRange = v; }, renderDashboardCategoryChart);
+  }
+
+  /* ---- REPORTS PAGE -------------------------------- */
+
+  function renderReports() {
     populateReportMonthSelect();
     const dlBtn = document.getElementById('download-report-btn');
     if (dlBtn && !dlBtn._bound) {
@@ -1507,11 +1975,11 @@ const App = (() => {
 
   function populateCategorySelects() {
     const cats = _prefs.categories || DEFAULT_PREFS.categories;
-    ['entry-category', 'filter-category'].forEach(id => {
+    ['entry-category', 'filter-category', 'dl-filter-category'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
       const current = sel.value;
-      const defaultOpt = id === 'filter-category' ? '<option value="">All categories</option>' : '<option value="">Select category</option>';
+      const defaultOpt = id === 'entry-category' ? '<option value="">Select category</option>' : '<option value="">All categories</option>';
       sel.innerHTML = defaultOpt + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
       sel.value = current;
     });
@@ -2061,20 +2529,23 @@ const App = (() => {
         const wDur   = colFit(monthEntries.map(e => fmt(e.durationMinutes || 0)),'Duration',   38,  58);
         const wDiff  = colFit(monthEntries.map(e => e.difficulty ? e.difficulty.charAt(0).toUpperCase() + e.difficulty.slice(1) : ''), 'Difficulty', 38, 78);
 
-        // Topic 15%, Notes 70%, Resources 15% of the space left after the four fixed columns.
-        const fixedBase = wDate + wCat + wDur + wDiff;
-        let wTopic, wNotes, wRes, tblW;
+        // Topic: content-measured, capped wider when notes/resources share the row
+        const wTopicMax = (incNotes || incResources) ? 160 : CW - wDate - wCat - wDur - wDiff;
+        const wTopic = colFit(monthEntries.map(e => e.topic || ''), 'Topic', 70, wTopicMax);
 
+        // Notes + Resources split remaining space 70 / 30
+        const fixedBase = wDate + wCat + wDur + wDiff + wTopic;
+        let wNotes = 0, wRes = 0;
+        const tblW = CW;
         {
           const remaining = CW - fixedBase;
-          const wtTopic = 15;
           const wtNotes = incNotes     ? 70 : 0;
-          const wtRes   = incResources ? 15 : 0;
-          const wtTotal = wtTopic + wtNotes + wtRes;
-          wTopic = Math.round((wtTopic / wtTotal) * remaining);
-          wNotes = incNotes     ? Math.round((wtNotes / wtTotal) * remaining) : 0;
-          wRes   = incResources ? Math.round((wtRes   / wtTotal) * remaining) : 0;
-          tblW   = CW;
+          const wtRes   = incResources ? 30 : 0;
+          const wtTotal = wtNotes + wtRes;
+          if (wtTotal > 0) {
+            wNotes = incNotes     ? Math.round((wtNotes / wtTotal) * remaining) : 0;
+            wRes   = incResources ? remaining - wNotes                          : 0;
+          }
         }
 
         const tCols = [
@@ -2103,6 +2574,9 @@ const App = (() => {
         y += tRowH;
 
         monthEntries.forEach((entry, idx) => {
+          const dateLabel = new Date(entry.date + 'T12:00:00')
+            .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
           const notesLines = (incNotes && notesColIdx >= 0)
             ? pdf.splitTextToSize(entry.notes || '', tCols[notesColIdx].w - pad * 2)
             : [];
@@ -2110,15 +2584,28 @@ const App = (() => {
           const resources = (incResources && resColIdx >= 0)
             ? (entry.resources || []).filter(r => r.url)
             : [];
-          let resSlots = 0;
-          resources.forEach(r => {
-            resSlots++;
-            if (r.title && r.title !== r.url)
-              resSlots += pdf.splitTextToSize(r.url, resMaxW).length;
+          // Pre-split resource labels so we can count total lines for row-height
+          const resLabelLines = resources.map(res => {
+            const label = (res.title && res.title !== res.url) ? res.title : res.url;
+            return pdf.splitTextToSize(label, resMaxW);
           });
+          const resSlots = resLabelLines.reduce((sum, lines) => sum + lines.length, 0);
+
+          // Standard column line counts (all columns, no truncation)
+          const stdTexts = [
+            dateLabel,
+            entry.topic || '',
+            entry.category || '—',
+            fmt(entry.durationMinutes || 0),
+            entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—',
+          ];
+          const maxStdLines = Math.max(...stdTexts.map((t, ci) =>
+            pdf.splitTextToSize(String(t), tCols[ci].w - pad * 2).length
+          ));
 
           const maxLines = Math.max(
             1,
+            maxStdLines,
             notesLines.length,
             resources.length > 0 ? resSlots : (incResources ? 1 : 0)
           );
@@ -2128,9 +2615,7 @@ const App = (() => {
           if (idx % 2 === 0) fillR(ML, y, tblW, rowH, CBG);
           hline(ML, ML + tblW, y, CBD, 0.3);
 
-          const dateLabel = new Date(entry.date + 'T12:00:00')
-            .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          // Standard columns — vertically centered, wrap up to 2 lines
+          // Standard columns — vertically centered, full wrapping
           [
             { ci: 0, text: dateLabel,                       rc: CGR },
             { ci: 1, text: entry.topic || '',               rc: CBK },
@@ -2138,7 +2623,7 @@ const App = (() => {
             { ci: 3, text: fmt(entry.durationMinutes || 0), rc: CGR },
             { ci: 4, text: entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—', rc: CGR },
           ].forEach(({ ci, text, rc }) => {
-            const lines = pdf.splitTextToSize(String(text), tCols[ci].w - pad * 2).slice(0, 2);
+            const lines = pdf.splitTextToSize(String(text), tCols[ci].w - pad * 2);
             const startY = y + (rowH - lines.length * lineH) / 2 + lineH;
             lines.forEach((line, li) =>
               tx(line, colX[ci] + pad, startY + li * lineH, 8, rc)
@@ -2165,21 +2650,15 @@ const App = (() => {
               tx('—', colX[resColIdx] + pad, rCenterBaseline, 8, CGR);
             } else {
               let rsy = y + (rowH - resSlots * lineH) / 2;
-              resources.forEach(res => {
-                rsy += lineH;
-                const hasTitle = !!(res.title && res.title !== res.url);
-                const label    = hasTitle ? res.title : res.url;
-                const labelTrunc = pdf.splitTextToSize(label, resMaxW)[0] || label;
-                const labelW = Math.min(pdf.getTextWidth(labelTrunc), resMaxW);
-                tx(labelTrunc, colX[resColIdx] + pad, rsy, 8, CI);
-                hline(colX[resColIdx] + pad, colX[resColIdx] + pad + labelW, rsy + 1, CI, 0.3);
-                pdf.link(colX[resColIdx] + pad, rsy - 9, labelW, 11, { url: res.url });
-                if (hasTitle) {
-                  pdf.splitTextToSize(res.url, resMaxW).forEach(line => {
-                    rsy += lineH;
-                    tx(line, colX[resColIdx] + pad, rsy, 7, CLG);
-                  });
-                }
+              resources.forEach((res, ri) => {
+                const lines = resLabelLines[ri];
+                lines.forEach((line) => {
+                  rsy += lineH;
+                  tx(line, colX[resColIdx] + pad, rsy, 8, CI);
+                  const lw = Math.min(pdf.getTextWidth(line), resMaxW);
+                  hline(colX[resColIdx] + pad, colX[resColIdx] + pad + lw, rsy + 1, CI, 0.3);
+                  pdf.link(colX[resColIdx] + pad, rsy - 9, lw, lineH, { url: res.url });
+                });
               });
             }
           }
@@ -2212,15 +2691,16 @@ const App = (() => {
   }
 
 
-  async function backupCurrentProfile() {
-    if (_entries.length === 0) {
+  async function backupCurrentProfile(silent = false) {
+    if (!silent && _entries.length === 0) {
       showToast('No data to save. Add some learning entries first.', 'warning');
       return;
     }
 
-    // Use the stored folder handle; if missing, ask the user to configure one first
+    // Use the stored folder handle; if missing, ask the user to configure one first (manual only)
     let dirHandle = await getOrRequestFolderHandle('readwrite');
     if (!dirHandle) {
+      if (silent) throw new Error('No backup folder configured');
       showToast('Please configure a backup folder first.', 'warning');
       const ok = await configureBackupFolder();
       if (!ok) return;
@@ -2250,10 +2730,16 @@ const App = (() => {
 
       await Storage.setPref('lastBackupDate', Date.now());
       await Storage.addBackupLog({ type: 'export', label: `Backed up → ${dirHandle.name}/${filename}` });
-      showToast(`✅ Backed up to "${dirHandle.name}"!`, 'success');
-      renderBackup();
+      _lastAutoBackup = Date.now();
+      localStorage.setItem(`lt_last_auto_backup_${UserManager.getActive()?.id || 'default'}`, _lastAutoBackup);
+      updateSidebarBackupStatus(true);
+      if (!silent) {
+        showToast(`✅ Backed up to "${dirHandle.name}"!`, 'success');
+        renderBackup();
+      }
     } catch (err) {
-      if (err.name !== 'AbortError') showToast('Backup failed: ' + err.message, 'error');
+      if (!silent && err.name !== 'AbortError') showToast('Backup failed: ' + err.message, 'error');
+      if (silent) throw err;
     }
   }
 
@@ -2792,6 +3278,11 @@ const App = (() => {
     applyAccent(_prefs.accent);
     applyCompact(_prefs.compact);
     updateSidebarUser();
+    // Restore this profile's last backup timestamp
+    _lastAutoBackup = parseInt(localStorage.getItem(`lt_last_auto_backup_${userId}`) || '0', 10);
+    const sbEl = document.getElementById('sidebar-backup-status');
+    if (sbEl) sbEl.style.display = _lastAutoBackup ? 'flex' : 'none';
+    if (_lastAutoBackup) updateSidebarBackupStatus(false);
     navigateTo('dashboard');
     showToast(`Switched to "${UserManager.getActive()?.name || 'profile'}"`, 'success');
   }
