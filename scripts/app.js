@@ -247,6 +247,10 @@ const App = (() => {
         if (page) navigateTo(page);
       });
     });
+
+    document.getElementById('daily-quote-chip')?.addEventListener('click', () => {
+      setEl('daily-quote-text', Insights.getRandomQuote());
+    });
   }
 
   function navigateTo(page) {
@@ -310,9 +314,9 @@ const App = (() => {
     const avatar = document.getElementById('user-avatar');
     if (avatar && activeUser?.color) avatar.style.background = activeUser.color;
 
-    // Show/hide switch button based on user count
+    // Show/hide switch button — only meaningful when there are multiple profiles
     const switchBtn = document.getElementById('user-switch-btn');
-    if (switchBtn) switchBtn.style.display = UserManager.getUsers().length >= 1 ? 'inline-flex' : 'none';
+    if (switchBtn) switchBtn.style.display = UserManager.getUsers().length > 1 ? 'inline-flex' : 'none';
   }
 
   /* ---- Mobile Nav ---------------------------------- */
@@ -368,10 +372,6 @@ const App = (() => {
       }
     }
     setEl('daily-quote-text', Insights.getDailyQuote());
-
-    document.getElementById('daily-quote-chip')?.addEventListener('click', () => {
-      setEl('daily-quote-text', Insights.getRandomQuote());
-    });
 
     // Stat cards (animated counters)
     setEl('stat-total-hours', Analytics.formatDuration(stats.totalMinutes));
@@ -723,7 +723,7 @@ const App = (() => {
       if (!label) {
         try { label = new URL(r.url).hostname.replace(/^www\./, ''); } catch { label = r.url; }
       }
-      return `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="entry-resource-link" title="${escapeHtml(r.url)}">${icon} ${escapeHtml(label)}</a>`;
+      return `<a href="${escapeHtml(safeHref(r.url))}" target="_blank" rel="noopener noreferrer" class="entry-resource-link" title="${escapeHtml(r.url)}">${icon} ${escapeHtml(label)}</a>`;
     }).join('');
 
     const notesText = (entry.notes || '').trim();
@@ -937,9 +937,19 @@ const App = (() => {
     const todayStr  = Analytics.today();
     const dateField = document.getElementById('entry-date');
 
-    // New entry: always lock to today — no past or future entries allowed
-    dateField.value    = todayStr;
-    dateField.readOnly = true;
+    // New entry defaults: editable within the past year; if a specific date was
+    // passed (e.g. from the calendar) lock it to that date instead.
+    if (prefillDate) {
+      dateField.value    = prefillDate;
+      dateField.readOnly = true;
+      dateField.removeAttribute('min');
+      dateField.removeAttribute('max');
+    } else {
+      dateField.value    = todayStr;
+      dateField.readOnly = false;
+      dateField.min      = Analytics.daysAgo(365);
+      dateField.max      = todayStr;
+    }
     document.getElementById('entry-id').value = '';
 
     // Reset mood to 4
@@ -967,7 +977,7 @@ const App = (() => {
       document.getElementById('entry-category').value    = entry.category || '';
       const durationEl = document.getElementById('entry-duration');
       durationEl.value    = entry.durationMinutes || '';
-      durationEl.disabled = entry.date !== Analytics.today();
+      durationEl.disabled = false;
       document.getElementById('entry-difficulty').value  = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value       = entry.notes || '';
       document.getElementById('entry-tags').value        = (entry.tags || []).join(', ');
@@ -987,6 +997,25 @@ const App = (() => {
       title.textContent = 'New Learning Entry';
       if (dupBtn) dupBtn.style.display = 'none';
       document.getElementById('entry-duration').disabled = false;
+
+      // Restore an in-progress draft (written by triggerAutoSave) if it exists
+      // and is less than 1 hour old. Drafts are profile-scoped so switching
+      // profiles never shows stale data.
+      try {
+        const draftKey = `lt_draft_${UserManager.getActiveId() || 'default'}`;
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (draft.savedAt && Date.now() - draft.savedAt < 3_600_000) {
+            if (draft.topic) document.getElementById('entry-topic').value = draft.topic;
+            if (draft.notes) {
+              document.getElementById('entry-notes').value = draft.notes;
+              updateCharCount(draft.notes.length);
+            }
+            setEl('notes-last-saved', `Draft restored (${new Date(draft.savedAt).toLocaleTimeString()})`);
+          }
+        }
+      } catch {}
     }
 
     modal.style.display = 'flex';
@@ -1047,11 +1076,16 @@ const App = (() => {
 
   async function saveEntryFromForm() {
     const id   = document.getElementById('entry-id').value;
-    // Derive date from context — don't trust the readonly date input value since
-    // some browsers clear readonly date fields when the picker is interacted with.
+    // For edits keep the original stored date (readonly field can be cleared by
+    // some browsers' date picker). For new entries read what the user chose.
     const date = id
       ? (_entries.find(e => e.id === id)?.date || Analytics.today())
-      : Analytics.today();
+      : (document.getElementById('entry-date').value || Analytics.today());
+
+    if (!id && date > Analytics.today()) {
+      showToast('Cannot log entries for future dates.', 'warning');
+      return;
+    }
     const topic    = document.getElementById('entry-topic').value.trim();
     const category = document.getElementById('entry-category').value;
     const duration = parseInt(document.getElementById('entry-duration').value, 10);
@@ -1121,6 +1155,10 @@ const App = (() => {
     }
 
     closeEntryModal();
+    // Draft served its purpose — clear it so it doesn't restore on the next new entry
+    try {
+      localStorage.removeItem(`lt_draft_${UserManager.getActiveId() || 'default'}`);
+    } catch {}
     showToast(isNew ? 'Entry saved!' : 'Entry updated!', 'success');
 
     // Show XP float
@@ -1182,14 +1220,14 @@ const App = (() => {
     setAutoSaveState('saving');
 
     _autoSaveTimer = setTimeout(() => {
-      // In the modal, we do optimistic save to localStorage as draft
       const draft = {
-        topic:    document.getElementById('entry-topic')?.value,
-        notes:    document.getElementById('entry-notes')?.value,
-        savedAt:  Date.now(),
+        topic:   document.getElementById('entry-topic')?.value,
+        notes:   document.getElementById('entry-notes')?.value,
+        savedAt: Date.now(),
       };
       try {
-        localStorage.setItem('lt_draft', JSON.stringify(draft));
+        const draftKey = `lt_draft_${UserManager.getActiveId() || 'default'}`;
+        localStorage.setItem(draftKey, JSON.stringify(draft));
         setAutoSaveState('saved');
         setEl('notes-last-saved', `Saved ${new Date().toLocaleTimeString()}`);
       } catch {
@@ -1679,7 +1717,7 @@ const App = (() => {
         if (entry) openEntryModal(entry.id);
       },
       onAddEntry: (ds) => {
-        openEntryModal(null);
+        openEntryModal(null, ds);
       },
       onViewEntries: (ds) => {
         const fromEl = document.getElementById('filter-date-from');
@@ -2276,7 +2314,7 @@ const App = (() => {
       })() : '';
       const resLinks  = (e.resources || []).filter(r => r.url).map(r => {
         const label = esc(r.title && r.title !== r.url ? r.title : r.url);
-        return `<a href="${esc(r.url)}" target="_blank" rel="noopener" class="rp-res-link">${label}</a>`;
+        return `<a href="${esc(safeHref(r.url))}" target="_blank" rel="noopener" class="rp-res-link">${label}</a>`;
       }).join('');
       const resCell   = incResources
         ? `<td class="rp-tc-res">${resLinks || '<span class="rp-muted">—</span>'}</td>` : '';
@@ -3180,10 +3218,7 @@ const App = (() => {
     const stats       = Analytics.calculateTotalStats(_entries);
     const consistency = Analytics.calculateConsistency(_entries);
 
-    // Revoke achievements that no longer qualify with the current entries
-    await Rewards.revokeStaleAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
-
-    // Then award any newly qualifying ones
+    // Award any newly qualifying achievements — earned badges are never revoked
     const newlyEarned = await Rewards.checkAndAwardAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
     _earnedAch = await Storage.getAllAchievements();
 
@@ -3714,6 +3749,15 @@ const App = (() => {
     const d = document.createElement('div');
     d.textContent = String(str || '');
     return d.innerHTML;
+  }
+
+  // Returns the URL only when it uses http(s); anything else (javascript:, data:,
+  // vbscript:, …) is replaced with '#' to prevent stored-XSS via resource links.
+  function safeHref(url) {
+    try {
+      const u = new URL(url);
+      return (u.protocol === 'http:' || u.protocol === 'https:') ? url : '#';
+    } catch { return '#'; }
   }
 
   function capitalise(str) {

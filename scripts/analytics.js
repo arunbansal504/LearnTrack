@@ -391,7 +391,7 @@ const Analytics = (() => {
     const dayNames  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
     for (const e of entries) {
-      const day = new Date(e.date).getDay();
+      const day = new Date(e.date + 'T12:00:00').getDay();
       dayTotals[day] += (e.durationMinutes || 0);
       dayCounts[day]++;
     }

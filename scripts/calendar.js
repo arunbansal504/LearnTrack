@@ -232,9 +232,8 @@ const Calendar = (() => {
       });
     }
 
-    const isToday  = ds === Analytics.today();
     const hasEntries = dayEntries.length > 0;
-    if (addBtn)    addBtn.style.display  = isToday ? 'flex' : 'none';
+    if (addBtn)    addBtn.style.display  = ds <= Analytics.today() ? 'flex' : 'none';
     if (viewBtn) {
       viewBtn.style.display = 'flex';
       viewBtn.disabled = !hasEntries;
