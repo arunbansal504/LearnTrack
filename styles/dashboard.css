@@ -611,7 +611,7 @@
 .activity-list {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: 2px;
   max-height: 320px;
   overflow-y: auto;
 }
@@ -620,7 +620,7 @@
   display: flex;
   align-items: center;
   gap: var(--s-3);
-  padding: var(--s-2) var(--s-3);
+  padding: 5px var(--s-3);
   border-radius: var(--r-md);
   border-left: 3px solid transparent;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -629,47 +629,53 @@
 
 .activity-item:hover { background: var(--surface-2); }
 
-.activity-item[data-difficulty="beginner"]     { border-left-color: var(--success); }
-.activity-item[data-difficulty="intermediate"] { border-left-color: var(--warning); }
-.activity-item[data-difficulty="advanced"]     { border-left-color: var(--danger); }
-.activity-item[data-difficulty="expert"]       { border-left-color: var(--accent); }
+.activity-item[data-difficulty="easy"]   { border-left-color: var(--success); }
+.activity-item[data-difficulty="medium"] { border-left-color: var(--warning); }
+.activity-item[data-difficulty="hard"]   { border-left-color: var(--danger); }
 
-.activity-info { flex: 1; min-width: 0; }
+.activity-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
 
 .activity-topic {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
-.activity-meta {
-  font-size: 11px;
+.activity-date {
+  font-size: 10px;
   color: var(--text-3);
-  margin-top: 2px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .activity-category-pill {
   display: inline-block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   background: var(--surface-3);
   color: var(--text-2);
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: var(--r-full);
 }
 
 .activity-duration {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-faint);
-  padding: 3px 9px;
+  padding: 2px 7px;
   border-radius: var(--r-full);
   white-space: nowrap;
   flex-shrink: 0;
@@ -837,7 +843,7 @@
 
 /* ---- REPORTS PAGE -------------------------------- */
 .report-page-body {
-  max-width: 720px;
+  width: 100%;
 }
 
 .report-config-card {

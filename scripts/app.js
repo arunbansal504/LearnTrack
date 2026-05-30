@@ -536,14 +536,12 @@ const App = (() => {
     }
 
     container.innerHTML = recent.map(e => `
-      <div class="activity-item" data-id="${e.id}" data-difficulty="${e.difficulty || 'beginner'}" role="button" tabindex="0">
+      <div class="activity-item" data-id="${e.id}" data-difficulty="${e.difficulty || 'easy'}" role="button" tabindex="0">
         <div class="activity-info">
-          <div class="activity-topic">${escapeHtml(e.topic)}</div>
-          <div class="activity-meta">
-            <span>${formatRelativeDate(e.date)}</span>
-            ${e.category ? `<span class="activity-category-pill">${escapeHtml(e.category)}</span>` : ''}
-          </div>
+          <span class="activity-topic">${escapeHtml(e.topic)}</span>
+          ${e.category ? `<span class="activity-category-pill">${escapeHtml(e.category)}</span>` : ''}
         </div>
+        <span class="activity-date">${formatRelativeDate(e.date)}</span>
         <div class="activity-duration">${Analytics.formatDuration(e.durationMinutes || 0)}</div>
       </div>
     `).join('');
@@ -706,7 +704,7 @@ const App = (() => {
 
   function createEntryCard(entry) {
     const mood = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
-    const diffColors = { beginner:'success', intermediate:'warning', advanced:'danger', expert:'accent' };
+    const diffColors = { easy:'success', medium:'warning', hard:'danger' };
     const dc = diffColors[entry.difficulty] || 'text-2';
     const d  = new Date(entry.date + 'T12:00:00');
 
@@ -734,7 +732,7 @@ const App = (() => {
       : '';
 
     return `
-      <div class="entry-card" data-id="${entry.id}" data-difficulty="${entry.difficulty || 'beginner'}" tabindex="0" role="article">
+      <div class="entry-card" data-id="${entry.id}" data-difficulty="${entry.difficulty || 'easy'}" tabindex="0" role="article">
         <div class="entry-date-col">
           <div class="entry-date-day">${d.getDate()}</div>
           <div class="entry-date-mon">${d.toLocaleDateString('en-US',{month:'short'})}</div>
@@ -747,7 +745,7 @@ const App = (() => {
           <div class="entry-meta">
             <span class="entry-meta-item">
               <span class="difficulty-dot ${entry.difficulty}"></span>
-              ${capitalise(entry.difficulty || 'beginner')}
+              ${capitalise(entry.difficulty || 'easy')}
             </span>
             ${loggedTime ? `<span class="entry-meta-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.6"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${loggedTime}</span>` : ''}
           </div>
@@ -970,7 +968,7 @@ const App = (() => {
       const durationEl = document.getElementById('entry-duration');
       durationEl.value    = entry.durationMinutes || '';
       durationEl.disabled = entry.date !== Analytics.today();
-      document.getElementById('entry-difficulty').value  = entry.difficulty || 'intermediate';
+      document.getElementById('entry-difficulty').value  = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value       = entry.notes || '';
       document.getElementById('entry-tags').value        = (entry.tags || []).join(', ');
 
@@ -1247,7 +1245,7 @@ const App = (() => {
       document.getElementById('entry-topic').value      = `${entry.topic} (copy)`;
       document.getElementById('entry-category').value   = entry.category || '';
       document.getElementById('entry-duration').value   = entry.durationMinutes || '';
-      document.getElementById('entry-difficulty').value = entry.difficulty || 'intermediate';
+      document.getElementById('entry-difficulty').value = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value      = entry.notes || '';
       document.getElementById('entry-tags').value       = (entry.tags || []).join(', ');
       document.querySelector(`.mood-btn[data-mood="${entry.moodScore || 4}"]`)?.click();
@@ -1442,7 +1440,7 @@ const App = (() => {
             ${entry.category ? `<span class="entry-category">${escapeHtml(entry.category)}</span>` : ''}
           </div>
           <div class="dl-card-meta">
-            <span class="entry-meta-item"><span class="difficulty-dot ${entry.difficulty}"></span>${capitalise(entry.difficulty || 'beginner')}</span>
+            <span class="entry-meta-item"><span class="difficulty-dot ${entry.difficulty}"></span>${capitalise(entry.difficulty || 'easy')}</span>
             <span>${mood}</span>
             <span class="entry-duration-badge">${Analytics.formatDuration(entry.durationMinutes || 0)}</span>
           </div>
@@ -1659,10 +1657,17 @@ const App = (() => {
 
   function renderReports() {
     populateReportMonthSelect();
+    const preview = document.getElementById('report-preview');
+    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
     const dlBtn = document.getElementById('download-report-btn');
     if (dlBtn && !dlBtn._bound) {
       dlBtn._bound = true;
       dlBtn.addEventListener('click', generateMonthlyReport);
+    }
+    const pvBtn = document.getElementById('preview-report-btn');
+    if (pvBtn && !pvBtn._bound) {
+      pvBtn._bound = true;
+      pvBtn.addEventListener('click', renderReportPreview);
     }
   }
 
@@ -2084,6 +2089,256 @@ const App = (() => {
       if (file) browseImportFile(file);
       browseInput.value = ''; // reset so same file can be picked again
     });
+  }
+
+  /* ---- Monthly In-Page Report Preview -------------- */
+
+  function renderReportPreview() {
+    const sel = document.getElementById('report-month');
+    if (!sel) return;
+    const [year, month0] = sel.value.split('-').map(Number);
+    const month = month0 - 1;
+
+    const MONTHS    = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+    const monthStr  = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const monthEntries = _entries
+      .filter(e => e.date.startsWith(monthStr))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const incNotes     = document.getElementById('report-inc-notes')?.checked ?? true;
+    const incResources = document.getElementById('report-inc-resources')?.checked ?? true;
+
+    const fmt = m => Analytics.formatDuration(m);
+    const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const CAT_PALETTE = {
+      'Programming': { bg:'#DBEAFE', color:'#1E40AF', bar:'#3B82F6' },
+      'Mathematics': { bg:'#EDE9FE', color:'#5B21B6', bar:'#8B5CF6' },
+      'Languages':   { bg:'#D1FAE5', color:'#065F46', bar:'#10B981' },
+      'Science':     { bg:'#CFFAFE', color:'#155E75', bar:'#06B6D4' },
+      'Design':      { bg:'#FCE7F3', color:'#9D174D', bar:'#EC4899' },
+      'Business':    { bg:'#FEF3C7', color:'#92400E', bar:'#F59E0B' },
+      'Other':       { bg:'#F3F4F6', color:'#374151', bar:'#9CA3AF' },
+    };
+    // Extended pool for auto-assigned custom categories — hashed by name so colour is always consistent
+    const CAT_COLOR_POOL = [
+      { bg:'#FFF7ED', color:'#9A3412', bar:'#EA580C' },
+      { bg:'#ECFDF5', color:'#065F46', bar:'#059669' },
+      { bg:'#FDF4FF', color:'#7E22CE', bar:'#A21CAF' },
+      { bg:'#FFF1F2', color:'#9F1239', bar:'#F43F5E' },
+      { bg:'#F0FDF4', color:'#14532D', bar:'#16A34A' },
+      { bg:'#EFF6FF', color:'#1D4ED8', bar:'#2563EB' },
+      { bg:'#FFFBEB', color:'#92400E', bar:'#D97706' },
+      { bg:'#F0F9FF', color:'#075985', bar:'#0284C7' },
+      { bg:'#FDF2F8', color:'#9D174D', bar:'#DB2777' },
+      { bg:'#F7FEE7', color:'#3F6212', bar:'#65A30D' },
+      { bg:'#FEFCE8', color:'#854D0E', bar:'#CA8A04' },
+      { bg:'#F5F3FF', color:'#4C1D95', bar:'#7C3AED' },
+    ];
+    const _catHash = s => Math.abs([...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0));
+    const getCat = cat => CAT_PALETTE[cat] || CAT_COLOR_POOL[_catHash(cat) % CAT_COLOR_POOL.length];
+
+    // ── Stats ──
+    const totalMin      = monthEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+    const totalSessions = monthEntries.length;
+    const activeDaySet  = new Set(monthEntries.map(e => e.date));
+    const activeDays    = activeDaySet.size;
+    const dailyGoalMin  = _prefs.dailyGoalMin || 60;
+    const monthlyGoalHr = _prefs.monthlyGoalHr || 20;
+    const monthlyGoalMin = monthlyGoalHr * 60;
+    const monthlyGoalPct = Math.min(100, Math.round((totalMin / monthlyGoalMin) * 100));
+    const daysWithGoal  = monthEntries.reduce((acc, e) => {
+      acc.set(e.date, (acc.get(e.date) || 0) + (e.durationMinutes || 0));
+      return acc;
+    }, new Map());
+    let goalDaysMet = 0;
+    daysWithGoal.forEach(m => { if (m >= dailyGoalMin) goalDaysMet++; });
+    const dailyGoalPct  = activeDays > 0 ? Math.round((goalDaysMet / activeDays) * 100) : 0;
+    const remainingMin  = monthlyGoalMin - totalMin;
+
+    // ── Categories ──
+    const catMap = {};
+    monthEntries.forEach(e => {
+      const c = e.category || 'Uncategorized';
+      catMap[c] = (catMap[c] || 0) + (e.durationMinutes || 0);
+    });
+    const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+    const maxCatMin = catSorted[0]?.[1] || 1;
+
+    // ── Top Topics ──
+    const topicMap      = {};
+    const topicSessions = {};
+    const topicCat      = {};
+    monthEntries.forEach(e => {
+      if (!e.topic) return;
+      topicMap[e.topic]      = (topicMap[e.topic] || 0) + (e.durationMinutes || 0);
+      topicSessions[e.topic] = (topicSessions[e.topic] || 0) + 1;
+      if (e.category && !topicCat[e.topic]) topicCat[e.topic] = e.category;
+    });
+    const topTopics   = Object.entries(topicMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const maxTopicMin = topTopics[0]?.[1] || 1;
+
+    // ── Difficulty ──
+    const DIFF_CONFIG = [
+      { key: 'easy',   label: 'Easy',   bg: '#DCFCE7', color: '#166534', border: '#86EFAC' },
+      { key: 'medium', label: 'Medium', bg: '#FEF9C3', color: '#854D0E', border: '#FDE047' },
+      { key: 'hard',   label: 'Hard',   bg: '#FFE4E6', color: '#9F1239', border: '#FDA4AF' },
+    ];
+    const diffMap = { easy: 0, medium: 0, hard: 0 };
+    monthEntries.forEach(e => { if (e.difficulty && diffMap[e.difficulty] !== undefined) diffMap[e.difficulty]++; });
+    const diffTotal = DIFF_CONFIG.reduce((s, d) => s + diffMap[d.key], 0);
+
+    // ── Mood ──
+    const moodEntries = monthEntries.filter(e => e.moodScore);
+    const avgMood = moodEntries.length > 0
+      ? (moodEntries.reduce((s, e) => s + e.moodScore, 0) / moodEntries.length).toFixed(1) : null;
+
+    const reportTitle = `${MONTHS[month]} ${year} — Learning Report`;
+    const generatedOn = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const username    = _prefs.username || 'Learner';
+
+    // ── HTML builders ──
+    const statsHtml = [
+      { label: 'Total Time',     value: fmt(totalMin),         sub: `${activeDays} active day${activeDays !== 1 ? 's' : ''}` },
+      { label: 'Sessions',       value: String(totalSessions), sub: `${fmt(Math.round(totalMin / Math.max(totalSessions, 1)))} avg` },
+      { label: 'Daily Goal Hit', value: `${dailyGoalPct}%`,    sub: `${goalDaysMet} of ${activeDays} days` },
+      { label: 'Avg Mood',       value: avgMood ?? '—',        sub: avgMood ? (avgMood >= 4 ? 'Excellent' : avgMood >= 3 ? 'Good' : 'Fair') : 'No data' },
+    ].map(c => `<div class="rp-stat-card">
+      <div class="rp-stat-label">${c.label}</div>
+      <div class="rp-stat-value">${c.value}</div>
+      <div class="rp-stat-sub">${c.sub}</div>
+    </div>`).join('');
+
+    const goalsHtml = [
+      { title: `Daily Goal · ${dailyGoalMin} min/day`,    pct: dailyGoalPct,   detail: `${goalDaysMet} days met target out of ${activeDays} active days` },
+      { title: `Monthly Goal · ${monthlyGoalHr}h target`, pct: monthlyGoalPct, detail: `${fmt(totalMin)} of ${monthlyGoalHr}h · ${remainingMin > 0 ? fmt(remainingMin) + ' remaining' : 'Goal completed!'}` },
+    ].map(g => `<div class="rp-goal-item">
+      <div class="rp-goal-hd"><span class="rp-goal-title">${esc(g.title)}</span><span class="rp-goal-pct">${g.pct}%</span></div>
+      <div class="rp-progress-track"><div class="rp-progress-fill" style="width:${g.pct}%;background:var(--accent)"></div></div>
+      <div class="rp-goal-detail">${esc(g.detail)}</div>
+    </div>`).join('');
+
+    const catHtml = catSorted.map(([cat, mins], i) => {
+      const pal    = getCat(cat);
+      const pct    = totalMin > 0 ? Math.round((mins / totalMin) * 100) : 0;
+      const barPct = Math.round((mins / maxCatMin) * 100);
+      return `<div class="rp-cat-row">
+        <div class="rp-cat-name">
+          <span class="rp-cat-badge" style="background:${pal.bg};color:${pal.color}">${esc(cat)}</span>
+        </div>
+        <div class="rp-cat-time">${fmt(mins)}</div>
+        <div class="rp-cat-pct">${pct}%</div>
+        <div class="rp-bar-wrap"><div class="rp-bar-fill" style="width:${barPct}%;background:${pal.bar}"></div></div>
+      </div>`;
+    }).join('');
+
+    const TOPIC_MEDALS      = ['🥇', '🥈', '🥉'];
+    const TOPIC_CARD_BORDER = ['#F59E0B', '#94A3B8', '#F97316'];
+    const topicsHtml = topTopics.map(([topic, mins], i) => {
+      const barPct   = Math.round((mins / maxTopicMin) * 100);
+      const pct      = totalMin > 0 ? Math.round((mins / totalMin) * 100) : 0;
+      const sessions = topicSessions[topic] || 1;
+      const cat      = topicCat[topic];
+      const pal      = cat ? getCat(cat) : null;
+      const leftBorder = i < 3 ? `border-left:3px solid ${TOPIC_CARD_BORDER[i]}` : '';
+      const rankHtml   = i < 3
+        ? `<div class="rp-rank rp-rank-medal">${TOPIC_MEDALS[i]}</div>`
+        : `<div class="rp-rank" style="background:var(--surface-2);color:var(--text-3);border:1px solid var(--border)">${i + 1}</div>`;
+      return `<div class="rp-topic-row" style="${leftBorder}">
+        ${rankHtml}
+        <div class="rp-topic-name">${esc(topic)}</div>
+        <div class="rp-bar-wrap rp-topic-bar"><div class="rp-bar-fill" style="width:${barPct}%;background:var(--accent)"></div></div>
+        <div class="rp-topic-time">${fmt(mins)}</div>
+      </div>`;
+    }).join('');
+
+    const diffHtml = `<div class="rp-diff-grid">
+      ${DIFF_CONFIG.map(({ key, label, bg, color, border }) => `<div class="rp-diff-item" style="background:${bg};border-color:${border}">
+        <div class="rp-diff-count" style="color:${color}">${diffMap[key]}</div>
+        <div class="rp-diff-label" style="color:${color}">${label}</div>
+        ${diffTotal > 0 ? `<div class="rp-diff-pct" style="color:${color};opacity:.6">${Math.round(diffMap[key] / diffTotal * 100)}%</div>` : ''}
+      </div>`).join('')}
+    </div>`;
+
+    const notesHdr = incNotes     ? '<th>Notes</th>'     : '';
+    const resHdr   = incResources ? '<th>Resources</th>' : '';
+    const entryRowsHtml = monthEntries.map(e => {
+      const dateStr  = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const DIFF_BADGE = { easy:{bg:'#DCFCE7',color:'#166534'}, medium:{bg:'#FEF9C3',color:'#854D0E'}, hard:{bg:'#FFE4E6',color:'#9F1239'} };
+      const diffBadge = DIFF_BADGE[e.difficulty] || { bg:'#F3F4F6', color:'#6B7280' };
+      const notesRaw = (e.notes || '').trim();
+      const notesCell = incNotes ? (() => {
+        if (!notesRaw) return `<td class="rp-tc-notes"><span class="rp-muted">—</span></td>`;
+        if (notesRaw.length <= 150) return `<td class="rp-tc-notes">${esc(notesRaw)}</td>`;
+        const nid = `rn-${e.id}`;
+        return `<td class="rp-tc-notes"><span id="${nid}-s">${esc(notesRaw.slice(0, 150))}…</span><span id="${nid}-f" style="display:none">${esc(notesRaw)}</span> <a href="#" id="${nid}-more" class="rp-notes-more" onclick="event.preventDefault();document.getElementById('${nid}-s').style.display='none';document.getElementById('${nid}-f').style.display='inline';document.getElementById('${nid}-more').style.display='none';document.getElementById('${nid}-less').style.display='inline'">more</a><a href="#" id="${nid}-less" class="rp-notes-more" style="display:none" onclick="event.preventDefault();document.getElementById('${nid}-s').style.display='inline';document.getElementById('${nid}-f').style.display='none';document.getElementById('${nid}-more').style.display='inline';document.getElementById('${nid}-less').style.display='none'">less</a></td>`;
+      })() : '';
+      const resLinks  = (e.resources || []).filter(r => r.url).map(r => {
+        const label = esc(r.title && r.title !== r.url ? r.title : r.url);
+        return `<a href="${esc(r.url)}" target="_blank" rel="noopener" class="rp-res-link">${label}</a>`;
+      }).join('');
+      const resCell   = incResources
+        ? `<td class="rp-tc-res">${resLinks || '<span class="rp-muted">—</span>'}</td>` : '';
+      return `<tr>
+        <td class="rp-tc-date">${dateStr}</td>
+        <td class="rp-tc-topic">${esc(e.topic || '—')}</td>
+        <td>${e.category ? (({ bg, color }) => `<span class="rp-badge" style="background:${bg};color:${color}">${esc(e.category)}</span>`)(getCat(e.category)) : '<span class="rp-muted">—</span>'}</td>
+        <td class="rp-tc-dur">${fmt(e.durationMinutes || 0)}</td>
+        <td>${e.difficulty ? `<span class="rp-badge" style="background:${diffBadge.bg};color:${diffBadge.color};border:1px solid ${diffBadge.color}30">${capitalise(e.difficulty)}</span>` : '<span class="rp-muted">—</span>'}</td>
+        ${notesCell}${resCell}
+      </tr>`;
+    }).join('');
+
+    const container = document.getElementById('report-preview');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="rp-header">
+        <div>
+          <div class="rp-title">${esc(reportTitle)}</div>
+          <div class="rp-meta">Generated ${generatedOn} · ${esc(username)}</div>
+        </div>
+        <button class="rp-close" onclick="document.getElementById('report-preview').classList.add('hidden')" title="Close">✕</button>
+      </div>
+
+      <div class="rp-stats-grid">${statsHtml}</div>
+
+      <div class="rp-two-col">
+        <div class="rp-section">
+          <div class="rp-section-title">Goal Progress</div>
+          <div class="rp-goals">${goalsHtml}</div>
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-title">Difficulty Split</div>
+          ${diffHtml}
+        </div>
+      </div>
+
+      ${(catSorted.length > 0 || topTopics.length > 0) ? `<div class="rp-two-col">
+        ${catSorted.length > 0 ? `<div class="rp-section">
+          <div class="rp-section-title">Category Breakdown</div>
+          <div class="rp-cat-list">${catHtml}</div>
+        </div>` : ''}
+        ${topTopics.length > 0 ? `<div class="rp-section">
+          <div class="rp-section-title">Top Topics</div>
+          <div class="rp-topics-list">${topicsHtml}</div>
+        </div>` : ''}
+      </div>` : ''}
+
+      ${monthEntries.length > 0 ? `<div class="rp-section">
+        <div class="rp-section-title">Session Log</div>
+        <div class="rp-table-wrap">
+          <table class="rp-table">
+            <thead><tr><th>Date</th><th>Topic</th><th>Category</th><th>Duration</th><th>Difficulty</th>${notesHdr}${resHdr}</tr></thead>
+            <tbody>${entryRowsHtml}</tbody>
+          </table>
+        </div>
+      </div>` : '<div class="rp-empty">No entries for this month.</div>'}
+    `;
+
+    container.classList.remove('hidden');
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /* ---- Monthly PDF Report -------------------------- */

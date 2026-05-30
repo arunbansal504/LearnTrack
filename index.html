@@ -537,10 +537,9 @@
             <label>Difficulty</label>
             <select id="filter-difficulty">
               <option value="">All levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-              <option value="expert">Expert</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
             </select>
           </div>
           <div class="filter-group">
@@ -612,10 +611,9 @@
             <label>Difficulty</label>
             <select id="dl-filter-difficulty">
               <option value="">All levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-              <option value="expert">Expert</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
             </select>
           </div>
           <div class="filter-group">
@@ -660,7 +658,7 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1 class="page-title">Monthly Report</h1>
-          <p class="page-subtitle">Generate and download a PDF summary of your learning activity</p>
+          <p class="page-subtitle">View your monthly learning summary in-page or download as a PDF</p>
         </div>
       </div>
       <div class="report-page-body">
@@ -679,13 +677,20 @@
             </div>
             <div class="report-config-group">
               <label class="report-config-label">&nbsp;</label>
-              <button id="download-report-btn" class="btn btn-primary report-btn">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download PDF Report
-              </button>
+              <div class="report-actions">
+                <button id="preview-report-btn" class="btn btn-secondary report-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  View in Page
+                </button>
+                <button id="download-report-btn" class="btn btn-primary report-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        <div id="report-preview" class="report-preview hidden"></div>
       </div>
     </section>
 
@@ -845,16 +850,13 @@
                 <span>Base rate</span><span class="rgv accent">1 XP / min</span>
               </div>
               <div class="rewards-guide-row">
-                <span>Beginner sessions</span><span class="rgv">1×</span>
+                <span>Easy sessions</span><span class="rgv">1×</span>
               </div>
               <div class="rewards-guide-row">
-                <span>Intermediate sessions</span><span class="rgv">1.5×</span>
+                <span>Medium sessions</span><span class="rgv">1.5×</span>
               </div>
               <div class="rewards-guide-row">
-                <span>Advanced sessions</span><span class="rgv">2.2×</span>
-              </div>
-              <div class="rewards-guide-row">
-                <span>Expert sessions</span><span class="rgv">3×</span>
+                <span>Hard sessions</span><span class="rgv">3×</span>
               </div>
               <div class="rewards-guide-row">
                 <span>Mood 5/5 bonus</span><span class="rgv">1.25×</span>
@@ -1214,10 +1216,9 @@
           <div class="form-group">
             <label for="entry-difficulty">Difficulty</label>
             <select id="entry-difficulty">
-              <option value="beginner">🟢 Beginner</option>
-              <option value="intermediate" selected>🟡 Intermediate</option>
-              <option value="advanced">🔴 Advanced</option>
-              <option value="expert">⚡ Expert</option>
+              <option value="easy">🟢 Easy</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="hard">🔴 Hard</option>
             </select>
           </div>
           <div class="form-group">

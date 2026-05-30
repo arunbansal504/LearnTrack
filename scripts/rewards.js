@@ -11,7 +11,7 @@ const Rewards = (() => {
 
   const XP_PER_MINUTE     = 1;
   const XP_STREAK_BONUS   = { 3: 1.2, 7: 1.4, 14: 1.6, 30: 2.0 };
-  const XP_DIFFICULTY_MULT= { beginner: 1, intermediate: 1.5, advanced: 2.2, expert: 3 };
+  const XP_DIFFICULTY_MULT= { easy: 1, medium: 1.5, hard: 3 };
   const XP_MOOD_BONUS     = { 1: 0.8, 2: 0.9, 3: 1.0, 4: 1.1, 5: 1.25 };
 
   const LEVELS = [
@@ -335,27 +335,15 @@ const Rewards = (() => {
 
     /* ---- Difficulty & quality ----------------------- */
     {
-      id:    'advanced_learner',
-      name:  'Advanced Learner',
+      id:    'hard_learner',
+      name:  'Hard Learner',
       icon:  '🧗',
-      desc:  'Complete 10 advanced or expert sessions.',
+      desc:  'Complete 10 hard-difficulty sessions.',
       xp:    200,
       check: ({ entries }) =>
-        entries.filter(e => e.difficulty === 'advanced' || e.difficulty === 'expert').length >= 10,
+        entries.filter(e => e.difficulty === 'hard').length >= 10,
       progress: ({ entries }) => ({
-        current: Math.min(entries.filter(e => e.difficulty === 'advanced' || e.difficulty === 'expert').length, 10),
-        max: 10,
-      }),
-    },
-    {
-      id:    'expert_learner',
-      name:  'Expert Learner',
-      icon:  '⚡',
-      desc:  'Log 10 expert-level sessions.',
-      xp:    300,
-      check: ({ entries }) => entries.filter(e => e.difficulty === 'expert').length >= 10,
-      progress: ({ entries }) => ({
-        current: Math.min(entries.filter(e => e.difficulty === 'expert').length, 10),
+        current: Math.min(entries.filter(e => e.difficulty === 'hard').length, 10),
         max: 10,
       }),
     },
@@ -363,16 +351,16 @@ const Rewards = (() => {
       id:    'polymath',
       name:  'Polymath',
       icon:  '🧠',
-      desc:  'Log sessions at all 4 difficulty levels.',
+      desc:  'Log sessions at all 3 difficulty levels.',
       xp:    200,
       check: ({ entries }) => {
         const d = new Set(entries.map(e => e.difficulty).filter(Boolean));
-        return ['beginner','intermediate','advanced','expert'].every(x => d.has(x));
+        return ['easy','medium','hard'].every(x => d.has(x));
       },
       progress: ({ entries }) => {
         const d = new Set(entries.map(e => e.difficulty).filter(Boolean));
-        const levels = ['beginner','intermediate','advanced','expert'];
-        return { current: levels.filter(x => d.has(x)).length, max: 4 };
+        const levels = ['easy','medium','hard'];
+        return { current: levels.filter(x => d.has(x)).length, max: 3 };
       },
     },
     {
@@ -670,8 +658,8 @@ const Rewards = (() => {
   }
 
   // Difficulty weights used when scoring daily medal eligibility.
-  // Harder sessions earn more credit — beginner work alone won't reach Silver/Gold.
-  const MEDAL_DIFF_WEIGHT = { beginner: 0.9, intermediate: 1.0, advanced: 1.3, expert: 1.6 };
+  // Harder sessions earn more credit — easy work alone won't reach Silver/Gold.
+  const MEDAL_DIFF_WEIGHT = { easy: 0.9, medium: 1.0, hard: 1.5 };
 
   // Medals use difficulty-weighted minutes vs the daily goal:
   //   Gold   — weighted score ≥ 3× daily goal

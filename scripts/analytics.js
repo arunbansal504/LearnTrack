@@ -309,7 +309,7 @@ const Analytics = (() => {
 
     const sorted  = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
     const dateMap = buildDateMap(sorted);
-    const difficultyWeight = { beginner: 1, intermediate: 1.5, advanced: 2.2, expert: 3 };
+    const difficultyWeight = { easy: 1, medium: 1.5, hard: 3 };
 
     // Build a continuous daily series from first entry to today (capped at 365 days).
     // Use UTC-based string comparison (matching toDateStr / today()) to avoid local-midnight
