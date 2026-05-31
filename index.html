@@ -17,7 +17,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cormorant+Garant:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet" />
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -1371,6 +1371,40 @@
 
 <!-- ===== TIMER PANEL ===== -->
 <div id="pomo-panel" class="pomo-panel" style="display:none" role="complementary" aria-label="Timer" data-grad="1">
+
+  <!-- Fullscreen-only: floating particle background -->
+  <div class="pomo-fs-bg" aria-hidden="true">
+    <svg class="pomo-fs-particles-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+      <circle class="fs-p" cx="8"  cy="18" r="0.45"/>
+      <circle class="fs-p" cx="92" cy="12" r="0.3"/>
+      <circle class="fs-p" cx="15" cy="72" r="0.4"/>
+      <circle class="fs-p" cx="88" cy="65" r="0.45"/>
+      <circle class="fs-p" cx="50" cy="7"  r="0.3"/>
+      <circle class="fs-p" cx="4"  cy="50" r="0.28"/>
+      <circle class="fs-p" cx="96" cy="88" r="0.45"/>
+      <circle class="fs-p" cx="25" cy="91" r="0.32"/>
+      <circle class="fs-p" cx="73" cy="5"  r="0.28"/>
+      <circle class="fs-p" cx="18" cy="38" r="0.38"/>
+      <circle class="fs-p" cx="79" cy="80" r="0.33"/>
+      <circle class="fs-p" cx="42" cy="96" r="0.28"/>
+      <circle class="fs-p" cx="61" cy="83" r="0.35"/>
+      <circle class="fs-p" cx="35" cy="20" r="0.28"/>
+      <circle class="fs-p" cx="83" cy="35" r="0.4"/>
+    </svg>
+  </div>
+
+  <!-- Fullscreen-only: decorative rings + orbiting dots -->
+  <svg class="pomo-ring-svg" id="pomo-ring-svg" viewBox="0 0 660 660" fill="none" aria-hidden="true">
+    <!-- Faint concentric rings for depth -->
+    <circle cx="330" cy="330" r="310" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <circle cx="330" cy="330" r="245" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    <circle cx="330" cy="330" r="180" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+    <!-- Orbiting dots -->
+    <g class="pomo-orbit-a"><circle cx="330" cy="20"  r="4.5" fill="rgba(255,255,255,0.65)"/></g>
+    <g class="pomo-orbit-b"><circle cx="330" cy="85"  r="3"   fill="rgba(255,255,255,0.4)"/></g>
+    <g class="pomo-orbit-c"><circle cx="330" cy="50"  r="2.5" fill="rgba(255,255,255,0.52)"/></g>
+  </svg>
+
   <!-- Header: tabs + close -->
   <div class="pomo-header">
     <div class="pomo-tabs">
@@ -1411,6 +1445,11 @@
         <button class="pomo-preset active" data-min="25">25 min</button>
         <button class="pomo-preset" data-min="45">45 min</button>
         <button class="pomo-preset" data-min="60">60 min</button>
+        <button class="pomo-preset" id="pomo-preset-custom">Custom</button>
+      </div>
+      <div class="pomo-custom-row" id="pomo-custom-row" style="display:none">
+        <input type="number" id="pomo-custom-input" class="pomo-custom-input" min="1" max="999" placeholder="min" />
+        <button class="pomo-custom-ok" id="pomo-custom-ok">Set</button>
       </div>
       <div class="pomo-duration-row">
         <button class="pomo-dur-btn" id="pomo-dur-minus" aria-label="Decrease">−</button>
@@ -1443,6 +1482,19 @@
     </div>
 
   </div>
+
+  <!-- Fullscreen-only: ambient mode glow -->
+  <div class="pomo-fs-glow" aria-hidden="true"></div>
+
+  <!-- Fullscreen-only: live clock (top-right) -->
+  <div class="pomo-fs-clock" id="pomo-fs-clock" aria-live="off">
+    <span class="pfc-dot"></span>
+    <span class="pfc-time" id="pfc-time">--:--</span>
+    <span class="pfc-ampm" id="pfc-ampm">--</span>
+  </div>
+
+  <!-- Fullscreen-only: rotating motivational quote -->
+  <div class="pomo-fs-quote" id="pomo-fs-quote" aria-live="polite"></div>
 
   <!-- Corner buttons -->
   <button class="pomo-corner-btn pomo-corner-left" id="pomo-expand" aria-label="Expand">

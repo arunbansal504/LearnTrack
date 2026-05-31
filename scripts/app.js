@@ -3282,6 +3282,14 @@ const App = (() => {
 
   function applyAccent(accent) {
     document.documentElement.setAttribute('data-accent', accent);
+    syncTimerGradient(accent);
+  }
+
+  function syncTimerGradient(accent) {
+    const panel = document.getElementById('pomo-panel');
+    if (!panel) return;
+    const map = { purple: 1, blue: 2, green: 4, orange: 6, pink: 7, red: 8 };
+    panel.dataset.grad = String(map[accent] || 1);
   }
 
   /* ---- Live Clock ---------------------------------- */
@@ -3457,7 +3465,7 @@ const App = (() => {
     // Toggle panel from floating FAB
     document.getElementById('pomo-fab')?.addEventListener('click', () => {
       if (PomodoroTimer.isPanelOpen()) PomodoroTimer.closePanel();
-      else PomodoroTimer.openPanel();
+      else { syncTimerGradient(_prefs.accent); PomodoroTimer.openPanel(); }
     });
 
     // "Log this session" button — pre-fills the entry modal

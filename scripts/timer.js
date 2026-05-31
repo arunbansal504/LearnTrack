@@ -12,7 +12,7 @@ const PomodoroTimer = (() => {
   };
 
   const MODE_LIMITS = {
-    work:       { min: 1, max: 90 },
+    work:       { min: 1, max: 999 },
     shortBreak: { min: 1, max: 30 },
     longBreak:  { min: 1, max: 60 },
   };
@@ -23,7 +23,7 @@ const PomodoroTimer = (() => {
     shortBreak: 'rgba(16,185,129,0.14)',
     longBreak:  'rgba(59,130,246,0.14)',
   };
-  const GRAD_COUNT = 3;
+  const GRAD_COUNT = 8;
 
   /* ---- Pomodoro state ---- */
   let _mode      = 'work';
@@ -40,6 +40,8 @@ const PomodoroTimer = (() => {
   let _timesUp   = false; // true while showing "Time's up!" screen
   let _nextMode  = null;  // mode to transition to when user dismisses time's up
   const _savedProgress = {};
+  let _fsQuoteTimer = null;
+  let _fsClockTimer = null;
 
   /* ---- Stopwatch state ---- */
   let _swRunning = false;
@@ -189,6 +191,13 @@ const PomodoroTimer = (() => {
       }
     }
 
+    /* Fullscreen: ambient glow color + running class */
+    const panel = _el('pomo-panel');
+    if (panel) {
+      panel.style.setProperty('--pomo-mode-faint', RING_FAINT[_mode]);
+      panel.classList.toggle('pomo-running', _running);
+    }
+
     /* Duration adjuster label */
     const durLabel = _el('pomo-dur-label');
     if (durLabel) durLabel.textContent = `${MODES[_mode].minutes} min`;
@@ -198,7 +207,6 @@ const PomodoroTimer = (() => {
     if (durPlus)  durPlus.disabled  = _running;
 
     /* FAB */
-    const panel = _el('pomo-panel');
     const fab = _el('pomo-fab');
     if (fab) {
       const panelOpen = panel?.style.display !== 'none';
@@ -292,6 +300,52 @@ const PomodoroTimer = (() => {
     document.querySelectorAll('.pomo-preset').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.min) === MODES.work.minutes);
     });
+  }
+
+  /* ---- Fullscreen clock ---- */
+  function _updateFsClock() {
+    const timeEl = _el('pfc-time');
+    const ampmEl = _el('pfc-ampm');
+    if (!timeEl) return;
+    const now  = new Date();
+    const h    = now.getHours();
+    const h12  = h % 12 || 12;
+    const m    = String(now.getMinutes()).padStart(2, '0');
+    timeEl.textContent = `${h12}:${m}`;
+    if (ampmEl) ampmEl.textContent = h >= 12 ? 'PM' : 'AM';
+  }
+
+  function _startFsClock() {
+    _updateFsClock();
+    _fsClockTimer = setInterval(_updateFsClock, 1000);
+  }
+
+  function _stopFsClock() {
+    clearInterval(_fsClockTimer);
+    _fsClockTimer = null;
+  }
+
+  /* ---- Fullscreen quote rotation ---- */
+  function _showFsQuote() {
+    const el = _el('pomo-fs-quote');
+    if (!el) return;
+    el.classList.add('fade');
+    setTimeout(() => {
+      if (typeof Insights !== 'undefined') el.textContent = Insights.getRandomQuote();
+      el.classList.remove('fade');
+    }, 750);
+  }
+
+  function _startFsQuotes() {
+    _showFsQuote();
+    _fsQuoteTimer = setInterval(_showFsQuote, 10000);
+  }
+
+  function _stopFsQuotes() {
+    clearInterval(_fsQuoteTimer);
+    _fsQuoteTimer = null;
+    const el = _el('pomo-fs-quote');
+    if (el) { el.classList.add('fade'); setTimeout(() => { el.textContent = ''; el.classList.remove('fade'); }, 750); }
   }
 
   /* ---- Public: Pomodoro ---- */
@@ -400,7 +454,11 @@ const PomodoroTimer = (() => {
 
     /* --- Mode buttons (Focus / Short Break / Long Break) --- */
     document.querySelectorAll('.pomo-mode-btn').forEach(btn => {
-      btn.addEventListener('click', () => _setMode(btn.dataset.mode, false, true));
+      btn.addEventListener('click', () => {
+        const customRow = _el('pomo-custom-row');
+        if (customRow) customRow.style.display = 'none';
+        _setMode(btn.dataset.mode, false, true);
+      });
     });
 
     /* --- Preset buttons --- */
@@ -408,6 +466,9 @@ const PomodoroTimer = (() => {
       btn.addEventListener('click', () => {
         if (_running) return;
         const min = parseInt(btn.dataset.min);
+        if (isNaN(min)) return; // custom button handled separately
+        const customRow = _el('pomo-custom-row');
+        if (customRow) customRow.style.display = 'none';
         MODES.work.minutes = min;
         _mode      = 'work';
         _totalTime = min * 60;
@@ -416,6 +477,48 @@ const PomodoroTimer = (() => {
         _syncPresetsHighlight();
         _updateUI();
       });
+    });
+
+    /* --- Custom duration --- */
+    function _applyCustom() {
+      const input = _el('pomo-custom-input');
+      if (!input) return;
+      const val = parseInt(input.value);
+      const lim = MODE_LIMITS.work;
+      if (!val || val < lim.min || val > lim.max) { input.select(); return; }
+      MODES.work.minutes = val;
+      _mode      = 'work';
+      _totalTime = val * 60;
+      _timeLeft  = _totalTime;
+      delete _savedProgress.work;
+      document.querySelectorAll('.pomo-preset').forEach(b => b.classList.remove('active'));
+      _el('pomo-preset-custom')?.classList.add('active');
+      const row = _el('pomo-custom-row');
+      if (row) row.style.display = 'none';
+      input.value = '';
+      _updateUI();
+    }
+
+    _el('pomo-preset-custom')?.addEventListener('click', () => {
+      if (_running) return;
+      const row = _el('pomo-custom-row');
+      if (!row) return;
+      const open = row.style.display !== 'none';
+      row.style.display = open ? 'none' : 'flex';
+      if (!open) _el('pomo-custom-input')?.focus();
+    });
+
+    _el('pomo-custom-ok')?.addEventListener('click', _applyCustom);
+    _el('pomo-custom-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') _applyCustom();
+      if (e.key === 'Escape') {
+        const row = _el('pomo-custom-row');
+        if (row) row.style.display = 'none';
+      }
+    });
+    _el('pomo-custom-input')?.addEventListener('input', e => {
+      if (e.target.value > 999) e.target.value = 999;
+      if (e.target.value < 0) e.target.value = '';
     });
 
     /* --- Duration fine-tune --- */
@@ -431,6 +534,8 @@ const PomodoroTimer = (() => {
         _notifAsked = true;
         Notification.requestPermission?.();
       }
+      const customRow = _el('pomo-custom-row');
+      if (customRow) customRow.style.display = 'none';
       _running ? pause() : start();
     });
 
@@ -454,6 +559,8 @@ const PomodoroTimer = (() => {
         btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
         btn.title = 'Fullscreen';
       }
+      _stopFsQuotes();
+      _stopFsClock();
     }
 
     _el('pomo-expand')?.addEventListener('click', () => {
@@ -467,6 +574,8 @@ const PomodoroTimer = (() => {
           : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
         btn.title = isFs ? 'Exit fullscreen' : 'Fullscreen';
       }
+      if (isFs) { _startFsQuotes(); _startFsClock(); }
+      else       { _stopFsQuotes();  _stopFsClock();  }
     });
 
     document.addEventListener('keydown', (e) => {
