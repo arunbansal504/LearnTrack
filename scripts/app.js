@@ -903,6 +903,15 @@ const App = (() => {
       });
     });
 
+    // Limit hours to 2 digits, minutes to 4 digits
+    const hoursInput = document.getElementById('entry-duration-hours');
+    const minsInput  = document.getElementById('entry-duration-mins');
+    if (hoursInput) hoursInput.addEventListener('input', function() {
+      if (this.value.length > 2) this.value = this.value.slice(0, 2);
+    });
+    if (minsInput) minsInput.addEventListener('input', function() {
+      if (this.value.length > 4) this.value = this.value.slice(0, 4);
+    });
 
     // Entry modal only closes via X or Cancel — not by clicking the backdrop
 
@@ -1096,14 +1105,6 @@ const App = (() => {
                        .split(',').map(t => t.trim()).filter(Boolean);
     const mood     = parseInt(document.getElementById('entry-mood').value, 10) || 4;
 
-    if (durationHours > 24) {
-      showToast('Hours cannot exceed 24.', 'warning');
-      return;
-    }
-    if (durationMins > 59) {
-      showToast('Minutes cannot exceed 59.', 'warning');
-      return;
-    }
     if (!duration || duration < 1) {
       showToast('Please enter a valid duration.', 'warning');
       return;
