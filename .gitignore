@@ -19,3 +19,12 @@ desktop.ini
 # Editor folders
 .vscode/
 .idea/
+
+# Dependencies
+node_modules/
+
+# Package manager lockfiles (keep package-lock.json for npm)
+# Uncomment the line below if using yarn, pnpm, or bun instead
+# yarn.lock
+# pnpm-lock.yaml
+# bun.lockb
