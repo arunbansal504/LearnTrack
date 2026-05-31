@@ -187,7 +187,7 @@ const Calendar = (() => {
     });
 
     cell.addEventListener('dblclick', () => {
-      if (_selectedDate && _onViewEntries) _onViewEntries(_selectedDate);
+      if (hasEntry && _selectedDate && _onViewEntries) _onViewEntries(_selectedDate);
     });
 
     cell.setAttribute('role', 'button');
