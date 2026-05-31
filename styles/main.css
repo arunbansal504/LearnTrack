@@ -3613,11 +3613,11 @@ input:disabled {
   /* --- Insights row: 2-column grid (no scroll) --- */
   .insights-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--s-2);
     margin-bottom: var(--s-3);
   }
-  .insight-card { padding: var(--s-2) var(--s-3); }
+  .insight-card { padding: var(--s-2) var(--s-3); min-width: 0; overflow: hidden; }
   .insight-value { font-size: 15px; }
 
   /* --- Heatmap cells: slightly smaller --- */

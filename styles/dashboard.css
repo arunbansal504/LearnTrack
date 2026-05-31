@@ -884,7 +884,7 @@
 @media (max-width: 768px) {
   /* ── Stats: 3 columns, row-oriented cards ── */
   .stats-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--s-2);
     margin-bottom: var(--s-3);
   }
@@ -893,6 +893,8 @@
     align-items: center;
     gap: var(--s-2);
     padding: var(--s-2) var(--s-2);
+    min-width: 0;
+    overflow: hidden;
   }
   .stat-icon { width: 26px; height: 26px; font-size: 12px; flex-shrink: 0; align-self: center; }
   .stat-value { font-size: 14px; letter-spacing: -0.01em; }
@@ -904,11 +906,11 @@
   /* ── Summary row: 3-col grid, compact (no scroll) ── */
   .summary-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--s-2);
     margin-bottom: var(--s-3);
   }
-  .summary-card { padding: var(--s-2) var(--s-2); }
+  .summary-card { padding: var(--s-2) var(--s-2); min-width: 0; overflow: hidden; }
   .summary-big { font-size: 16px; letter-spacing: -0.02em; }
   .summary-meta { font-size: 9px; margin-bottom: 0; }
   .summary-header {
