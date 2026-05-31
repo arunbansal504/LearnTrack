@@ -82,7 +82,7 @@ const App = (() => {
   const DEFAULT_PREFS = {
     username:      'Learner',
     theme:         'dark',
-    accent:        'green',
+    accent:        'purple',
     compact:       true,
     dailyGoalMin:  60,
     monthlyGoalHr: 20,
