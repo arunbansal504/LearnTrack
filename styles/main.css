@@ -634,6 +634,7 @@ img, svg { max-width: 100%; }
 }
 .dashboard-header .page-actions {
   justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .page-title-group {
@@ -3127,7 +3128,8 @@ input:disabled {
   cursor: pointer;
   transition: var(--transition);
   width: 300px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .daily-quote-chip:hover { border-color: var(--accent); color: var(--text); }
 #daily-quote-text {
