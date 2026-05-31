@@ -723,7 +723,19 @@ const App = (() => {
 
     // Resource links — stop propagation so they don't open the edit modal
     container.querySelectorAll('.entry-resource-link').forEach(a => {
-      a.addEventListener('click', e => e.stopPropagation());
+      a.addEventListener('click', e => {
+        e.stopPropagation();
+        if (a.dataset.entryId !== undefined) {
+          e.preventDefault();
+          const en = _entries.find(x => x.id === a.dataset.entryId);
+          const fileData = en?.resources?.[parseInt(a.dataset.resIdx)]?.url;
+          if (fileData?.startsWith('data:')) {
+            fetch(fileData).then(r => r.blob()).then(blob => {
+              window.open(URL.createObjectURL(blob), '_blank');
+            });
+          }
+        }
+      });
     });
 
     container.querySelectorAll('.entry-card').forEach(card => {
@@ -755,13 +767,18 @@ const App = (() => {
       : '';
 
     const resIcons = { link:'🔗', youtube:'▶️', course:'🎓', blog:'📰', github:'🐙', doc:'📄', pdf:'📋' };
-    const resourceLinksHtml = (entry.resources || []).filter(r => r.url).map(r => {
-      const icon  = resIcons[r.type] || '🔗';
-      let   label = r.title || '';
+    const resourceLinksHtml = (entry.resources || []).filter(r => r.url).map((r, idx) => {
+      const icon    = resIcons[r.type] || '🔗';
+      const isLocal = r.url.startsWith('data:');
+      let   label   = r.title || '';
       if (!label) {
-        try { label = new URL(r.url).hostname.replace(/^www\./, ''); } catch { label = r.url; }
+        if (isLocal) label = 'Local file';
+        else { try { label = new URL(r.url).hostname.replace(/^www\./, ''); } catch { label = r.url; } }
       }
-      return `<a href="${escapeHtml(safeHref(r.url))}" target="_blank" rel="noopener noreferrer" class="entry-resource-link" title="${escapeHtml(r.url)}">${icon} ${escapeHtml(label)}</a>`;
+      const href      = isLocal ? '#' : escapeHtml(safeHref(r.url));
+      const dataAttrs = isLocal ? ` data-entry-id="${escapeHtml(entry.id)}" data-res-idx="${idx}"` : '';
+      const titleAttr = isLocal ? escapeHtml(r.title || 'Local file') : escapeHtml(r.url);
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="entry-resource-link${isLocal ? ' entry-resource-local' : ''}"${dataAttrs} title="${titleAttr}">${icon} ${escapeHtml(label)}</a>`;
     }).join('');
 
     const notesText = (entry.notes || '').trim();
@@ -1202,7 +1219,13 @@ const App = (() => {
         <option value="pdf">📋 PDF</option>
       </select>
       <input type="text" class="res-title" placeholder="Title (optional)" />
-      <input type="url" class="res-url" placeholder="https://..." />
+      <input type="text" class="res-url" placeholder="https://... or pick a local file" />
+      <button type="button" class="res-browse" title="Browse local file">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <input type="file" class="res-file-input" style="display:none" />
       <button type="button" class="resource-remove" aria-label="Remove resource">✕</button>
     `;
 
@@ -1210,7 +1233,35 @@ const App = (() => {
       row.querySelector('.res-type').value  = prefill.type  || 'link';
       row.querySelector('.res-title').value = prefill.title || '';
       row.querySelector('.res-url').value   = prefill.url   || '';
+      if (prefill.url?.startsWith('data:')) row.querySelector('.res-url').classList.add('res-url--local');
     }
+
+    const browseBtn  = row.querySelector('.res-browse');
+    const fileInput  = row.querySelector('.res-file-input');
+    const urlInput   = row.querySelector('.res-url');
+    const titleInput = row.querySelector('.res-title');
+    const typeSelect = row.querySelector('.res-type');
+
+    browseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      if (file.size > 20 * 1024 * 1024) {
+        showToast('File too large — maximum 20 MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = ev => {
+        urlInput.value = ev.target.result;
+        if (!titleInput.value) titleInput.value = file.name;
+        if (file.type === 'application/pdf')            typeSelect.value = 'pdf';
+        else if (/\.(doc|docx|txt|md)$/i.test(file.name)) typeSelect.value = 'doc';
+        else if (file.type.startsWith('video/'))        typeSelect.value = 'youtube';
+        else                                            typeSelect.value = 'link';
+        urlInput.classList.add('res-url--local');
+      };
+      reader.readAsDataURL(file);
+    });
 
     row.querySelector('.resource-remove')?.addEventListener('click', () => row.remove());
     list.appendChild(row);
