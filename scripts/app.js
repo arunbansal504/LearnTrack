@@ -1967,12 +1967,49 @@ const App = (() => {
     const list = document.getElementById('categories-list');
     if (!list) return;
     const cats = _prefs.categories || DEFAULT_PREFS.categories;
-    list.innerHTML = cats.map(c => `
-      <div class="category-item">
+    list.innerHTML = cats.map((c, i) => `
+      <div class="category-item" draggable="true" data-idx="${i}">
+        <span class="category-drag-handle" title="Drag to reorder">⠿</span>
         <span>${escapeHtml(c)}</span>
         <button class="category-delete" data-cat="${escapeHtml(c)}" aria-label="Delete ${c}">✕</button>
       </div>
     `).join('');
+
+    let dragIdx = null;
+    const items = list.querySelectorAll('.category-item');
+
+    items.forEach((el, i) => {
+      el.addEventListener('dragstart', e => {
+        dragIdx = i;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => el.classList.add('cat-dragging'), 0);
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('cat-dragging');
+        items.forEach(c => c.classList.remove('cat-drag-over'));
+        dragIdx = null;
+      });
+      el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+      el.addEventListener('dragenter', e => {
+        e.preventDefault();
+        if (i !== dragIdx) {
+          items.forEach(c => c.classList.remove('cat-drag-over'));
+          el.classList.add('cat-drag-over');
+        }
+      });
+      el.addEventListener('drop', async e => {
+        e.preventDefault();
+        if (dragIdx === null || dragIdx === i) return;
+        const arr = _prefs.categories || [];
+        const moved = arr.splice(dragIdx, 1)[0];
+        arr.splice(i, 0, moved);
+        _prefs.categories = arr;
+        await Storage.setPref('categories', arr);
+        renderCategories();
+        populateCategorySelects();
+      });
+    });
+
     list.querySelectorAll('.category-delete').forEach(btn => {
       btn.addEventListener('click', () => deleteCategory(btn.dataset.cat));
     });
@@ -2002,7 +2039,7 @@ const App = (() => {
   }
 
   function populateCategorySelects() {
-    const cats = (_prefs.categories || DEFAULT_PREFS.categories).slice().sort((a, b) => a.localeCompare(b));
+    const cats = _prefs.categories || DEFAULT_PREFS.categories;
     ['entry-category', 'filter-category', 'dl-filter-category'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
