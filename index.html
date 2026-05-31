@@ -1001,6 +1001,7 @@
       </div>
 
       <div class="settings-layout">
+        <div class="settings-row">
         <div class="settings-section">
           <h2 class="settings-section-title">Profile</h2>
           <div class="settings-card">
@@ -1035,7 +1036,8 @@
           </div>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-col">
+        <div class="settings-section settings-section--appearance">
           <h2 class="settings-section-title">Appearance</h2>
           <div class="settings-card">
             <div class="setting-row">
@@ -1060,6 +1062,28 @@
         </div>
 
         <div class="settings-section">
+          <h2 class="settings-section-title">Notifications</h2>
+          <div class="settings-card">
+            <div class="setting-row setting-row--inline">
+              <label class="setting-label">Daily Reminder</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-reminder" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+            <div class="setting-row setting-row--inline" id="reminder-time-row" style="display:none">
+              <label class="setting-label" for="setting-reminder-time">Reminder Time</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="time" id="setting-reminder-time" class="setting-input" value="20:00" />
+                <button class="btn btn-secondary btn-sm" id="test-reminder-btn">Test</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /.settings-col -->
+        </div><!-- /.settings-row -->
+
+        <div class="settings-section">
           <h2 class="settings-section-title">Categories</h2>
           <div class="settings-card">
             <p class="settings-hint">Manage learning categories used in log entries.</p>
@@ -1067,26 +1091,6 @@
             <div class="add-category-row">
               <input type="text" id="new-category-input" class="setting-input" placeholder="New category name" />
               <button class="btn btn-secondary" id="add-category-btn">Add</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <h2 class="settings-section-title">Notifications</h2>
-          <div class="settings-card">
-            <div class="setting-row">
-              <label class="setting-label">Daily Reminder</label>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-reminder" />
-                <span class="toggle-thumb"></span>
-              </label>
-            </div>
-            <div class="setting-row" id="reminder-time-row" style="display:none">
-              <label class="setting-label" for="setting-reminder-time">Reminder Time</label>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input type="time" id="setting-reminder-time" class="setting-input" value="20:00" />
-                <button class="btn btn-secondary btn-sm" id="test-reminder-btn">Test</button>
-              </div>
             </div>
           </div>
         </div>

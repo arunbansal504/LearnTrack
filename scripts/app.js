@@ -1978,6 +1978,7 @@ const App = (() => {
     });
   }
 
+
   async function addCategory() {
     const input = document.getElementById('new-category-input');
     const val   = input?.value.trim();
@@ -2001,7 +2002,7 @@ const App = (() => {
   }
 
   function populateCategorySelects() {
-    const cats = _prefs.categories || DEFAULT_PREFS.categories;
+    const cats = (_prefs.categories || DEFAULT_PREFS.categories).slice().sort((a, b) => a.localeCompare(b));
     ['entry-category', 'filter-category', 'dl-filter-category'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
@@ -3551,6 +3552,9 @@ const App = (() => {
     document.getElementById('user-picker-modal')?.addEventListener('click', e => {
       if (e.target === document.getElementById('user-picker-modal')) closeUserPicker();
     });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('user-picker-modal')?.style.display === 'flex') closeUserPicker();
+    });
   }
 
   function openUserPicker(canCancel = true) {
@@ -3631,22 +3635,28 @@ const App = (() => {
 
     list.innerHTML = users.map(u => `
       <div class="user-manage-row${u.id === activeId ? ' active-user' : ''}">
-        <div class="user-manage-avatar" style="background:${u.color}">${u.name.charAt(0).toUpperCase()}</div>
-        <div class="user-manage-info">
-          <div class="user-manage-name-wrap">
-            <span class="user-manage-name">${escapeHtml(u.name)}</span>
-            <input type="text" class="user-manage-rename-input hidden" value="${escapeHtml(u.name)}" maxlength="30" />
+        <div class="user-manage-main${u.id !== activeId ? ' user-manage-switchable' : ''}" ${u.id !== activeId ? `data-uid="${u.id}" title="Switch to ${escapeHtml(u.name)}" role="button" tabindex="0"` : ''}>
+          <div class="user-manage-avatar" style="background:${u.color}">${u.name.charAt(0).toUpperCase()}</div>
+          <div class="user-manage-info">
+            <div class="user-manage-name-wrap">
+              <span class="user-manage-name">${escapeHtml(u.name)}</span>
+              <input type="text" class="user-manage-rename-input hidden" value="${escapeHtml(u.name)}" maxlength="30" />
+            </div>
+            ${u.id === activeId ? '<span class="user-active-badge">Active</span>' : ''}
           </div>
-          ${u.id === activeId ? '<span class="user-active-badge">Active</span>' : ''}
         </div>
         <div class="user-manage-actions">
-          <button class="btn btn-ghost btn-sm" data-action="user-rename" data-uid="${u.id}" title="Rename profile">✏️</button>
+          <button class="user-action-btn" data-action="user-rename" data-uid="${u.id}" title="Rename profile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="btn btn-primary btn-sm hidden" data-action="user-rename-save" data-uid="${u.id}">Save</button>
-          ${u.id !== activeId ? `<button class="btn btn-ghost btn-sm" data-action="user-switch" data-uid="${u.id}">Switch</button>` : ''}
-          ${users.length > 1 && u.id !== activeId ? `<button class="btn btn-ghost btn-sm btn-danger-ghost" data-action="user-delete" data-uid="${u.id}">Delete</button>` : ''}
+          ${users.length > 1 && u.id !== activeId ? `<button class="user-action-btn user-action-btn--danger" data-action="user-delete" data-uid="${u.id}" title="Delete profile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>` : ''}
         </div>
       </div>
     `).join('') || '<p class="settings-hint">No profiles found.</p>';
+
+    list.querySelectorAll('.user-manage-switchable').forEach(el => {
+      el.addEventListener('click', () => switchUser(el.dataset.uid));
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') switchUser(el.dataset.uid); });
+    });
 
     list.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', () => {
