@@ -108,6 +108,7 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -596,6 +597,7 @@ img, svg { max-width: 100%; }
   background: var(--bg);
   transition: margin-left 0.25s ease;
   padding-bottom: calc(var(--mobile-nav-height) + var(--s-4));
+  overflow-x: hidden;
 }
 
 .app-shell.sidebar-collapsed .main-content {
@@ -1135,15 +1137,16 @@ input:disabled {
 .toggle-switch input:checked + .toggle-thumb::before { transform: translateX(18px); }
 
 /* ---- MODALS -------------------------------------- */
+/* Mobile-first: bottom sheet by default */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 1000;
-  padding: var(--s-4);
+  padding: 0;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
 }
@@ -1151,17 +1154,32 @@ input:disabled {
 .modal {
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: var(--r-xl);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
   width: 100%;
-  max-width: 640px;
-  max-height: 90vh;
+  max-width: 100%;
+  max-height: 92dvh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
-  animation: slideUp 0.25s ease;
+  animation: slideUpSheet 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.modal-sm { max-width: 420px; }
+.modal-sm { max-width: 100%; }
+
+/* Desktop: revert to centred dialog */
+@media (min-width: 769px) {
+  .modal-overlay {
+    align-items: center;
+    padding: var(--s-4);
+  }
+  .modal {
+    border-radius: var(--r-xl);
+    max-width: 640px;
+    max-height: 90vh;
+    animation: slideUp 0.25s ease;
+  }
+  .modal-sm { max-width: 420px; }
+}
 
 .modal-header {
   display: flex;
@@ -2061,7 +2079,6 @@ input:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--s-8);
-  max-width: 720px;
 }
 
 .settings-section-title {
@@ -3137,6 +3154,19 @@ input:disabled {
   line-height: 1.5;
 }
 
+/* ---- MOBILE SIDEBAR OVERLAY ---------------------- */
+.mobile-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.52);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+.mobile-sidebar-overlay.active { display: block; }
+
 /* ---- MOBILE BOTTOM NAV --------------------------- */
 .mobile-bottom-nav {
   display: none;
@@ -3443,58 +3473,238 @@ input:disabled {
     --sidebar-width: 0px;
   }
 
+  /* --- Sidebar as drawer --- */
   .sidebar {
     transform: translateX(-100%);
-    width: 240px !important;
+    width: 260px !important;
     box-shadow: var(--shadow-lg);
+    z-index: 200;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-toggle { display: none; }
 
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
-
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-  }
-
+  .app-shell { grid-template-columns: 1fr; }
+  .main-content { margin-left: 0 !important; }
   .mobile-bottom-nav { display: flex; }
 
-  .page { padding: var(--s-4); }
-  .page-header { flex-direction: column; align-items: stretch; }
-  .dashboard-header { grid-template-columns: 1fr; grid-template-rows: auto auto auto; justify-items: center; }
-  .dashboard-header .page-title-group { justify-self: stretch; }
-  .dashboard-header .page-actions { justify-content: center; }
-  .page-actions { flex-wrap: wrap; }
+  /* --- Page layout --- */
+  .page { padding: var(--s-4) var(--s-4) calc(var(--mobile-nav-height) + var(--s-6)); }
+  .page-title { font-size: 22px; }
+  .page-subtitle { font-size: 13px; }
 
+  /* Page header: title on top, actions below */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .page-actions {
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  /* Dashboard header: single row — title left, button right */
+  .dashboard-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .dashboard-header-center { display: none; }
+  .dashboard-header .page-title-group { flex: 1; min-width: 0; }
+  .dashboard-header .page-subtitle { display: none; }
+  .dashboard-header .page-actions { flex-shrink: 0; flex-wrap: nowrap; }
+
+  /* Quote chip: hidden on mobile */
+  .daily-quote-chip { display: none; }
+
+  /* --- Forms --- */
   .form-row { grid-template-columns: 1fr; }
 
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .summary-row { flex-direction: column; }
+  /* Search bar: grows full width */
+  .search-bar { flex: 1; min-width: 0; }
+  .search-bar input { min-width: 0; width: 100%; }
 
+  /* --- Grids --- */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .summary-row { grid-template-columns: 1fr; }
+
+  /* --- Achievements --- */
   .level-hero { flex-direction: column; align-items: flex-start; }
   .level-hero-right { flex-wrap: wrap; }
 
+  /* --- Resource row --- */
   .resource-row { grid-template-columns: 1fr 1fr; }
   .resource-row > :first-child { grid-column: 1 / -1; }
 
+  /* --- Backup --- */
   .backup-layout { grid-template-columns: 1fr; }
   .backup-card { flex-direction: column; }
 
+  /* --- Entry cards --- */
   .entry-card { grid-template-columns: auto 1fr; }
   .dl-card    { grid-template-columns: auto auto 1fr; }
   .entry-actions-col { grid-column: 2; flex-direction: row; }
   .dl-card .entry-actions-col { grid-column: 3; }
 
-  .modal { border-radius: var(--r-lg); margin: 0; max-height: 95vh; }
+  /* --- Modals: compact interior on mobile --- */
+  .modal-header { padding: var(--s-4); }
+  .modal-body   { padding: var(--s-4); }
+  .modal-footer { padding: var(--s-3) var(--s-4); flex-direction: column; gap: var(--s-2); }
+  .modal-footer-left  { order: 2; }
+  .modal-footer-right { width: 100%; order: 1; flex-wrap: nowrap; }
+  .modal-footer-right .btn { flex: 1; justify-content: center; }
+  /* Touch-friendly form inputs */
+  .modal .form-group input,
+  .modal .form-group select { min-height: 44px; }
+  /* Resource row: type+remove on row 1, title full-width on row 2, url on row 3 */
+  .resource-row {
+    grid-template-columns: 1fr auto;
+  }
+  .resource-row > :first-child   { grid-column: 1; grid-row: 1; }
+  .resource-row > :nth-child(2)  { grid-column: 1 / -1; grid-row: 2; }
+  .resource-row > :nth-child(3)  { grid-column: 1 / -1; grid-row: 3; }
+  .resource-row > :nth-child(4)  { grid-column: 2; grid-row: 1; align-self: center; }
+
+  /* --- Pomo panel: mobile sizes --- */
+  .pomo-big-time { font-size: 56px; letter-spacing: -3px; }
+  .pomo-tab { padding: 7px 14px; font-size: 12px; }
+  .pomo-mode-btn { padding: 5px 11px; font-size: 11px; }
+  .pomo-preset { padding: 5px 11px; font-size: 11px; }
+  .pomo-btn { padding: 9px 20px; font-size: 13px; }
+  .pomo-controls { gap: 8px; }
+  .pomo-corner-btn { width: 32px; height: 32px; font-size: 14px; bottom: 13px; }
+  .pomo-corner-left  { left: 12px; }
+  .pomo-corner-right { right: 12px; }
+  .timer-section { gap: 8px; }
+
+  /* Pomo fullscreen: overrides now handled mobile-first in base rules */
+
+  /* --- Filter panel --- */
+  .filter-group { min-width: calc(50% - var(--s-2)); flex: 1; }
+
+  /* --- Calendar --- */
+  .cal-day { min-height: 56px; padding: var(--s-1); }
+  .cal-day-num { font-size: 12px; }
+  .cal-header-cell { padding: var(--s-2); font-size: 10px; }
+
+  /* --- Charts --- */
+  .chart-container, .chart-container-sm { height: 180px; }
+  .charts-grid { gap: var(--s-3); }
+  .chart-card { padding: var(--s-4); }
+
+  /* Chart header: allow title + tabs to wrap if tight */
+  .chart-header { flex-wrap: wrap; gap: var(--s-2); }
+  .chart-header h3 { flex: 1 0 auto; }
+
+  /* Heatmap: smooth touch scrolling (fallback if content still wider than screen) */
+  .heatmap-container { -webkit-overflow-scrolling: touch; }
+
+  /* --- Settings & Profiles --- */
+  .settings-layout { gap: var(--s-5); }
+  .settings-card { padding: var(--s-4); gap: var(--s-4); }
+
+  /* Stack label above its control */
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+  }
+  .setting-label { flex: none; }
+
+  /* Controls stretch full width when stacked */
+  .setting-input { width: 100%; box-sizing: border-box; }
+  .theme-options { width: 100%; }
+  .theme-option { flex: 1; text-align: center; }
+
+  /* Accent swatches: larger touch target */
+  .accent-swatch { width: 32px; height: 32px; }
+
+  /* Category add row: input grows */
+  .add-category-row .setting-input { flex: 1; }
+
+  /* Danger zone: stack label+hint above button */
+  .danger-zone .setting-row { align-items: stretch; }
+  .danger-zone .setting-row .btn { width: 100%; justify-content: center; }
+
+  /* Profiles — allow action buttons to wrap below name on small screens */
+  .user-manage-row { flex-wrap: wrap; gap: 8px; }
+  .user-manage-actions { width: 100%; justify-content: flex-start; }
+  .user-manage-rename-input { width: 100%; box-sizing: border-box; }
+
+  /* Achievements XP bar --- */
+  .level-xp-bar { width: 100%; }
+
+  /* --- Achievements grid --- */
+  .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* --- Insights row: 2-column grid (no scroll) --- */
+  .insights-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .insight-card { padding: var(--s-2) var(--s-3); }
+  .insight-value { font-size: 15px; }
+
+  /* --- Heatmap cells: slightly smaller --- */
+  .heatmap-cell { width: 10px; height: 10px; }
 }
 
+/* ---- RESPONSIVE: SMALL PHONE (≤480px) ----------- */
 @media (max-width: 480px) {
+  .page { padding: var(--s-3) var(--s-3) calc(var(--mobile-nav-height) + var(--s-6)); }
+  .page-title { font-size: 20px; }
+
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Quote chip: very compact */
+  .daily-quote-chip { font-size: 11px; padding: 6px 10px; }
+
+  /* Pomo panel: even more compact on tiny phones */
+  .pomo-panel { padding: 10px 12px 50px; gap: 6px; }
+  .pomo-big-time { font-size: 48px; letter-spacing: -2px; }
+  .pomo-tab { padding: 6px 10px; font-size: 11px; }
+
+  /* Pomo fullscreen: even smaller on tiny phones */
+  .pomo-panel.fullscreen .pomo-big-time { font-size: 64px; letter-spacing: -3px; }
+  .pomo-panel.fullscreen .pomo-fs-quote { font-size: 16px; height: 100px; bottom: 52px; }
+  .pomo-panel.fullscreen .pomo-btn { padding: 10px 20px; font-size: 14px; }
+
+  /* Modal: allow it to use more height on tiny phones */
+  .modal { max-height: 96vh; }
+
+  /* Entry meta text smaller */
+  .entry-meta { font-size: 11px; }
+
+  /* Filter groups full width */
+  .filter-group { min-width: 100%; flex: 1 1 100%; }
+
+  /* Calendar cells smaller */
+  .cal-day { min-height: 44px; }
+  .cal-day-num { font-size: 11px; }
+
+  /* Charts: keep readable height */
+  .chart-container, .chart-container-sm { height: 160px; }
+
+  /* Achievements grid: 2 cols on small phone */
+  .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---- RESPONSIVE: TINY PHONE (≤380px) ------------ */
+@media (max-width: 380px) {
+  :root { --s-4: 14px; }
+  .page-title { font-size: 18px; }
+  .stat-value { font-size: 18px; }
+  .mobile-bottom-nav { padding: 0; }
+  .mobile-nav-item { font-size: 9px; padding: var(--s-1); }
+  .mobile-nav-item svg { width: 20px; height: 20px; }
 }
 
 /* ---- SIDEBAR USER SWITCH BUTTON ------------------- */
@@ -3811,18 +4021,19 @@ input:disabled {
 
 .pomo-panel {
   position: fixed;
-  bottom: 88px;
-  right: 24px;
-  width: 340px;
+  bottom: calc(var(--mobile-nav-height) + 74px);
+  left: 10px;
+  right: 10px;
+  width: auto;
   background: var(--timer-grad, linear-gradient(135deg, #4f46e5 0%, #9333ea 38%, #ec4899 70%, #f97316 100%));
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: 0 24px 64px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.2);
   z-index: 600;
-  padding: 18px 20px 72px;
+  padding: 12px 14px 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   animation: pomoSlideUp 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   color: white;
   overflow: hidden;
@@ -3865,35 +4076,36 @@ input:disabled {
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255,255,255,0.12);
 }
-.pomo-panel.fullscreen .pomo-tab { padding: 10px 28px; font-size: 15px; }
+/* Mobile-first tab size */
+.pomo-panel.fullscreen .pomo-tab { padding: 8px 14px; font-size: 13px; }
 .pomo-panel.fullscreen .pomo-tab.active { background: rgba(255,255,255,0.92); }
 
 /* Hide mode buttons & idle controls — clean focus view */
 .pomo-panel.fullscreen .pomo-modes        { display: none !important; }
 .pomo-panel.fullscreen #pomo-idle-controls { display: none !important; }
 
-/* Timer section above the rings */
-.pomo-panel.fullscreen .timer-section { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+/* Timer section */
+.pomo-panel.fullscreen .timer-section { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 
-/* Glass card behind timer digits */
+/* Glass card behind timer digits — mobile size */
 .pomo-panel.fullscreen .timer-section::before {
   content: '';
   position: absolute;
-  inset: -32px -65px;
+  inset: -20px -20px;
   background: rgba(0,0,0,0.12);
-  border-radius: 52px;
+  border-radius: 32px;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid rgba(255,255,255,0.07);
   z-index: -1;
 }
 
-/* Giant glowing timer */
+/* Timer — mobile-first size */
 .pomo-panel.fullscreen .pomo-big-time {
-  font-size: 160px;
-  letter-spacing: -8px;
+  font-size: 80px;
+  letter-spacing: -4px;
   line-height: 1;
-  text-shadow: 0 0 60px rgba(255,255,255,0.3), 0 0 120px rgba(255,255,255,0.1);
+  text-shadow: 0 0 40px rgba(255,255,255,0.3), 0 0 80px rgba(255,255,255,0.1);
 }
 
 /* Timer pulses while running */
@@ -3901,42 +4113,57 @@ input:disabled {
   animation: pomoGlowPulse 3.5s ease-in-out infinite;
 }
 @keyframes pomoGlowPulse {
-  0%, 100% { text-shadow: 0 0 60px rgba(255,255,255,0.28), 0 0 120px rgba(255,255,255,0.1); }
-  50%       { text-shadow: 0 0 90px rgba(255,255,255,0.6),  0 0 180px rgba(255,255,255,0.22), 0 0 30px rgba(255,255,255,0.35); }
+  0%, 100% { text-shadow: 0 0 40px rgba(255,255,255,0.28), 0 0 80px rgba(255,255,255,0.1); }
+  50%       { text-shadow: 0 0 70px rgba(255,255,255,0.6),  0 0 140px rgba(255,255,255,0.22), 0 0 24px rgba(255,255,255,0.35); }
 }
 
-/* Mode label — styled pill badge */
+/* Mode label */
 .pomo-panel.fullscreen .pomo-mode-label {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  margin-top: -8px;
+  margin-top: -6px;
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.22);
   border-radius: 100px;
-  padding: 5px 20px;
+  padding: 4px 16px;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 .pomo-panel.fullscreen .pomo-mode-label:empty { display: none; }
 
-/* Wider progress bar */
+/* Progress bar — mobile width */
 .pomo-panel.fullscreen .pomo-progress-wrap {
-  width: 300px;
+  width: min(80vw, 260px);
   height: 5px;
 }
 
-/* Bigger controls */
-.pomo-panel.fullscreen .pomo-controls { gap: 14px; }
-.pomo-panel.fullscreen .pomo-btn { padding: 14px 38px; font-size: 16px; }
-.pomo-panel.fullscreen .pomo-btn-timesup { width: 320px; font-size: 17px; padding: 16px 28px; }
+/* Controls — mobile-first */
+.pomo-panel.fullscreen .pomo-controls { gap: 10px; }
+.pomo-panel.fullscreen .pomo-btn { padding: 11px 26px; font-size: 15px; }
+.pomo-panel.fullscreen .pomo-btn-timesup { width: min(280px, 88vw); font-size: 15px; padding: 13px 24px; }
 .pomo-panel.fullscreen #pomo-timesup-row { width: auto; }
 
-/* Close hidden, corners repositioned */
+/* Close hidden, corners — mobile positions */
 .pomo-panel.fullscreen .pomo-close { display: none; }
-.pomo-panel.fullscreen .pomo-corner-left  { bottom: 32px; left:  32px; }
-.pomo-panel.fullscreen .pomo-corner-right { bottom: 32px; right: 32px; }
+.pomo-panel.fullscreen .pomo-corner-left  { bottom: 24px; left:  20px; }
+.pomo-panel.fullscreen .pomo-corner-right { bottom: 24px; right: 20px; }
+
+/* Desktop fullscreen — larger sizes, show decorations */
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-tab { padding: 10px 28px; font-size: 15px; }
+  .pomo-panel.fullscreen .timer-section { gap: 18px; }
+  .pomo-panel.fullscreen .timer-section::before { inset: -32px -65px; border-radius: 52px; }
+  .pomo-panel.fullscreen .pomo-big-time { font-size: 160px; letter-spacing: -8px; text-shadow: 0 0 60px rgba(255,255,255,0.3), 0 0 120px rgba(255,255,255,0.1); }
+  .pomo-panel.fullscreen .pomo-progress-wrap { width: 300px; }
+  .pomo-panel.fullscreen .pomo-controls { gap: 14px; }
+  .pomo-panel.fullscreen .pomo-btn { padding: 14px 38px; font-size: 16px; }
+  .pomo-panel.fullscreen .pomo-btn-timesup { width: 320px; font-size: 17px; padding: 16px 28px; }
+  .pomo-panel.fullscreen .pomo-corner-left  { bottom: 32px; left:  32px; }
+  .pomo-panel.fullscreen .pomo-corner-right { bottom: 32px; right: 32px; }
+  .pomo-panel.fullscreen .pomo-ring-svg { display: block; }
+}
 
 @keyframes pomoSlideUp {
   from { opacity: 0; transform: translateY(18px) scale(0.94); }
@@ -3957,23 +4184,25 @@ input:disabled {
   100% { background-position: 0%   50%; }
 }
 
-/* Fullscreen live clock */
+/* Fullscreen live clock — hidden on mobile, shown on desktop only */
 .pomo-fs-clock { display: none; pointer-events: none; }
-.pomo-panel.fullscreen .pomo-fs-clock {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  position: absolute;
-  top: 28px;
-  right: 32px;
-  z-index: 10;
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 100px;
-  padding: 8px 16px 8px 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-fs-clock {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    position: absolute;
+    top: 28px;
+    right: 32px;
+    z-index: 10;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 100px;
+    padding: 8px 16px 8px 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
 }
 .pfc-dot {
   width: 7px;
@@ -4071,21 +4300,21 @@ input:disabled {
   to   { transform: rotate(360deg); }
 }
 
-/* Rotating motivational quote */
+/* Rotating motivational quote — mobile-first size */
 .pomo-panel.fullscreen .pomo-fs-quote {
   display: block;
   position: absolute;
-  bottom: 76px;
+  bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(520px, 78vw);
+  width: min(90vw, 360px);
   text-align: center;
   color: rgba(255,255,255,0.88);
   font-family: 'Cormorant Garant', Georgia, serif;
-  font-size: 22px;
+  font-size: 17px;
   font-style: italic;
   font-weight: 500;
-  line-height: 1.6;
+  line-height: 1.55;
   letter-spacing: 0.02em;
   z-index: 3;
   transition: opacity 0.75s ease;
@@ -4095,9 +4324,18 @@ input:disabled {
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255,255,255,0.13);
   border-radius: 14px;
-  padding: 30px 24px 11px;
-  height: 136px;
+  padding: 24px 20px 10px;
+  height: 110px;
   overflow: hidden;
+}
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-fs-quote {
+    bottom: 12px;
+    width: min(520px, 78vw);
+    font-size: 22px;
+    padding: 30px 24px 11px;
+    height: 136px;
+  }
 }
 .pomo-panel.fullscreen .pomo-fs-quote::before {
   content: '';
@@ -4477,11 +4715,11 @@ input:disabled {
 .pomo-corner-left  { left: 18px; }
 .pomo-corner-right { right: 18px; }
 
-/* Pomodoro FAB */
+/* Pomodoro FAB — mobile-first: sits above the mobile nav bar */
 .pomo-fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(var(--mobile-nav-height) + 10px);
+  right: 16px;
   width: 54px;
   height: 54px;
   border-radius: 50%;
@@ -4545,15 +4783,16 @@ input:disabled {
   50%       { box-shadow: 0 4px 18px rgba(0,0,0,0.2), 0 0 0 10px rgba(0,0,0,0); }
 }
 
-/* Mobile */
-@media (max-width: 768px) {
-  .pomo-fab {
-    bottom: calc(var(--mobile-nav-height) + 14px);
-  }
+/* Desktop: revert pomo to original right-side positions */
+@media (min-width: 769px) {
+  .pomo-fab { bottom: 24px; right: 24px; }
   .pomo-panel {
-    bottom: calc(var(--mobile-nav-height) + 82px);
-    right: 12px;
-    left: 12px;
-    width: auto;
+    bottom: 88px;
+    left: auto;
+    right: 24px;
+    width: 340px;
+    padding: 18px 20px 72px;
+    gap: 12px;
+    border-radius: 24px;
   }
 }

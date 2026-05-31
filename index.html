@@ -26,9 +26,9 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css" />
-  <link rel="stylesheet" href="styles/dashboard.css" />
-  <link rel="stylesheet" href="styles/animations.css" />
+  <link rel="stylesheet" href="styles/main.css?v=15" />
+  <link rel="stylesheet" href="styles/dashboard.css?v=15" />
+  <link rel="stylesheet" href="styles/animations.css?v=15" />
 </head>
 <body>
 
@@ -42,6 +42,7 @@
 </div>
 
 <!-- ========== APP SHELL ========== -->
+<div id="mobile-sidebar-overlay" class="mobile-sidebar-overlay" aria-hidden="true"></div>
 <div id="app" class="app-shell" style="display:none">
 
   <!-- SIDEBAR -->
@@ -319,9 +320,9 @@
           <div class="chart-header">
             <h3>Daily Learning Time</h3>
             <div class="chart-range-tabs" id="daily-range-tabs">
-              <button class="chart-range-tab" data-val="7">7d</button>
+              <button class="chart-range-tab active" data-val="7">7d</button>
               <button class="chart-range-tab" data-val="14">14d</button>
-              <button class="chart-range-tab active" data-val="30">30d</button>
+              <button class="chart-range-tab" data-val="30">30d</button>
               <button class="chart-range-tab" data-val="90">90d</button>
               <button class="chart-range-tab" data-val="all">All</button>
             </div>
@@ -334,9 +335,9 @@
           <div class="chart-header">
             <h3>Monthly Progress</h3>
             <div class="chart-range-tabs" id="monthly-range-tabs">
-              <button class="chart-range-tab" data-val="3">3m</button>
+              <button class="chart-range-tab active" data-val="3">3m</button>
               <button class="chart-range-tab" data-val="6">6m</button>
-              <button class="chart-range-tab active" data-val="12">12m</button>
+              <button class="chart-range-tab" data-val="12">12m</button>
             </div>
           </div>
           <div class="chart-container chart-container-sm">
@@ -1528,6 +1529,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
     <span>Awards</span>
   </a>
+  <a href="#" class="mobile-nav-item" id="mobile-more-btn" aria-label="More pages">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>More</span>
+  </a>
 </nav>
 
 <!-- ===== MODAL: BACKUP FOLDER REQUIRED ===== -->
@@ -1546,14 +1551,14 @@
 </div>
 
 <!-- Scripts (module order matters) -->
-<script src="scripts/storage.js"></script>
-<script src="scripts/analytics.js"></script>
-<script src="scripts/rewards.js"></script>
-<script src="scripts/charts.js"></script>
-<script src="scripts/calendar.js"></script>
-<script src="scripts/insights.js"></script>
-<script src="scripts/timer.js"></script>
-<script src="scripts/app.js"></script>
+<script src="scripts/storage.js?v=15"></script>
+<script src="scripts/analytics.js?v=15"></script>
+<script src="scripts/rewards.js?v=15"></script>
+<script src="scripts/charts.js?v=15"></script>
+<script src="scripts/calendar.js?v=15"></script>
+<script src="scripts/insights.js?v=15"></script>
+<script src="scripts/timer.js?v=15"></script>
+<script src="scripts/app.js?v=15"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 

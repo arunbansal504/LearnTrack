@@ -877,3 +877,101 @@
 @media (max-width: 640px) {
   .report-config-row { flex-direction: column; align-items: flex-start; }
 }
+
+/* ===================================================
+   MOBILE RESPONSIVE — dashboard-specific
+   =================================================== */
+@media (max-width: 768px) {
+  /* ── Stats: 3 columns, row-oriented cards ── */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .stat-card {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-2);
+  }
+  .stat-icon { width: 26px; height: 26px; font-size: 12px; flex-shrink: 0; align-self: center; }
+  .stat-value { font-size: 14px; letter-spacing: -0.01em; }
+  .stat-label { font-size: 8.5px; letter-spacing: 0.02em; margin-top: 1px; }
+  .stat-sub   { font-size: 8.5px; margin-top: 0; }
+  .stat-trend { font-size: 8.5px; }
+  .xp-progress { margin: 2px 0 0; }
+
+  /* ── Summary row: 3-col grid, compact (no scroll) ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .summary-card { padding: var(--s-2) var(--s-2); }
+  .summary-big { font-size: 16px; letter-spacing: -0.02em; }
+  .summary-meta { font-size: 9px; margin-bottom: 0; }
+  .summary-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-bottom: var(--s-1);
+    padding-bottom: var(--s-1);
+  }
+  .summary-header h3 { font-size: 9px; }
+  .summary-period { font-size: 8px; padding: 1px 4px; }
+  /* Hide detailed visuals — just show the headline number */
+  .week-bars { display: none; }
+  .month-progress { display: none; }
+  .summary-sub { display: none; }
+  .milestone-icon { font-size: 18px; }
+  .milestone-name { font-size: 10px; }
+  .milestone-progress { display: none; }
+  .milestone-meta { font-size: 9px; }
+  .upcoming-milestone-card .summary-body { gap: var(--s-1); }
+
+  /* ── Goal row ── */
+  .goal-row { flex-direction: column; gap: var(--s-2); margin-bottom: var(--s-3); }
+  .goal-progress-card {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: var(--s-2) var(--s-3);
+    gap: var(--s-2);
+  }
+  .goal-today-section { flex: 1; min-width: 0; }
+  .goal-divider { display: none; }
+  .goal-week-section { width: 100%; gap: var(--s-2); }
+  .goal-day-circle { width: 22px; height: 22px; }
+  .goal-day-label { font-size: 8px; }
+
+  /* ── Today summary card ── */
+  .today-summary-card { padding: var(--s-2) var(--s-3); }
+
+  /* ── Widget padding reduced ── */
+  .widget { padding: var(--s-3); }
+
+  /* ── Badges mini grid ── */
+  .badges-grid-mini { grid-template-columns: repeat(5, 1fr); }
+
+  /* ── Dashboard bottom spacing ── */
+  .dashboard-bottom { padding-top: var(--s-3); margin-top: 0; gap: var(--s-3); }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: var(--s-1); }
+  .stat-card { padding: 6px var(--s-1); }
+  .stat-icon { width: 22px; height: 22px; font-size: 11px; }
+  .stat-value { font-size: 13px; }
+
+  .goal-day-circle { width: 20px; height: 20px; }
+  .goal-week-days { gap: 3px; }
+  .goal-circle-pct { font-size: 7px; }
+
+  .badges-grid-mini { grid-template-columns: repeat(3, 1fr); }
+  .badge-mini { font-size: 18px; }
+
+  .summary-card { padding: var(--s-1) var(--s-2); }
+  .summary-big { font-size: 14px; }
+  .summary-header h3 { font-size: 8px; }
+}

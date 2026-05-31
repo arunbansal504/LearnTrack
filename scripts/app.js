@@ -66,8 +66,8 @@ const App = (() => {
   let _currentPage  = 'dashboard';
   let _deletedPage  = 1;
   let _deletedSelection = new Set();
-  let _dailyRange    = 30;
-  let _monthlyRange  = 12;
+  let _dailyRange    = 7;
+  let _monthlyRange  = 3;
   let _categoryRange = 30;
   let _logPage      = 1;
   const LOG_PAGE_SIZE = 20;
@@ -262,6 +262,9 @@ const App = (() => {
   function navigateTo(page) {
     _currentPage = page;
 
+    // Close mobile sidebar drawer on navigation
+    if (window.innerWidth <= 768) closeMobileSidebar();
+
     // Update sidebar active state
     document.querySelectorAll('.nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.page === page);
@@ -292,11 +295,28 @@ const App = (() => {
 
   /* ---- Sidebar ------------------------------------- */
 
+  function openMobileSidebar() {
+    document.getElementById('sidebar')?.classList.add('mobile-open');
+    document.getElementById('mobile-sidebar-overlay')?.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileSidebar() {
+    document.getElementById('sidebar')?.classList.remove('mobile-open');
+    document.getElementById('mobile-sidebar-overlay')?.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
   function setupSidebar() {
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-      document.getElementById('app').classList.toggle('sidebar-collapsed');
+      if (window.innerWidth <= 768) {
+        closeMobileSidebar();
+      } else {
+        document.getElementById('app').classList.toggle('sidebar-collapsed');
+      }
     });
     document.getElementById('user-switch-btn')?.addEventListener('click', () => openUserPicker(true));
+    document.getElementById('mobile-sidebar-overlay')?.addEventListener('click', closeMobileSidebar);
   }
 
   function updateSidebarUser() {
@@ -328,6 +348,11 @@ const App = (() => {
   /* ---- Mobile Nav ---------------------------------- */
 
   function setupMobileNav() {
+    document.getElementById('mobile-more-btn')?.addEventListener('click', e => {
+      e.preventDefault();
+      openMobileSidebar();
+    });
+
     document.querySelectorAll('.mobile-nav-item[data-action]').forEach(el => {
       el.addEventListener('click', e => {
         e.preventDefault();
@@ -1025,11 +1050,13 @@ const App = (() => {
     }
 
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
     setTimeout(() => document.getElementById('entry-topic')?.focus(), 100);
   }
 
   function closeEntryModal() {
     document.getElementById('entry-modal').style.display = 'none';
+    document.body.style.overflow = '';
     clearAutoSaveTimer();
   }
 

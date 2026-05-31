@@ -90,8 +90,8 @@ const Charts = (() => {
           x: {
             ticks: {
               color: getTextColor(),
-              font: { family: 'Inter', size: 11 },
-              maxTicksLimit: 10,
+              font: { family: 'Inter', size: window.innerWidth <= 768 ? 9 : 11 },
+              maxTicksLimit: window.innerWidth <= 768 ? 7 : 10,
               maxRotation: 0,
             },
             grid: { color: getBorderColor() },
@@ -100,8 +100,9 @@ const Charts = (() => {
             beginAtZero: true,
             ticks: {
               color: getTextColor(),
-              font: { family: 'Inter', size: 11 },
+              font: { family: 'Inter', size: window.innerWidth <= 768 ? 9 : 11 },
               callback: (v) => v + 'h',
+              maxTicksLimit: 5,
             },
             grid: { color: getBorderColor() },
           },
@@ -150,13 +151,13 @@ const Charts = (() => {
           ...CHART_DEFAULTS.plugins,
           legend: {
             display:  true,
-            position: 'bottom',
+            position: window.innerWidth <= 768 ? 'right' : 'bottom',
             labels: {
               color:     getTextColor(),
-              font:      { family: 'Inter', size: 11 },
-              padding:   12,
-              boxWidth:  10,
-              boxHeight: 10,
+              font:      { family: 'Inter', size: window.innerWidth <= 768 ? 9 : 11 },
+              padding:   window.innerWidth <= 768 ? 6 : 12,
+              boxWidth:  window.innerWidth <= 768 ? 8 : 10,
+              boxHeight: window.innerWidth <= 768 ? 8 : 10,
               usePointStyle: true,
             },
           },
@@ -204,15 +205,20 @@ const Charts = (() => {
         ...CHART_DEFAULTS,
         scales: {
           x: {
-            ticks: { color: getTextColor(), font: { family: 'Inter', size: 11 } },
+            ticks: {
+              color: getTextColor(),
+              font: { family: 'Inter', size: window.innerWidth <= 768 ? 9 : 11 },
+              maxRotation: 0,
+            },
             grid:  { display: false },
           },
           y: {
             beginAtZero: true,
             ticks: {
               color: getTextColor(),
-              font: { family: 'Inter', size: 11 },
+              font: { family: 'Inter', size: window.innerWidth <= 768 ? 9 : 11 },
               callback: (v) => v + 'h',
+              maxTicksLimit: 5,
             },
             grid: { color: getBorderColor() },
           },
@@ -436,7 +442,7 @@ const Charts = (() => {
     }
 
     // Group by week column
-    const weeks = [];
+    let weeks = [];
     let week    = [];
     let weekday = cells[0].weekday;
 
@@ -453,12 +459,21 @@ const Charts = (() => {
     }
 
     const accent = getAccentColor();
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;gap:3px;align-items:flex-end;';
+    const isMobile = window.innerWidth <= 768;
+    const cs  = isMobile ? 10 : 12;  // cell size px
+    const gap = isMobile ? 2  : 3;   // gap px
+    const stride = cs + gap;
 
-    // Month labels
+    // On mobile cap weeks so heatmap fits without horizontal scroll
+    if (isMobile) {
+      const availW = container.offsetWidth || (window.innerWidth - 48);
+      const maxW   = Math.max(13, Math.floor((availW - gap) / stride));
+      if (weeks.length > maxW) weeks = weeks.slice(-maxW);
+    }
+
+    // Month labels — absolutely positioned so each label aligns exactly with its week column
     const monthRow = document.createElement('div');
-    monthRow.style.cssText = 'display:flex;gap:3px;font-size:10px;color:var(--text-3);margin-bottom:4px;';
+    monthRow.style.cssText = 'position:relative;height:14px;margin-bottom:4px;';
 
     let prevMonth = -1;
     weeks.forEach((w, wi) => {
@@ -468,7 +483,7 @@ const Charts = (() => {
         if (m !== prevMonth) {
           const label = document.createElement('div');
           label.textContent = new Date(firstCell.date).toLocaleDateString('en-US', { month: 'short' });
-          label.style.cssText = `width:${wi * 15}px;min-width:28px;font-size:10px;color:var(--text-3);`;
+          label.style.cssText = `position:absolute;left:${wi * stride}px;font-size:10px;color:var(--text-3);white-space:nowrap;line-height:14px;`;
           monthRow.appendChild(label);
           prevMonth = m;
         }
@@ -476,15 +491,15 @@ const Charts = (() => {
     });
 
     const grid = document.createElement('div');
-    grid.style.cssText = 'display:flex;gap:3px;';
+    grid.style.cssText = `display:flex;gap:${gap}px;`;
 
     for (const week of weeks) {
       const col = document.createElement('div');
-      col.style.cssText = 'display:flex;flex-direction:column;gap:3px;';
+      col.style.cssText = `display:flex;flex-direction:column;gap:${gap}px;`;
 
       for (const cell of week) {
         const el = document.createElement('div');
-        el.style.cssText = `width:12px;height:12px;border-radius:2px;`;
+        el.style.cssText = `width:${cs}px;height:${cs}px;border-radius:2px;`;
 
         if (!cell) {
           el.style.background = 'transparent';
@@ -507,7 +522,12 @@ const Charts = (() => {
       grid.appendChild(col);
     }
 
+    // Give monthRow the same width as the grid so absolute labels stay in bounds
+    const gridWidth = weeks.length * stride - gap;
+    monthRow.style.width = gridWidth + 'px';
+
     const outerWrap = document.createElement('div');
+    outerWrap.style.cssText = 'width:fit-content;';
     outerWrap.appendChild(monthRow);
     outerWrap.appendChild(grid);
     container.appendChild(outerWrap);

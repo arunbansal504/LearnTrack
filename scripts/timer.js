@@ -579,7 +579,11 @@ const PomodoroTimer = (() => {
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') _exitFullscreen();
+      if (e.key !== 'Escape') return;
+      const panel = _el('pomo-panel');
+      if (!panel || panel.style.display === 'none') return;
+      if (panel.classList.contains('fullscreen')) _exitFullscreen();
+      else closePanel();
     });
 
     /* --- Gradient cycling --- */
