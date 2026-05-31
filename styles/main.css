@@ -3390,6 +3390,10 @@ input:disabled {
 .info-tip:hover::after,
 .info-tip:hover::before { opacity: 1; }
 
+@media (max-width: 768px) {
+  .info-tip { display: none; }
+}
+
 /* Flip tooltip downward when card is near top of page */
 .tip-down::after {
   bottom: auto;

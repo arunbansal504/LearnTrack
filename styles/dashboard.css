@@ -761,6 +761,10 @@
 
 .badge-mini:hover .badge-mini-tooltip { opacity: 1; }
 
+@media (max-width: 768px) {
+  .badge-mini-tooltip { display: none; }
+}
+
 /* ---- LOAD MORE BUTTON ---------------------------- */
 .load-more-container {
   display: flex;
