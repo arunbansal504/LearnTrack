@@ -547,6 +547,13 @@ const Charts = (() => {
     });
   }
 
+  function resizeAllCharts() {
+    Object.keys(_charts).forEach(id => {
+      const chart = _charts[id];
+      if (chart) chart.resize();
+    });
+  }
+
   /* ---- Public API ---------------------------------- */
   return {
     renderDailyTimeChart,
@@ -557,6 +564,7 @@ const Charts = (() => {
     renderSparklineChart,
     renderHeatmap,
     refreshAllCharts,
+    resizeAllCharts,
     destroyChart,
   };
 

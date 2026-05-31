@@ -313,6 +313,12 @@ const App = (() => {
         closeMobileSidebar();
       } else {
         document.getElementById('app').classList.toggle('sidebar-collapsed');
+        setTimeout(() => {
+          Charts.resizeAllCharts();
+          if (_currentPage === 'dashboard') {
+            Charts.renderHeatmap('heatmap-container', Analytics.calculateHeatmapData(_entries));
+          }
+        }, 300);
       }
     });
     document.getElementById('user-switch-btn')?.addEventListener('click', () => openUserPicker(true));
@@ -350,7 +356,9 @@ const App = (() => {
   function setupMobileNav() {
     document.getElementById('mobile-more-btn')?.addEventListener('click', e => {
       e.preventDefault();
-      openMobileSidebar();
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar?.classList.contains('mobile-open')) closeMobileSidebar();
+      else openMobileSidebar();
     });
 
     document.querySelectorAll('.mobile-nav-item[data-action]').forEach(el => {

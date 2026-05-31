@@ -3244,7 +3244,7 @@ input:disabled {
 
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-4);
 }
 
@@ -3253,6 +3253,7 @@ input:disabled {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   padding: var(--s-4);
+  min-width: 0;
 }
 
 .chart-card.full-width { grid-column: 1 / -1; }
@@ -3267,8 +3268,8 @@ input:disabled {
 .chart-header h3 { font-size: 13px; font-weight: 700; }
 .chart-hint { font-size: 11px; color: var(--text-3); }
 
-.chart-container { position: relative; height: 200px; }
-.chart-container-sm { position: relative; height: 200px; }
+.chart-container { position: relative; height: 200px; overflow: hidden; }
+.chart-container-sm { position: relative; height: 200px; overflow: hidden; }
 
 /* ---- Chart range pill tabs ---- */
 .chart-range-tabs {
