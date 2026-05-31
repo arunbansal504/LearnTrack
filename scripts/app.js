@@ -1192,33 +1192,31 @@ const App = (() => {
     const row = document.createElement('div');
     row.className = 'resource-row';
     row.innerHTML = `
-      <select class="res-type">
-        <option value="link">🔗 Link</option>
-        <option value="youtube">▶️ YouTube</option>
-        <option value="course">🎓 Course</option>
-        <option value="blog">📰 Blog</option>
-        <option value="github">🐙 GitHub</option>
-        <option value="doc">📄 Docs</option>
-        <option value="pdf">📋 PDF</option>
-      </select>
+      <input type="hidden" class="res-type" value="link" />
       <input type="text" class="res-title" placeholder="Title (optional)" />
       <input type="url" class="res-url" placeholder="https://..." />
       <button type="button" class="resource-remove" aria-label="Remove resource">✕</button>
     `;
 
     if (prefill) {
-      row.querySelector('.res-type').value  = prefill.type  || 'link';
       row.querySelector('.res-title').value = prefill.title || '';
       row.querySelector('.res-url').value   = prefill.url   || '';
     }
 
     row.querySelector('.resource-remove')?.addEventListener('click', () => row.remove());
+
+    const warning = document.getElementById('resource-url-warning');
+    if (list.children.length === 0 && warning) warning.style.display = 'flex';
+    if (warning) setTimeout(() => warning.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+
     list.appendChild(row);
   }
 
   function clearResourceRows() {
     const list = document.getElementById('resources-list');
     if (list) list.innerHTML = '';
+    const warning = document.getElementById('resource-url-warning');
+    if (warning) warning.style.display = 'none';
   }
 
   /* ---- Delete / Duplicate -------------------------- */
