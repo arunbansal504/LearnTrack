@@ -1,0 +1,31 @@
+{
+  "name": "learn-track",
+  "version": "1.0.0",
+  "description": "AI-Powered Learning Tracker — track daily learning, visualize progress, stay motivated.",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "npx http-server -p 8080",
+    "build": "echo \"No build step required for vanilla JS project\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arunbansal504/LearnTrack.git"
+  },
+  "keywords": [
+    "learning",
+    "tracker",
+    "education",
+    "productivity",
+    "pwa"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/arunbansal504/LearnTrack/issues"
+  },
+  "homepage": "https://github.com/arunbansal504/LearnTrack#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
