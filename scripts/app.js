@@ -60,7 +60,6 @@ const App = (() => {
   let _entries      = [];
   let _prefs        = {};
   let _earnedAch    = [];
-  let _autoSaveTimer   = null;
   let _autoBackupTimer = null;
   let _lastAutoBackup  = 0;
   let _currentPage  = 'dashboard';
@@ -931,12 +930,6 @@ const App = (() => {
       });
     });
 
-    // Auto-save notes
-    document.getElementById('entry-notes')?.addEventListener('input', (e) => {
-      updateCharCount(e.target.value.length);
-      triggerAutoSave();
-    });
-
     // Add resource
     document.getElementById('add-resource-btn')?.addEventListener('click', addResourceRow);
 
@@ -996,9 +989,7 @@ const App = (() => {
     document.querySelector('.mood-btn[data-mood="4"]')?.classList.add('active');
     document.getElementById('entry-mood').value = '4';
 
-    setEl('notes-char-count', '0 characters');
-    setEl('notes-last-saved', '');
-    clearAutoSaveIndicator();
+
 
     populateCategorySelects();
 
@@ -1021,8 +1012,6 @@ const App = (() => {
       document.getElementById('entry-notes').value       = entry.notes || '';
       document.getElementById('entry-tags').value        = (entry.tags || []).join(', ');
 
-      updateCharCount((entry.notes || '').length);
-
       // Mood
       document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
       const moodBtn = document.querySelector(`.mood-btn[data-mood="${entry.moodScore || 4}"]`);
@@ -1036,36 +1025,19 @@ const App = (() => {
       title.textContent = 'New Learning Entry';
       if (dupBtn) dupBtn.style.display = 'none';
       document.getElementById('entry-duration').disabled = false;
-
-      // Restore an in-progress draft (written by triggerAutoSave) if it exists
-      // and is less than 1 hour old. Drafts are profile-scoped so switching
-      // profiles never shows stale data.
-      try {
-        const draftKey = `lt_draft_${UserManager.getActiveId() || 'default'}`;
-        const raw = localStorage.getItem(draftKey);
-        if (raw) {
-          const draft = JSON.parse(raw);
-          if (draft.savedAt && Date.now() - draft.savedAt < 3_600_000) {
-            if (draft.topic) document.getElementById('entry-topic').value = draft.topic;
-            if (draft.notes) {
-              document.getElementById('entry-notes').value = draft.notes;
-              updateCharCount(draft.notes.length);
-            }
-            setEl('notes-last-saved', `Draft restored (${new Date(draft.savedAt).toLocaleTimeString()})`);
-          }
-        }
-      } catch {}
     }
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-    setTimeout(() => document.getElementById('entry-topic')?.focus(), 100);
+    setTimeout(() => {
+      const focusId = id ? 'entry-topic' : 'entry-duration';
+      document.getElementById(focusId)?.focus();
+    }, 100);
   }
 
   function closeEntryModal() {
     document.getElementById('entry-modal').style.display = 'none';
     document.body.style.overflow = '';
-    clearAutoSaveTimer();
   }
 
   /* ---- Floating Notes Panel ------------------------ */
@@ -1196,10 +1168,6 @@ const App = (() => {
     }
 
     closeEntryModal();
-    // Draft served its purpose — clear it so it doesn't restore on the next new entry
-    try {
-      localStorage.removeItem(`lt_draft_${UserManager.getActiveId() || 'default'}`);
-    } catch {}
     showToast(isNew ? 'Entry saved!' : 'Entry updated!', 'success');
 
     // Show XP float
@@ -1252,54 +1220,6 @@ const App = (() => {
   function clearResourceRows() {
     const list = document.getElementById('resources-list');
     if (list) list.innerHTML = '';
-  }
-
-  /* ---- Auto-Save ----------------------------------- */
-
-  function triggerAutoSave() {
-    clearAutoSaveTimer();
-    setAutoSaveState('saving');
-
-    _autoSaveTimer = setTimeout(() => {
-      const draft = {
-        topic:   document.getElementById('entry-topic')?.value,
-        notes:   document.getElementById('entry-notes')?.value,
-        savedAt: Date.now(),
-      };
-      try {
-        const draftKey = `lt_draft_${UserManager.getActiveId() || 'default'}`;
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-        setAutoSaveState('saved');
-        setEl('notes-last-saved', `Saved ${new Date().toLocaleTimeString()}`);
-      } catch {
-        setAutoSaveState('error');
-      }
-    }, 800);
-  }
-
-  function clearAutoSaveTimer() {
-    if (_autoSaveTimer) { clearTimeout(_autoSaveTimer); _autoSaveTimer = null; }
-  }
-
-  function setAutoSaveState(state) {
-    const ind = document.getElementById('autosave-indicator');
-    const txt = document.getElementById('autosave-text');
-    if (!ind) return;
-    ind.className = `autosave-indicator ${state}`;
-    if (txt) {
-      txt.textContent = state === 'saving' ? 'Saving...' : state === 'saved' ? 'Saved' : 'Save failed';
-    }
-  }
-
-  function clearAutoSaveIndicator() {
-    const ind = document.getElementById('autosave-indicator');
-    if (ind) ind.className = 'autosave-indicator';
-    const txt = document.getElementById('autosave-text');
-    if (txt) txt.textContent = '';
-  }
-
-  function updateCharCount(n) {
-    setEl('notes-char-count', `${n} character${n !== 1 ? 's' : ''}`);
   }
 
   /* ---- Delete / Duplicate -------------------------- */

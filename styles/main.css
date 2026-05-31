@@ -1368,39 +1368,6 @@ input:disabled {
 }
 .resource-remove:hover { color: var(--danger); background: rgba(239,68,68,0.08); }
 
-/* Notes Label Row */
-.notes-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.autosave-indicator {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--text-3);
-}
-
-.autosave-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-3);
-}
-
-.autosave-indicator.saving .autosave-dot { background: var(--warning); animation: pulse 0.6s ease infinite; }
-.autosave-indicator.saved .autosave-dot { background: var(--success); }
-.autosave-indicator.error .autosave-dot { background: var(--danger); }
-
-.notes-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: var(--s-1);
-}
 
 /* ---- TOAST NOTIFICATIONS ------------------------- */
 .toast-container {
