@@ -65,8 +65,8 @@ const App = (() => {
   let _currentPage  = 'dashboard';
   let _deletedPage  = 1;
   let _deletedSelection = new Set();
-  let _dailyRange    = 7;
-  let _monthlyRange  = 3;
+  let _dailyRange    = 30;
+  let _monthlyRange  = 6;
   let _categoryRange = 30;
   let _logPage      = 1;
   const LOG_PAGE_SIZE = 20;

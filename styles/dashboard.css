@@ -892,19 +892,24 @@
     gap: var(--s-2);
     margin-bottom: var(--s-3);
   }
-  .stat-card {
+  .stat-card,
+  .compact-mode .stat-card {
     flex-direction: row;
-    align-items: center;
-    gap: var(--s-2);
-    padding: var(--s-2) var(--s-2);
+    align-items: flex-start;
+    gap: 4px;
+    padding: var(--s-2) var(--s-1) var(--s-2) 0;
     min-width: 0;
     overflow: hidden;
   }
-  .stat-icon { width: 26px; height: 26px; font-size: 12px; flex-shrink: 0; align-self: center; }
-  .stat-value { font-size: 14px; letter-spacing: -0.01em; }
-  .stat-label { font-size: 8.5px; letter-spacing: 0.02em; margin-top: 1px; }
-  .stat-sub   { font-size: 8.5px; margin-top: 0; }
-  .stat-trend { font-size: 8.5px; }
+  .stat-icon { width: 22px; height: 22px; font-size: 11px; flex-shrink: 0; align-self: flex-start; }
+  .stat-body { flex: 1; min-width: 0; width: 0; }
+  .stat-value,
+  .compact-mode .stat-value { font-size: 10px; letter-spacing: -0.01em; }
+  .stat-label,
+  .compact-mode .stat-label { font-size: 6.5px; letter-spacing: 0; margin-top: 1px; white-space: normal; line-height: 1.3; overflow-wrap: break-word; }
+  .stat-sub,
+  .compact-mode .stat-sub   { font-size: 6.5px; margin-top: 0; }
+  .stat-trend { font-size: 6.5px; }
   .xp-progress { margin: 2px 0 0; }
 
   /* ── Summary row: 3-col grid, compact (no scroll) ── */
@@ -966,9 +971,13 @@
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); gap: var(--s-1); }
-  .stat-card { padding: 6px var(--s-1); }
-  .stat-icon { width: 22px; height: 22px; font-size: 11px; }
-  .stat-value { font-size: 13px; }
+  .stat-card,
+  .compact-mode .stat-card { padding: 6px 2px 6px 0; gap: 3px; }
+  .stat-icon { width: 20px; height: 20px; font-size: 10px; }
+  .stat-value,
+  .compact-mode .stat-value { font-size: 9px; }
+  .stat-label,
+  .compact-mode .stat-label { font-size: 6px; }
 
   .goal-day-circle { width: 20px; height: 20px; }
   .goal-week-days { gap: 3px; }
