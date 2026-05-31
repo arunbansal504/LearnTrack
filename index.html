@@ -892,7 +892,7 @@
       </div>
 
       <!-- How to Earn Rewards -->
-      <details class="rewards-guide" open>
+      <details class="rewards-guide">
         <summary class="rewards-guide-summary">
           <span class="rewards-guide-summary-text">How to Earn Rewards</span>
           <span class="rewards-guide-summary-sub">XP formula, streak bonuses, trophies &amp; levels</span>
@@ -1004,19 +1004,34 @@
         <div class="settings-section">
           <h2 class="settings-section-title">Profile</h2>
           <div class="settings-card">
-            <div class="setting-row">
+            <div class="setting-row setting-row--inline">
               <label class="setting-label" for="setting-username">Display Name</label>
               <input type="text" id="setting-username" class="setting-input" placeholder="Your name" />
             </div>
-            <div class="setting-row">
+            <div class="setting-row setting-row--inline">
               <label class="setting-label" for="setting-daily-goal">Daily Goal (minutes)</label>
-              <input type="number" id="setting-daily-goal" class="setting-input" placeholder="60" min="5" max="720" />
+              <div class="dur-field">
+                <input type="number" id="setting-daily-goal" class="setting-input" placeholder="60" min="5" max="720" />
+                <div class="dur-spinners">
+                  <button type="button" class="dur-spin-btn" data-field="setting-daily-goal" data-dir="1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <button type="button" class="dur-spin-btn" data-field="setting-daily-goal" data-dir="-1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+              </div>
             </div>
-            <div class="setting-row">
+            <div class="setting-row setting-row--inline">
               <label class="setting-label" for="setting-monthly-goal">Monthly Goal (hours)</label>
-              <input type="number" id="setting-monthly-goal" class="setting-input" placeholder="20" min="1" max="200" />
+              <div class="dur-field">
+                <input type="number" id="setting-monthly-goal" class="setting-input" placeholder="20" min="1" max="200" />
+                <div class="dur-spinners">
+                  <button type="button" class="dur-spin-btn" data-field="setting-monthly-goal" data-dir="1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <button type="button" class="dur-spin-btn" data-field="setting-monthly-goal" data-dir="-1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+              </div>
             </div>
-            <button class="btn btn-primary" id="save-profile-btn">Save Profile</button>
+            <div style="display:flex;gap:var(--s-2);align-self:flex-start">
+              <button class="btn btn-primary btn-sm" id="save-profile-btn">Save Profile</button>
+              <button class="btn btn-secondary btn-sm" id="cancel-profile-btn">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -1251,8 +1266,25 @@
             <input type="date" id="entry-date" readonly />
           </div>
           <div class="form-group">
-            <label for="entry-duration">Duration (minutes) <span class="required">*</span></label>
-            <input type="number" id="entry-duration" required min="1" max="1440" placeholder="e.g. 60" aria-required="true" />
+            <label>Duration <span class="required">*</span></label>
+            <div class="duration-inputs">
+              <div class="dur-field">
+                <input type="number" id="entry-duration-hours" min="0" max="24" placeholder="hh" aria-label="Hours" />
+                <div class="dur-spinners">
+                  <button type="button" class="dur-spin-btn" data-field="entry-duration-hours" data-dir="1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <button type="button" class="dur-spin-btn" data-field="entry-duration-hours" data-dir="-1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+              </div>
+              <span class="duration-unit">h</span>
+              <div class="dur-field">
+                <input type="number" id="entry-duration-mins" min="0" max="59" placeholder="mm" aria-label="Minutes" />
+                <div class="dur-spinners">
+                  <button type="button" class="dur-spin-btn" data-field="entry-duration-mins" data-dir="1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <button type="button" class="dur-spin-btn" data-field="entry-duration-mins" data-dir="-1" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+              </div>
+              <span class="duration-unit">m</span>
+            </div>
           </div>
         </div>
 
@@ -1296,13 +1328,13 @@
           <input type="text" id="entry-tags" placeholder="e.g. javascript, webdev, fundamentals" />
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="margin-top:var(--s-2)">
           <label for="entry-notes">Notes & Reflections</label>
-          <textarea id="entry-notes" rows="5" placeholder="What did you learn? Any key insights, challenges, or reflections..."></textarea>
+          <textarea id="entry-notes" rows="3" placeholder="What did you learn? Any key insights, challenges, or reflections..."></textarea>
         </div>
 
         <!-- Resources -->
-        <div class="form-group">
+        <div class="form-group" style="margin-top:var(--s-2);gap:0">
           <label>Resources</label>
           <div class="resources-list" id="resources-list"></div>
           <button type="button" class="btn btn-ghost btn-sm" id="add-resource-btn">+ Add Resource</button>
@@ -1311,11 +1343,6 @@
       </form>
     </div>
     <div class="modal-footer">
-      <div class="modal-footer-left">
-        <button type="button" class="btn btn-ghost btn-sm" id="duplicate-entry-btn" style="display:none">
-          Duplicate
-        </button>
-      </div>
       <div class="modal-footer-right">
         <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
         <button type="submit" form="entry-form" class="btn btn-primary" id="modal-save">Save Entry</button>
@@ -1397,6 +1424,9 @@
   </svg>
 
   <!-- Header: tabs + close -->
+  <div class="pomo-drag-handle" id="pomo-drag-handle" aria-hidden="true">
+    <span class="pomo-drag-pill"></span>
+  </div>
   <div class="pomo-header">
     <div class="pomo-tabs">
       <button class="pomo-tab" id="pomo-tab-sw">⏱ Stopwatch</button>

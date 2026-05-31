@@ -405,7 +405,15 @@ const PomodoroTimer = (() => {
   /* ---- Panel open/close ---- */
   function openPanel() {
     const panel = _el('pomo-panel');
-    if (panel) { panel.style.display = ''; _updateUI(); _updateSwUI(); }
+    if (panel) {
+      panel.style.top = '';
+      panel.style.left = '';
+      panel.style.right = '';
+      panel.style.bottom = '';
+      panel.style.display = '';
+      _updateUI();
+      _updateSwUI();
+    }
   }
 
   function closePanel() {
@@ -550,10 +558,17 @@ const PomodoroTimer = (() => {
     _el('pomo-close')?.addEventListener('click', closePanel);
 
     /* --- Fullscreen toggle --- */
+    let _preFsTop = '', _preFsLeft = '';
+
     function _exitFullscreen() {
       const panel = _el('pomo-panel');
       if (!panel || !panel.classList.contains('fullscreen')) return;
       panel.classList.remove('fullscreen');
+      // Restore the position the panel had before going fullscreen
+      panel.style.top    = _preFsTop;
+      panel.style.left   = _preFsLeft;
+      panel.style.right  = '';
+      panel.style.bottom = '';
       const btn = _el('pomo-expand');
       if (btn) {
         btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
@@ -567,6 +582,15 @@ const PomodoroTimer = (() => {
       const panel = _el('pomo-panel');
       if (!panel) return;
       const isFs = panel.classList.toggle('fullscreen');
+      if (isFs) {
+        // Save current drag position, then clear so fullscreen CSS takes over
+        _preFsTop  = panel.style.top;
+        _preFsLeft = panel.style.left;
+        panel.style.top    = '';
+        panel.style.left   = '';
+        panel.style.right  = '';
+        panel.style.bottom = '';
+      }
       const btn = _el('pomo-expand');
       if (btn) {
         btn.innerHTML = isFs

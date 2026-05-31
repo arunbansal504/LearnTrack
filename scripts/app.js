@@ -797,17 +797,16 @@ const App = (() => {
         <div class="entry-actions-col">
           <span class="entry-duration-badge">${Analytics.formatDuration(entry.durationMinutes || 0)}</span>
           <span class="entry-mood-display">${mood}</span>
-          <div class="entry-dropdown">
-            <button class="entry-menu-btn" data-action="menu" aria-label="Entry options">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-              </svg>
+          <div class="entry-icon-actions">
+            <button class="entry-edit-icon-btn" data-action="edit" aria-label="Edit entry" title="Edit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <div class="dropdown-menu" id="menu-${entry.id}">
-              <div class="dropdown-item" data-action="edit">✏️ Edit</div>
-              <div class="dropdown-item" data-action="duplicate">📋 Duplicate</div>
-              <div class="dropdown-item danger" data-action="delete">🗑️ Delete</div>
-            </div>
+            <button class="entry-duplicate-icon-btn" data-action="duplicate" aria-label="Duplicate entry" title="Duplicate">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="entry-delete-icon-btn" data-action="delete" aria-label="Delete entry" title="Delete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -881,27 +880,6 @@ const App = (() => {
   }
 
   function handleEntryAction(action, id) {
-    // Close all open dropdowns
-    document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
-
-    if (action === 'menu') {
-      const menu = document.getElementById(`menu-${id}`);
-      if (menu) {
-        menu.classList.toggle('open');
-        // Close when clicking outside
-        setTimeout(() => {
-          const handler = (e) => {
-            if (!menu.contains(e.target)) {
-              menu.classList.remove('open');
-              document.removeEventListener('click', handler);
-            }
-          };
-          document.addEventListener('click', handler);
-        }, 0);
-      }
-      return;
-    }
-
     if (action === 'edit')      openEntryModal(id);
     if (action === 'duplicate') duplicateEntry(id);
     if (action === 'delete')    confirmDeleteEntry(id);
@@ -912,6 +890,19 @@ const App = (() => {
   function setupEntryModal() {
     document.getElementById('modal-close')?.addEventListener('click', closeEntryModal);
     document.getElementById('modal-cancel')?.addEventListener('click', closeEntryModal);
+
+    document.querySelectorAll('.dur-spin-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.field);
+        if (!input) return;
+        const dir  = parseInt(btn.dataset.dir, 10);
+        const max  = parseInt(input.max, 10);
+        const val  = parseInt(input.value, 10) || 0;
+        const next = val + dir;
+        if (next >= 0 && next <= max) input.value = next;
+      });
+    });
+
 
     // Entry modal only closes via X or Cancel — not by clicking the backdrop
 
@@ -933,11 +924,6 @@ const App = (() => {
     // Add resource
     document.getElementById('add-resource-btn')?.addEventListener('click', addResourceRow);
 
-    // Duplicate button
-    document.getElementById('duplicate-entry-btn')?.addEventListener('click', () => {
-      const id = document.getElementById('entry-id').value;
-      if (id) duplicateEntry(id);
-    });
 
     // Keyboard: Escape to close
     document.addEventListener('keydown', e => {
@@ -960,7 +946,6 @@ const App = (() => {
     const modal   = document.getElementById('entry-modal');
     const form    = document.getElementById('entry-form');
     const title   = document.getElementById('modal-title');
-    const dupBtn  = document.getElementById('duplicate-entry-btn');
     if (!modal || !form) return;
 
     form.reset();
@@ -1001,13 +986,14 @@ const App = (() => {
       // Keep original date when editing — locked so the date can't be changed
       dateField.value    = entry.date;
       dateField.readOnly = true;
-      if (dupBtn) dupBtn.style.display = 'inline-flex';
       document.getElementById('entry-id').value          = entry.id;
       document.getElementById('entry-topic').value       = entry.topic || '';
       document.getElementById('entry-category').value    = entry.category || '';
-      const durationEl = document.getElementById('entry-duration');
-      durationEl.value    = entry.durationMinutes || '';
-      durationEl.disabled = false;
+      const totalMin = entry.durationMinutes || 0;
+      document.getElementById('entry-duration-hours').value    = Math.floor(totalMin / 60) || '';
+      document.getElementById('entry-duration-mins').value     = totalMin % 60 || '';
+      document.getElementById('entry-duration-hours').disabled = false;
+      document.getElementById('entry-duration-mins').disabled  = false;
       document.getElementById('entry-difficulty').value  = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value       = entry.notes || '';
       document.getElementById('entry-tags').value        = (entry.tags || []).join(', ');
@@ -1023,14 +1009,14 @@ const App = (() => {
 
     } else {
       title.textContent = 'New Learning Entry';
-      if (dupBtn) dupBtn.style.display = 'none';
-      document.getElementById('entry-duration').disabled = false;
+      document.getElementById('entry-duration-hours').disabled = false;
+      document.getElementById('entry-duration-mins').disabled  = false;
     }
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
-      const focusId = id ? 'entry-topic' : 'entry-duration';
+      const focusId = id ? 'entry-topic' : 'entry-duration-hours';
       document.getElementById(focusId)?.focus();
     }, 100);
   }
@@ -1101,15 +1087,21 @@ const App = (() => {
     }
     const topic    = document.getElementById('entry-topic').value.trim();
     const category = document.getElementById('entry-category').value;
-    const duration = parseInt(document.getElementById('entry-duration').value, 10);
+    const durationHours = parseInt(document.getElementById('entry-duration-hours').value, 10) || 0;
+    const durationMins  = parseInt(document.getElementById('entry-duration-mins').value,  10) || 0;
+    const duration = durationHours * 60 + durationMins;
     const diff     = document.getElementById('entry-difficulty').value;
     const notes    = document.getElementById('entry-notes').value.trim();
     const tags     = document.getElementById('entry-tags').value
                        .split(',').map(t => t.trim()).filter(Boolean);
     const mood     = parseInt(document.getElementById('entry-mood').value, 10) || 4;
 
-    if (!topic) {
-      showToast('Please enter a topic.', 'warning');
+    if (durationHours > 24) {
+      showToast('Hours cannot exceed 24.', 'warning');
+      return;
+    }
+    if (durationMins > 59) {
+      showToast('Minutes cannot exceed 59.', 'warning');
       return;
     }
     if (!duration || duration < 1) {
@@ -1129,6 +1121,11 @@ const App = (() => {
           : `You've already logged 24 hours on ${date}. No more entries allowed for this day.`,
         'warning'
       );
+      return;
+    }
+
+    if (!topic) {
+      showToast('Please enter a topic.', 'warning');
       return;
     }
 
@@ -1170,9 +1167,11 @@ const App = (() => {
     closeEntryModal();
     showToast(isNew ? 'Entry saved!' : 'Entry updated!', 'success');
 
-    // Show XP float
-    const xp = Rewards.calculateEntryXP(saved);
-    Rewards.showXPFloat(xp, document.getElementById('quick-add-btn'));
+    // Show XP float only for new entries (edits adjust existing XP, not a new gain)
+    if (isNew) {
+      const xp = Rewards.calculateEntryXP(saved);
+      Rewards.showXPFloat(xp, document.getElementById('quick-add-btn'));
+    }
 
     // Check achievements
     await checkAchievements();
@@ -1243,7 +1242,9 @@ const App = (() => {
     setTimeout(() => {
       document.getElementById('entry-topic').value      = `${entry.topic} (copy)`;
       document.getElementById('entry-category').value   = entry.category || '';
-      document.getElementById('entry-duration').value   = entry.durationMinutes || '';
+      const dupMin = entry.durationMinutes || 0;
+      document.getElementById('entry-duration-hours').value = Math.floor(dupMin / 60) || '';
+      document.getElementById('entry-duration-mins').value  = dupMin % 60 || '';
       document.getElementById('entry-difficulty').value = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value      = entry.notes || '';
       document.getElementById('entry-tags').value       = (entry.tags || []).join(', ');
@@ -1506,16 +1507,21 @@ const App = (() => {
       return `
         <div class="month-group" data-month="${key}">
           <div class="month-group-header">
-            <label style="display:flex;align-items:center;margin-right:6px;cursor:pointer" onclick="event.stopPropagation()">
-              <input type="checkbox" class="dl-month-checkbox" data-month="${key}" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" />
-            </label>
-            <div class="month-group-title-row">
-              <span class="month-group-title">${label}</span>
-              <span class="month-group-meta">${count} ${count === 1 ? 'entry' : 'entries'} &middot; ${Analytics.formatDuration(totalMin)}</span>
+            <div style="display:flex;align-items:center;gap:var(--s-2);flex:1;min-width:0">
+              <label style="display:flex;align-items:center;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation()">
+                <input type="checkbox" class="dl-month-checkbox" data-month="${key}" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" />
+              </label>
+              <div class="month-group-title-row">
+                <span class="month-group-title">${label}</span>
+                <span class="month-group-count">${count} ${count === 1 ? 'entry' : 'entries'}</span>
+              </div>
             </div>
-            <svg class="month-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            <div class="month-group-header-right">
+              <span class="month-group-time">${Analytics.formatDuration(totalMin)}</span>
+              <svg class="month-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
           </div>
           <div class="month-group-body">
             ${entries.map(e => createDeletedEntryCard(e)).join('')}
@@ -1781,6 +1787,7 @@ const App = (() => {
     setInputVal('setting-username',      _prefs.username || '');
     setInputVal('setting-daily-goal',    _prefs.dailyGoalMin || 60);
     setInputVal('setting-monthly-goal',  _prefs.monthlyGoalHr || 20);
+    sizeUsernameInput();
     setInputVal('setting-reminder-time', _prefs.reminderTime || '20:00');
     setCheckbox('setting-compact',    _prefs.compact || false);
     setCheckbox('setting-reminder',   _prefs.reminder || false);
@@ -1803,8 +1810,24 @@ const App = (() => {
     renderUsersManagement();
   }
 
+  function sizeUsernameInput() {
+    const input = document.getElementById('setting-username');
+    if (!input) return;
+    const sizer = document.createElement('span');
+    const style  = getComputedStyle(input);
+    sizer.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing};padding:0`;
+    sizer.textContent = input.value || input.placeholder || '';
+    document.body.appendChild(sizer);
+    const pad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const w = Math.max(60, sizer.offsetWidth + pad + 8);
+    document.body.removeChild(sizer);
+    input.style.width = w + 'px';
+  }
+
   function setupSettings() {
     document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+    document.getElementById('cancel-profile-btn')?.addEventListener('click', () => navigateTo('dashboard'));
+    document.getElementById('setting-username')?.addEventListener('input', sizeUsernameInput);
 
     ['setting-username', 'setting-daily-goal', 'setting-monthly-goal'].forEach(id => {
       document.getElementById(id)?.addEventListener('keydown', e => {
@@ -2076,7 +2099,7 @@ const App = (() => {
   }
 
   function setupBackup() {
-    document.getElementById('backup-btn')?.addEventListener('click', backupCurrentProfile);
+    document.getElementById('backup-btn')?.addEventListener('click', () => backupCurrentProfile());
     document.getElementById('load-backup-btn')?.addEventListener('click', loadBackupForProfile);
     document.getElementById('configure-folder-btn')?.addEventListener('click', configureBackupFolder);
     document.getElementById('change-folder-btn')?.addEventListener('click', configureBackupFolder);
@@ -2988,7 +3011,7 @@ const App = (() => {
       localStorage.setItem(`lt_last_auto_backup_${UserManager.getActive()?.id || 'default'}`, _lastAutoBackup);
       updateSidebarBackupStatus(true);
       if (!silent) {
-        showToast(`✅ Backed up to "${dirHandle.name}"!`, 'success');
+        showToast('Backup completed successfully!', 'success');
         renderBackup();
       }
     } catch (err) {
@@ -3179,7 +3202,10 @@ const App = (() => {
     const stats       = Analytics.calculateTotalStats(_entries);
     const consistency = Analytics.calculateConsistency(_entries);
 
-    // Award any newly qualifying achievements — earned badges are never revoked
+    // Revoke achievements that no longer qualify (e.g. after editing/deleting past entries)
+    await Rewards.revokeStaleAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
+
+    // Award any newly qualifying achievements
     const newlyEarned = await Rewards.checkAndAwardAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
     _earnedAch = await Storage.getAllAchievements();
 
@@ -3416,7 +3442,52 @@ const App = (() => {
 
   /* ---- Pomodoro Timer ------------------------------ */
 
+  function setupPomoDrag() {
+    const panel  = document.getElementById('pomo-panel');
+    const handle = document.getElementById('pomo-drag-handle');
+    if (!panel || !handle) return;
+
+    let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+    handle.addEventListener('mousedown', e => {
+      if (window.innerWidth < 769) return;
+      if (panel.classList.contains('fullscreen')) return;
+
+      const rect = panel.getBoundingClientRect();
+      panel.style.transition = 'none';
+      panel.style.top    = rect.top  + 'px';
+      panel.style.left   = rect.left + 'px';
+      panel.style.bottom = 'auto';
+      panel.style.right  = 'auto';
+
+      origLeft = rect.left;
+      origTop  = rect.top;
+      startX   = e.clientX;
+      startY   = e.clientY;
+      dragging = true;
+      panel.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const newLeft = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  origLeft + e.clientX - startX));
+      const newTop  = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, origTop  + e.clientY - startY));
+      panel.style.left = newLeft + 'px';
+      panel.style.top  = newTop  + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.classList.remove('dragging');
+      panel.style.transition = '';
+    });
+  }
+
   function setupPomodoro() {
+    setupPomoDrag();
+
     // Toggle panel from floating FAB
     document.getElementById('pomo-fab')?.addEventListener('click', () => {
       if (PomodoroTimer.isPanelOpen()) PomodoroTimer.closePanel();
@@ -3432,8 +3503,11 @@ const App = (() => {
         const topicEl = document.getElementById('entry-topic');
         if (topicEl) topicEl.value = last.topic;
       }
-      const durEl = document.getElementById('entry-duration');
-      if (durEl) durEl.value = last.minutes;
+      const pomoMin = last.minutes || 0;
+      const hoursEl = document.getElementById('entry-duration-hours');
+      const minsEl  = document.getElementById('entry-duration-mins');
+      if (hoursEl) hoursEl.value = Math.floor(pomoMin / 60) || '';
+      if (minsEl)  minsEl.value  = pomoMin % 60 || '';
       PomodoroTimer.closePanel();
     });
 
@@ -3723,13 +3797,19 @@ const App = (() => {
     return d.innerHTML;
   }
 
-  // Returns the URL only when it uses http(s); anything else (javascript:, data:,
-  // vbscript:, …) is replaced with '#' to prevent stored-XSS via resource links.
+  // Returns a safe href. Allows http/https/file; blocks javascript:, data:, etc.
+  // Bare Windows paths (C:\...) and UNC paths (\\server\...) are converted to file:// URLs.
   function safeHref(url) {
+    if (!url) return '#';
     try {
       const u = new URL(url);
-      return (u.protocol === 'http:' || u.protocol === 'https:') ? url : '#';
-    } catch { return '#'; }
+      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'file:') return url;
+      return '#';
+    } catch {
+      if (/^[a-zA-Z]:[\\\/]/.test(url)) return 'file:///' + url.replace(/\\/g, '/');
+      if (url.startsWith('\\\\')) return 'file:' + url.replace(/\\/g, '/');
+      return '#';
+    }
   }
 
   function capitalise(str) {

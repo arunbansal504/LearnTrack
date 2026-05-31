@@ -186,6 +186,10 @@ const Calendar = (() => {
       if (_onDateSelect) _onDateSelect(ds, entries);
     });
 
+    cell.addEventListener('dblclick', () => {
+      if (_selectedDate && _onViewEntries) _onViewEntries(_selectedDate);
+    });
+
     cell.setAttribute('role', 'button');
     cell.setAttribute('aria-label', `${ds}${hasEntry ? `, ${entries.length} entries` : ''}`);
     cell.setAttribute('tabindex', '0');
