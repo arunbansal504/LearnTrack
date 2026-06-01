@@ -2236,6 +2236,7 @@ input:disabled {
   font-size: 12px;
   color: var(--text-3);
   cursor: grab;
+  touch-action: none;
   line-height: 1;
   user-select: none;
   flex-shrink: 0;
@@ -3614,8 +3615,8 @@ input:disabled {
   /* --- Forms --- */
   .form-row { grid-template-columns: 1fr; }
 
-  /* Search bar: grows full width */
-  .search-bar { flex: 1; min-width: 0; }
+  /* Search bar: own full-width row so buttons don't crowd it */
+  .search-bar { flex: 1 1 100%; min-width: 0; }
   .search-bar input { min-width: 0; width: 100%; }
 
   /* --- Grids --- */
@@ -4913,17 +4914,17 @@ input:disabled {
   50%       { box-shadow: 0 4px 18px rgba(0,0,0,0.2), 0 0 0 10px rgba(0,0,0,0); }
 }
 
-/* Desktop: revert pomo to original right-side positions */
+/* Desktop: fixed-width panel, lifted off all edges */
 @media (min-width: 769px) {
   .pomo-fab { bottom: 24px; right: 24px; }
   .pomo-panel {
-    bottom: 0;
+    bottom: 20px;
     left: auto;
-    right: 0;
+    right: 20px;
     width: 340px;
     padding: 18px 20px 72px;
     gap: 12px;
-    border-radius: 24px 0 0 0;
+    border-radius: 24px;
   }
   .pomo-drag-handle { display: flex; justify-content: center; width: 100%; padding: 4px 0 2px; cursor: grab; }
   .pomo-drag-handle:active { cursor: grabbing; }

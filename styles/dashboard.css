@@ -897,7 +897,7 @@
     flex-direction: row;
     align-items: flex-start;
     gap: 4px;
-    padding: var(--s-2) var(--s-1) var(--s-2) 0;
+    padding: var(--s-2) var(--s-1) var(--s-2) var(--s-2);
     min-width: 0;
     overflow: hidden;
   }
@@ -972,7 +972,7 @@
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); gap: var(--s-1); }
   .stat-card,
-  .compact-mode .stat-card { padding: 6px 2px 6px 0; gap: 3px; }
+  .compact-mode .stat-card { padding: 6px 2px 6px 5px; gap: 3px; }
   .stat-icon { width: 20px; height: 20px; font-size: 10px; }
   .stat-value,
   .compact-mode .stat-value { font-size: 9px; }

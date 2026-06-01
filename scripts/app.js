@@ -2007,6 +2007,62 @@ const App = (() => {
         renderCategories();
         populateCategorySelects();
       });
+
+      // Touch drag support for mobile
+      const handle = el.querySelector('.category-drag-handle');
+      if (handle) {
+        let touchGhost = null;
+        let touchOffsetY = 0;
+
+        handle.addEventListener('touchstart', e => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          dragIdx = i;
+          const rect = el.getBoundingClientRect();
+          touchOffsetY = touch.clientY - rect.top;
+          touchGhost = el.cloneNode(true);
+          touchGhost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);`;
+          document.body.appendChild(touchGhost);
+          el.classList.add('cat-dragging');
+        }, { passive: false });
+
+        handle.addEventListener('touchmove', e => {
+          if (dragIdx === null) return;
+          e.preventDefault();
+          const touch = e.touches[0];
+          if (touchGhost) touchGhost.style.top = `${touch.clientY - touchOffsetY}px`;
+          const over = [...items].find(item => {
+            const r = item.getBoundingClientRect();
+            return touch.clientY >= r.top && touch.clientY <= r.bottom;
+          });
+          items.forEach(c => c.classList.remove('cat-drag-over'));
+          if (over && over !== el) over.classList.add('cat-drag-over');
+        }, { passive: false });
+
+        handle.addEventListener('touchend', async e => {
+          if (dragIdx === null) return;
+          const touch = e.changedTouches[0];
+          const over = [...items].find(item => {
+            const r = item.getBoundingClientRect();
+            return touch.clientY >= r.top && touch.clientY <= r.bottom;
+          });
+          const targetIdx = over ? [...items].indexOf(over) : null;
+          if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+          el.classList.remove('cat-dragging');
+          items.forEach(c => c.classList.remove('cat-drag-over'));
+          const fromIdx = dragIdx;
+          dragIdx = null;
+          if (targetIdx !== null && targetIdx !== fromIdx) {
+            const arr = _prefs.categories || [];
+            const moved = arr.splice(fromIdx, 1)[0];
+            arr.splice(targetIdx, 0, moved);
+            _prefs.categories = arr;
+            await Storage.setPref('categories', arr);
+            renderCategories();
+            populateCategorySelects();
+          }
+        });
+      }
     });
 
     list.querySelectorAll('.category-delete').forEach(btn => {
