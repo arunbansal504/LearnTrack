@@ -2064,91 +2064,102 @@ const App = (() => {
         populateCategorySelects();
       });
 
-      // Touch drag support for mobile
-      const handle = el.querySelector('.category-drag-handle');
-      if (handle) {
-        let touchGhost = null;
-        let touchOffsetX = 0;
-        let touchOffsetY = 0;
-        let isDragging = false;
-        let touchStartX = 0;
-        let touchStartY = 0;
+      // Touch drag support for mobile — long-press anywhere on the chip to
+      // pick it up, then move to reorder. Native HTML5 DnD (draggable=true) is
+      // disabled for the duration of the touch so a long-press can't trigger
+      // the browser's stuck translucent drag-image, which previously left the
+      // chip greyed-out (opacity 0.4) and unresponsive.
+      let touchGhost = null;
+      let touchOffsetX = 0;
+      let touchOffsetY = 0;
+      let isDragging = false;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let longPressTimer = null;
 
-        const itemAtPoint = (x, y) => {
-          const target = document.elementFromPoint(x, y);
-          const found = target && target.closest('.category-item');
-          return (found && found !== el) ? found : null;
-        };
+      const itemAtPoint = (x, y) => {
+        const target = document.elementFromPoint(x, y);
+        const found = target && target.closest('.category-item');
+        return (found && found !== el) ? found : null;
+      };
 
-        const touchCleanup = () => {
-          isDragging = false;
-          dragIdx = null;
-          if (touchGhost) { touchGhost.remove(); touchGhost = null; }
-          el.classList.remove('cat-dragging');
-          items.forEach(c => c.classList.remove('cat-drag-over'));
-        };
+      const clearLongPress = () => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      };
 
-        handle.addEventListener('contextmenu', e => e.preventDefault());
+      const beginTouchDrag = () => {
+        longPressTimer = null;
+        isDragging = true;
+        dragIdx = i;
+        const rect = el.getBoundingClientRect();
+        touchOffsetX = touchStartX - rect.left;
+        touchOffsetY = touchStartY - rect.top;
+        touchGhost = el.cloneNode(true);
+        touchGhost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);transition:none;`;
+        document.body.appendChild(touchGhost);
+        el.classList.add('cat-dragging');
+        if (navigator.vibrate) navigator.vibrate(10);
+      };
 
-        // touchstart: only record start position — do NOT grey or create ghost yet
-        handle.addEventListener('touchstart', e => {
-          e.preventDefault();
-          if (isDragging) touchCleanup();
-          const touch = e.touches[0];
-          touchStartX = touch.clientX;
-          touchStartY = touch.clientY;
-          dragIdx = i;
-        }, { passive: false });
+      const touchCleanup = () => {
+        clearLongPress();
+        isDragging = false;
+        dragIdx = null;
+        if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+        el.classList.remove('cat-dragging');
+        items.forEach(c => c.classList.remove('cat-drag-over'));
+        el.setAttribute('draggable', 'true'); // restore native DnD for mouse
+      };
 
-        // touchmove: start drag on first real movement, then track ghost
-        handle.addEventListener('touchmove', e => {
-          e.preventDefault();
-          const touch = e.touches[0];
+      el.addEventListener('contextmenu', e => { if (isDragging) e.preventDefault(); });
 
-          if (!isDragging) {
-            // Only begin drag after finger has moved enough (avoids greying on long press)
-            const dx = touch.clientX - touchStartX;
-            const dy = touch.clientY - touchStartY;
-            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-            isDragging = true;
-            const rect = el.getBoundingClientRect();
-            touchOffsetX = touchStartX - rect.left;
-            touchOffsetY = touchStartY - rect.top;
-            touchGhost = el.cloneNode(true);
-            touchGhost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);transition:none;`;
-            document.body.appendChild(touchGhost);
-            el.classList.add('cat-dragging');
-          }
+      // touchstart: disable native drag, record position, arm long-press timer.
+      // Do NOT preventDefault here — that would suppress the ✕ delete tap.
+      el.addEventListener('touchstart', e => {
+        el.setAttribute('draggable', 'false');
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        clearLongPress();
+        longPressTimer = setTimeout(beginTouchDrag, 300);
+      }, { passive: true });
 
-          if (touchGhost) {
-            touchGhost.style.left = `${touch.clientX - touchOffsetX}px`;
-            touchGhost.style.top  = `${touch.clientY - touchOffsetY}px`;
-          }
-          const over = itemAtPoint(touch.clientX, touch.clientY);
-          items.forEach(c => c.classList.remove('cat-drag-over'));
-          if (over) over.classList.add('cat-drag-over');
-        }, { passive: false });
+      el.addEventListener('touchmove', e => {
+        const touch = e.touches[0];
+        if (!isDragging) {
+          // Movement before the long-press fires means scroll intent — abort pickup.
+          const dx = touch.clientX - touchStartX;
+          const dy = touch.clientY - touchStartY;
+          if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clearLongPress();
+          return;
+        }
+        e.preventDefault();
+        touchGhost.style.left = `${touch.clientX - touchOffsetX}px`;
+        touchGhost.style.top  = `${touch.clientY - touchOffsetY}px`;
+        const over = itemAtPoint(touch.clientX, touch.clientY);
+        items.forEach(c => c.classList.remove('cat-drag-over'));
+        if (over) over.classList.add('cat-drag-over');
+      }, { passive: false });
 
-        handle.addEventListener('touchend', async e => {
-          if (!isDragging) { dragIdx = null; return; }
-          const touch = e.changedTouches[0];
-          const over = touch ? itemAtPoint(touch.clientX, touch.clientY) : null;
-          const targetIdx = over ? [...items].indexOf(over) : null;
-          const fromIdx = dragIdx;
-          touchCleanup();
-          if (targetIdx !== null && targetIdx !== fromIdx) {
-            const arr = _prefs.categories || [];
-            const moved = arr.splice(fromIdx, 1)[0];
-            arr.splice(targetIdx, 0, moved);
-            _prefs.categories = arr;
-            await Storage.setPref('categories', arr);
-            renderCategories();
-            populateCategorySelects();
-          }
-        });
+      el.addEventListener('touchend', async e => {
+        if (!isDragging) { touchCleanup(); return; }
+        const touch = e.changedTouches[0];
+        const over = touch ? itemAtPoint(touch.clientX, touch.clientY) : null;
+        const targetIdx = over ? [...items].indexOf(over) : null;
+        const fromIdx = dragIdx;
+        touchCleanup();
+        if (targetIdx !== null && targetIdx !== fromIdx) {
+          const arr = _prefs.categories || [];
+          const moved = arr.splice(fromIdx, 1)[0];
+          arr.splice(targetIdx, 0, moved);
+          _prefs.categories = arr;
+          await Storage.setPref('categories', arr);
+          renderCategories();
+          populateCategorySelects();
+        }
+      });
 
-        handle.addEventListener('touchcancel', () => touchCleanup());
-      }
+      el.addEventListener('touchcancel', touchCleanup);
     });
 
     list.querySelectorAll('.category-delete').forEach(btn => {
