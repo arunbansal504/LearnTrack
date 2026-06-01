@@ -70,7 +70,8 @@ const App = (() => {
   let _categoryRange = 30;
   let _logPage      = 1;
   const LOG_PAGE_SIZE = 20;
-  let _monthCollapsedState = {}; // key "YYYY-MM" -> true (collapsed) / false (expanded)
+  let _monthCollapsedState   = {}; // key "YYYY-MM" -> true (collapsed) / false (expanded)
+  let _dlMonthCollapsedState = {}; // same for Deleted Logs
   let _achievementFilterMode = 'all';
 
   // Pending badge queue
@@ -629,6 +630,15 @@ const App = (() => {
     renderEntryList();
   }
 
+  function updateLogExpandToggle() {
+    const btn = document.getElementById('log-expand-toggle');
+    if (!btn) return;
+    const groups = document.querySelectorAll('#entries-container .month-group');
+    if (!groups.length) { btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    _setExpandToggleContent(btn, [...groups].every(g => !g.classList.contains('collapsed')));
+  }
+
   function renderEntryList(filter = {}) {
     const container   = document.getElementById('entries-container');
     const emptyState  = document.getElementById('log-empty-state');
@@ -642,6 +652,7 @@ const App = (() => {
       container.appendChild(emptyState || createEmptyState());
       emptyState && (emptyState.style.display = 'flex');
       if (loadMoreCon) loadMoreCon.style.display = 'none';
+      updateLogExpandToggle();
       return;
     }
 
@@ -738,6 +749,7 @@ const App = (() => {
     if (loadMoreCon) {
       loadMoreCon.style.display = filtered.length > paginated.length ? 'flex' : 'none';
     }
+    updateLogExpandToggle();
   }
 
   function createEntryCard(entry) {
@@ -877,6 +889,16 @@ const App = (() => {
 
     document.getElementById('add-entry-btn')?.addEventListener('click', () => openEntryModal());
     document.getElementById('quick-add-btn')?.addEventListener('click', () => openEntryModal());
+
+    document.getElementById('log-expand-toggle')?.addEventListener('click', () => {
+      const groups = document.querySelectorAll('#entries-container .month-group');
+      const allExpanded = [...groups].every(g => !g.classList.contains('collapsed'));
+      groups.forEach(g => {
+        g.classList.toggle('collapsed', allExpanded);
+        _monthCollapsedState[g.dataset.month] = allExpanded;
+      });
+      updateLogExpandToggle();
+    });
   }
 
   function handleEntryAction(action, id) {
@@ -1260,6 +1282,16 @@ const App = (() => {
       if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     });
 
+    document.getElementById('dl-expand-toggle')?.addEventListener('click', () => {
+      const groups = document.querySelectorAll('#dl-entries-container .month-group');
+      const allExpanded = [...groups].every(g => !g.classList.contains('collapsed'));
+      groups.forEach(g => {
+        g.classList.toggle('collapsed', allExpanded);
+        _dlMonthCollapsedState[g.dataset.month] = allExpanded;
+      });
+      updateDlExpandToggle();
+    });
+
     document.getElementById('dl-filter-clear')?.addEventListener('click', () => {
       ['dl-filter-date-from','dl-filter-date-to','dl-filter-category','dl-filter-difficulty'].forEach(id => {
         const el = document.getElementById(id);
@@ -1485,6 +1517,7 @@ const App = (() => {
         </div>`;
       if (loadMoreCon) loadMoreCon.style.display = 'none';
       updateDlBulkBar();
+      updateDlExpandToggle();
       return;
     }
 
@@ -1502,9 +1535,10 @@ const App = (() => {
       const totalMin = entries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
       const count    = entries.length;
       const label    = new Date(key + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const isCollapsed = _dlMonthCollapsedState[key] ?? false;
 
       return `
-        <div class="month-group" data-month="${key}">
+        <div class="month-group${isCollapsed ? ' collapsed' : ''}" data-month="${key}">
           <div class="month-group-header">
             <div style="display:flex;align-items:center;gap:var(--s-2);flex:1;min-width:0">
               <label style="display:flex;align-items:center;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation()">
@@ -1530,7 +1564,13 @@ const App = (() => {
 
     // Collapse toggle
     container.querySelectorAll('.month-group-header').forEach(header => {
-      header.addEventListener('click', () => header.closest('.month-group').classList.toggle('collapsed'));
+      header.addEventListener('click', () => {
+        const group = header.closest('.month-group');
+        const wasCollapsed = group.classList.contains('collapsed');
+        group.classList.toggle('collapsed');
+        _dlMonthCollapsedState[group.dataset.month] = !wasCollapsed;
+        updateDlExpandToggle();
+      });
     });
 
     // Month-level select all
@@ -1565,6 +1605,22 @@ const App = (() => {
 
     if (loadMoreCon) loadMoreCon.style.display = filtered.length > paginated.length ? 'flex' : 'none';
     updateDlBulkBar();
+    updateDlExpandToggle();
+  }
+
+  function updateDlExpandToggle() {
+    const btn = document.getElementById('dl-expand-toggle');
+    if (!btn) return;
+    const groups = document.querySelectorAll('#dl-entries-container .month-group');
+    if (!groups.length) { btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    _setExpandToggleContent(btn, [...groups].every(g => !g.classList.contains('collapsed')));
+  }
+
+  function _setExpandToggleContent(btn, allExpanded) {
+    const expandIcon   = `<polyline points="6 7 12 12 18 7"/><polyline points="6 13 12 18 18 13"/>`;
+    const collapseIcon = `<polyline points="6 12 12 7 18 12"/><polyline points="6 18 12 13 18 18"/>`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${allExpanded ? collapseIcon : expandIcon}</svg>${allExpanded ? 'Collapse All' : 'Expand All'}`;
   }
 
   async function restoreDeletedEntry(id) {
