@@ -2230,6 +2230,9 @@ input:disabled {
   font-size: 12px;
   font-weight: 500;
   color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .category-drag-handle {

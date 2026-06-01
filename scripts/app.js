@@ -2122,7 +2122,10 @@ const App = (() => {
 
         const onTouchCancel = () => touchCleanup();
 
+        handle.addEventListener('contextmenu', e => e.preventDefault());
+
         handle.addEventListener('touchstart', e => {
+          if (isDragging) touchCleanup(); // reset any stale state from a cancelled drag
           e.preventDefault();
           const touch = e.touches[0];
           dragIdx = i;
