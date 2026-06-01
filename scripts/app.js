@@ -2068,8 +2068,17 @@ const App = (() => {
       const handle = el.querySelector('.category-drag-handle');
       if (handle) {
         let touchGhost = null;
+        let touchOffsetX = 0;
         let touchOffsetY = 0;
         let isDragging = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        const itemAtPoint = (x, y) => {
+          const target = document.elementFromPoint(x, y);
+          const found = target && target.closest('.category-item');
+          return (found && found !== el) ? found : null;
+        };
 
         const touchCleanup = () => {
           isDragging = false;
@@ -2077,33 +2086,51 @@ const App = (() => {
           if (touchGhost) { touchGhost.remove(); touchGhost = null; }
           el.classList.remove('cat-dragging');
           items.forEach(c => c.classList.remove('cat-drag-over'));
-          document.removeEventListener('touchmove', onTouchMove);
-          document.removeEventListener('touchend', onTouchEnd);
-          document.removeEventListener('touchcancel', onTouchCancel);
         };
 
-        const itemAtPoint = (x, y) => {
-          // Ghost has pointer-events:none so elementFromPoint sees through it
-          const target = document.elementFromPoint(x, y);
-          const found = target && target.closest('.category-item');
-          return (found && found !== el) ? found : null;
-        };
+        handle.addEventListener('contextmenu', e => e.preventDefault());
 
-        const onTouchMove = e => {
-          if (!isDragging) return;
+        // touchstart: only record start position — do NOT grey or create ghost yet
+        handle.addEventListener('touchstart', e => {
+          e.preventDefault();
+          if (isDragging) touchCleanup();
+          const touch = e.touches[0];
+          touchStartX = touch.clientX;
+          touchStartY = touch.clientY;
+          dragIdx = i;
+        }, { passive: false });
+
+        // touchmove: start drag on first real movement, then track ghost
+        handle.addEventListener('touchmove', e => {
           e.preventDefault();
           const touch = e.touches[0];
+
+          if (!isDragging) {
+            // Only begin drag after finger has moved enough (avoids greying on long press)
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+            isDragging = true;
+            const rect = el.getBoundingClientRect();
+            touchOffsetX = touchStartX - rect.left;
+            touchOffsetY = touchStartY - rect.top;
+            touchGhost = el.cloneNode(true);
+            touchGhost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);transition:none;`;
+            document.body.appendChild(touchGhost);
+            el.classList.add('cat-dragging');
+          }
+
           if (touchGhost) {
-            touchGhost.style.left = `${touch.clientX - touchGhost._offX}px`;
+            touchGhost.style.left = `${touch.clientX - touchOffsetX}px`;
             touchGhost.style.top  = `${touch.clientY - touchOffsetY}px`;
           }
           const over = itemAtPoint(touch.clientX, touch.clientY);
           items.forEach(c => c.classList.remove('cat-drag-over'));
           if (over) over.classList.add('cat-drag-over');
-        };
+        }, { passive: false });
 
-        const onTouchEnd = async e => {
-          if (!isDragging) return;
+        handle.addEventListener('touchend', async e => {
+          if (!isDragging) { dragIdx = null; return; }
           const touch = e.changedTouches[0];
           const over = touch ? itemAtPoint(touch.clientX, touch.clientY) : null;
           const targetIdx = over ? [...items].indexOf(over) : null;
@@ -2118,30 +2145,9 @@ const App = (() => {
             renderCategories();
             populateCategorySelects();
           }
-        };
+        });
 
-        const onTouchCancel = () => touchCleanup();
-
-        handle.addEventListener('contextmenu', e => e.preventDefault());
-
-        handle.addEventListener('touchstart', e => {
-          if (isDragging) touchCleanup(); // reset any stale state from a cancelled drag
-          e.preventDefault();
-          const touch = e.touches[0];
-          dragIdx = i;
-          isDragging = true;
-          const rect = el.getBoundingClientRect();
-          touchOffsetY = touch.clientY - rect.top;
-          const touchOffsetX = touch.clientX - rect.left;
-          touchGhost = el.cloneNode(true);
-          touchGhost._offX = touchOffsetX;
-          touchGhost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);transition:none;`;
-          document.body.appendChild(touchGhost);
-          el.classList.add('cat-dragging');
-          document.addEventListener('touchmove', onTouchMove, { passive: false });
-          document.addEventListener('touchend', onTouchEnd);
-          document.addEventListener('touchcancel', onTouchCancel);
-        }, { passive: false });
+        handle.addEventListener('touchcancel', () => touchCleanup());
       }
     });
 
