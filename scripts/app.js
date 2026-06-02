@@ -2579,6 +2579,22 @@ const App = (() => {
   function renderReportPreview() {
     const sel = document.getElementById('report-month');
     if (!sel) return;
+
+    const container = document.getElementById('report-preview');
+
+    if (!sel.value || sel.value === '') {
+      if (container) {
+        container.innerHTML = `
+          <div style="padding:48px 24px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:12px;">📭</div>
+            <div style="font-size:16px;font-weight:600;color:var(--text-1);margin-bottom:6px;">No learning entries yet</div>
+            <div style="font-size:13px;color:var(--text-3);">Start logging sessions and your monthly report will appear here.</div>
+          </div>`;
+        container.classList.remove('hidden');
+      }
+      return;
+    }
+
     const [year, month0] = sel.value.split('-').map(Number);
     const month = month0 - 1;
 
@@ -2590,7 +2606,6 @@ const App = (() => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (monthEntries.length === 0) {
-      const container = document.getElementById('report-preview');
       if (container) {
         container.innerHTML = `
           <div style="padding:48px 24px;text-align:center;">
@@ -2801,7 +2816,6 @@ const App = (() => {
       </tr>`;
     }).join('');
 
-    const container = document.getElementById('report-preview');
     if (!container) return;
 
     container.innerHTML = `
