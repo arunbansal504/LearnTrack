@@ -597,6 +597,18 @@ const App = (() => {
     return best ? best.goalHr : (_prefs.monthlyGoalHr || 20);
   }
 
+  function _dailyGoalMinFor(yearMonth) {
+    const history = _prefs.goalHistory || [];
+    if (!history.length) return _prefs.dailyGoalMin || 60;
+    const [y, m] = yearMonth.split('-').map(Number);
+    const lastDay = `${yearMonth}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+    let best = null;
+    for (const g of history) {
+      if (g.from <= lastDay && (!best || g.from > best.from)) best = g;
+    }
+    return best ? best.goalMin : (_prefs.dailyGoalMin || 60);
+  }
+
   function renderGoalProgress() {
     const goalMin  = _prefs.dailyGoalMin || 60;
     const todayStr = Analytics.today();
@@ -2568,7 +2580,7 @@ const App = (() => {
     const totalSessions = monthEntries.length;
     const activeDaySet  = new Set(monthEntries.map(e => e.date));
     const activeDays    = activeDaySet.size;
-    const dailyGoalMin  = _prefs.dailyGoalMin || 60;
+    const dailyGoalMin  = _dailyGoalMinFor(monthStr);
     const monthlyGoalHr = _monthGoalHrFor(monthStr);
     const monthlyGoalMin = monthlyGoalHr * 60;
     const monthlyGoalPct = Math.min(100, Math.round((totalMin / monthlyGoalMin) * 100));
@@ -2824,7 +2836,7 @@ const App = (() => {
     const activeDaySet  = new Set(monthEntries.map(e => e.date));
     const activeDays    = activeDaySet.size;
     const avgMin        = activeDays > 0 ? Math.round(totalMin / activeDays) : 0;
-    const dailyGoalMin  = _prefs.dailyGoalMin || 60;
+    const dailyGoalMin  = _dailyGoalMinFor(monthStr);
     const monthlyGoalHr = _monthGoalHrFor(monthStr);
     const monthlyGoalMin = monthlyGoalHr * 60;
     const monthlyGoalPct = Math.min(100, Math.round((totalMin / monthlyGoalMin) * 100));
