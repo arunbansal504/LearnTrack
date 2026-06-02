@@ -227,17 +227,21 @@ const App = (() => {
 
   /* ---- Auto Backup --------------------------------- */
 
-  function triggerAutoBackup() {
+  async function triggerAutoBackup() {
+    // Permission must be checked/requested during the user gesture (now), not inside
+    // the timer — mobile Chrome rejects requestPermission outside a user activation.
+    try {
+      const handle = await Storage.getDirectoryHandle();
+      if (!handle) return;
+      let perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'prompt') perm = await handle.requestPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') return;
+    } catch {
+      return;
+    }
     clearTimeout(_autoBackupTimer);
     _autoBackupTimer = setTimeout(async () => {
       try {
-        // Permission can only be requested during a user gesture, not a timer.
-        // If the folder handle is missing or permission hasn't been granted yet,
-        // skip silently — it will succeed once the user interacts with the page.
-        const handle = await Storage.getDirectoryHandle();
-        if (!handle) return;
-        const perm = await handle.queryPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') return;
         await backupCurrentProfile(true);
       } catch (err) {
         if (localStorage.getItem('lt_backup_skipped') !== 'true') {
