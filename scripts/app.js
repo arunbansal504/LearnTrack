@@ -2669,6 +2669,32 @@ const App = (() => {
     const dailyGoalPct  = activeDays > 0 ? Math.round((goalDaysMet / activeDays) * 100) : 0;
     const remainingMin  = monthlyGoalMin - totalMin;
 
+    // ── Daily bars ──
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dailyBars = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds   = `${monthStr}-${String(d).padStart(2, '0')}`;
+      const mins = daysWithGoal.get(ds) || 0;
+      dailyBars.push({ d, ds, mins, has: activeDaySet.has(ds), met: mins >= dailyGoalMin, dow: new Date(ds + 'T12:00:00').getDay() });
+    }
+    const daysWithEntries = dailyBars.filter(b => b.has);
+    const maxDayMin = Math.max(...daysWithEntries.map(b => b.mins), 1);
+
+    // ── Weekly data ──
+    const weeklyData = [];
+    for (let start = 1, wk = 1; start <= daysInMonth; start += 7, wk++) {
+      const end = Math.min(start + 6, daysInMonth);
+      let wMins = 0, wActive = 0;
+      for (let d = start; d <= end; d++) {
+        const ds = `${monthStr}-${String(d).padStart(2, '0')}`;
+        wMins   += daysWithGoal.get(ds) || 0;
+        if (activeDaySet.has(ds)) wActive++;
+      }
+      weeklyData.push({ wk, start, end, wMins, wActive });
+    }
+    const maxWeekMin = Math.max(...weeklyData.map(w => w.wMins), 1);
+
     // ── Categories ──
     const catMap = {};
     monthEntries.forEach(e => {
@@ -2787,6 +2813,48 @@ const App = (() => {
       </div>`).join('')}
     </div>`;
 
+    // ── Daily chart HTML ──
+    const dailyChartHtml = daysWithEntries.length === 0 ? '' : `
+      <div class="rp-daily-chart">
+        <div class="rp-daily-bars">
+          ${daysWithEntries.map(({ d, mins, met, dow }) => {
+            const heightPct = Math.max(6, Math.round((mins / maxDayMin) * 100));
+            const dayLabel  = `${DAY_NAMES_SHORT[dow]} ${d}`;
+            return `<div class="rp-daily-bar-col" title="${dayLabel} · ${fmt(mins)}">
+              <div class="rp-daily-bar-outer">
+                <div class="rp-daily-bar-inner${met ? ' met' : ''}" style="height:${heightPct}%"></div>
+              </div>
+              <div class="rp-daily-bar-day">${d}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="rp-daily-legend">
+          <span class="rp-daily-legend-dot met"></span><span>Goal met</span>
+          <span class="rp-daily-legend-dot"></span><span>Active</span>
+        </div>
+      </div>`;
+
+    // ── Weekly progress HTML ──
+    const weeklyHtml = `
+      <div class="rp-weekly-list">
+        ${weeklyData.map(({ wk, start, end, wMins, wActive }) => {
+          const pct = Math.round((wMins / maxWeekMin) * 100);
+          return `<div class="rp-weekly-row">
+            <div class="rp-wk-info">
+              <span class="rp-wk-num">Wk ${wk}</span>
+              <span class="rp-wk-dates">${MONTHS[month].slice(0,3)} ${start}–${end}</span>
+            </div>
+            <div class="rp-wk-bar-wrap">
+              <div class="rp-wk-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="rp-wk-meta">
+              <span class="rp-wk-time">${wMins > 0 ? fmt(wMins) : '—'}</span>
+              <span class="rp-wk-days">${wActive} day${wActive !== 1 ? 's' : ''}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
     const notesHdr = incNotes     ? '<th>Notes</th>'     : '';
     const resHdr   = incResources ? '<th>Resources</th>' : '';
     const entryRowsHtml = monthEntries.map(e => {
@@ -2838,6 +2906,16 @@ const App = (() => {
           ${diffHtml}
         </div>
       </div>
+
+      ${daysWithEntries.length > 0 ? `
+        <div class="rp-section">
+          <div class="rp-section-title">Daily Learning Time</div>
+          ${dailyChartHtml}
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-title">Weekly Progress</div>
+          ${weeklyHtml}
+        </div>` : ''}
 
       ${(catSorted.length > 0 || topTopics.length > 0) ? `<div class="rp-two-col">
         ${catSorted.length > 0 ? `<div class="rp-section">
@@ -3093,10 +3171,40 @@ const App = (() => {
       const CW = PW - ML - MR;
       let y = 56; // start below header band
 
+      // Read accent color from the live CSS custom property so the PDF
+      // matches whatever accent theme the user has selected.
+      function _accentPalette() {
+        try {
+          const hex = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+          const h   = hex.replace('#', '');
+          if (h.length !== 6) throw 0;
+          const r = parseInt(h.slice(0, 2), 16);
+          const g = parseInt(h.slice(2, 4), 16);
+          const b = parseInt(h.slice(4, 6), 16);
+          const blend = (v, a) => Math.round(v * a + 255 * (1 - a));
+          return {
+            main:    [r, g, b],
+            light:   [blend(r, 0.10), blend(g, 0.10), blend(b, 0.10)],
+            mid:     [blend(r, 0.28), blend(g, 0.28), blend(b, 0.28)],
+            onDark1: [blend(r, 0.35), blend(g, 0.35), blend(b, 0.35)],
+            onDark2: [blend(r, 0.25), blend(g, 0.25), blend(b, 0.25)],
+          };
+        } catch {
+          return {
+            main:    [79, 70, 229],
+            light:   [238, 242, 255],
+            mid:     [199, 210, 254],
+            onDark1: [200, 195, 255],
+            onDark2: [180, 175, 240],
+          };
+        }
+      }
+      const _ap = _accentPalette();
+
       // Color palette [r, g, b]
-      const CI  = [79, 70, 229];    // indigo
-      const CIL = [238, 242, 255];  // indigo light
-      const CIM = [199, 210, 254];  // indigo mid
+      const CI  = _ap.main;
+      const CIL = _ap.light;
+      const CIM = _ap.mid;
       const CBK = [17, 24, 39];     // near-black
       const CGR = [107, 114, 128];  // gray
       const CLG = [156, 163, 175];  // light gray
@@ -3144,9 +3252,9 @@ const App = (() => {
       // ─── HEADER BAND ───
       fillR(0, 0, PW, 48, CI);
       tx('LearnTrack', ML, 20, 17, CWH, { bold: true });
-      tx('Monthly Learning Report', ML, 36, 10, [200, 195, 255]);
+      tx('Monthly Learning Report', ML, 36, 10, _ap.onDark1);
       tx(reportTitle, PW - MR, 22, 11, CWH, { align: 'right' });
-      tx(`Generated ${generatedOn}  ·  ${username}`, PW - MR, 38, 8, [180, 175, 240], { align: 'right' });
+      tx(`Generated ${generatedOn}  ·  ${username}`, PW - MR, 38, 8, _ap.onDark2, { align: 'right' });
 
       // ─── SUMMARY CARDS ───
       needsPage(72);

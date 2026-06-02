@@ -1057,6 +1057,84 @@ img, svg { max-width: 100%; }
 .rp-notes-more:hover { text-decoration: underline; }
 .rp-empty  { color: var(--text-3); font-size: 13px; text-align: center; padding: var(--s-6); }
 
+/* ---- Daily Learning Time chart -------------------- */
+.rp-daily-chart { display: flex; flex-direction: column; gap: 8px; }
+
+.rp-daily-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding-bottom: 2px;
+  min-height: 100px;
+  width: 100%;
+}
+.rp-daily-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.rp-daily-bar-outer {
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.rp-daily-bar-inner {
+  width: 100%;
+  background: var(--accent-faint);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  transition: height 0.35s ease;
+}
+.rp-daily-bar-inner.met { background: var(--accent); }
+.rp-daily-bar-day {
+  font-size: 9px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  width: 100%;
+}
+.rp-daily-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+.rp-daily-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent-faint);
+  border: 1px solid var(--border);
+}
+.rp-daily-legend-dot.met { background: var(--accent); border-color: var(--accent); }
+
+/* ---- Weekly Progress ----------------------------- */
+.rp-weekly-list { display: flex; flex-direction: column; gap: 10px; }
+.rp-weekly-row {
+  display: grid;
+  grid-template-columns: 68px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+}
+.rp-wk-info  { display: flex; flex-direction: column; gap: 1px; }
+.rp-wk-num   { font-size: 12px; font-weight: 700; color: var(--text); }
+.rp-wk-dates { font-size: 10px; color: var(--text-3); }
+.rp-wk-bar-wrap { height: 8px; background: var(--surface-2); border-radius: var(--r-full); overflow: hidden; }
+.rp-wk-bar-fill { height: 100%; background: var(--accent); border-radius: var(--r-full); min-width: 4px; }
+.rp-wk-meta  { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.rp-wk-time  { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.rp-wk-days  { font-size: 10px; color: var(--text-3); }
+
 @media (max-width: 900px) {
   .rp-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .rp-two-col    { grid-template-columns: 1fr; }
