@@ -924,17 +924,13 @@ const Rewards = (() => {
       id:    'veteran',
       name:  'Veteran',
       icon:  '🎗️',
-      desc:  'Keep learning across 90+ days (first to latest entry).',
+      desc:  'Log entries on 90+ distinct days.',
       xp:    500,
       check: ({ entries }) => {
-        if (entries.length < 2) return false;
-        const dates = entries.map(e => e.date).sort();
-        return _daysBetween(dates[0], dates[dates.length - 1]) >= 90;
+        return new Set(entries.map(e => e.date)).size >= 90;
       },
       progress: ({ entries }) => {
-        if (entries.length < 2) return { current: 0, max: 90 };
-        const dates = entries.map(e => e.date).sort();
-        return { current: Math.min(_daysBetween(dates[0], dates[dates.length - 1]), 90), max: 90 };
+        return { current: Math.min(new Set(entries.map(e => e.date)).size, 90), max: 90 };
       },
     },
   ];
