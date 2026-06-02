@@ -371,13 +371,21 @@ const Storage = (() => {
       if (!existing) await put(STORES.achievements, ach);
     }
 
-    // Merge preferences (don't overwrite existing)
+    // Merge preferences: username and goal histories always restore from backup;
+    // all other prefs only fill in if not already set.
+    const ALWAYS_RESTORE = new Set(['username', 'goalHistory', 'monthlyGoalHistory']);
+    let prefsRestored = 0;
     for (const [key, value] of Object.entries(preferences)) {
       const existing = await getPref(key);
-      if (existing === null) await setPref(key, value);
+      if (ALWAYS_RESTORE.has(key)) {
+        await setPref(key, value);
+        prefsRestored++;
+      } else if (existing === null) {
+        await setPref(key, value);
+      }
     }
 
-    return { imported, skipped, updated };
+    return { imported, skipped, updated, prefsRestored };
   }
 
   /* ---- Directory Handle Storage (global, not per-user) -- */

@@ -89,7 +89,8 @@ const App = (() => {
     reminder:      false,
     reminderTime:  '20:00',
     categories:    ['Programming','Mathematics','Languages','Science','Design','Business','Other'],
-    goalHistory:   [],
+    goalHistory:          [],
+    monthlyGoalHistory:   [],
   };
 
   /* ---- Initialization ------------------------------ */
@@ -145,6 +146,10 @@ const App = (() => {
       if (_prefs.goalHistory?.length && !_prefs.goalHistory.some(g => g.from === '0000-01-01')) {
         _prefs.goalHistory = [{ from: '0000-01-01', goalMin: DEFAULT_PREFS.dailyGoalMin }, ..._prefs.goalHistory];
         await Storage.setPref('goalHistory', _prefs.goalHistory);
+      }
+      if (_prefs.monthlyGoalHistory?.length && !_prefs.monthlyGoalHistory.some(g => g.from === '0000-01')) {
+        _prefs.monthlyGoalHistory = [{ from: '0000-01', goalHr: DEFAULT_PREFS.monthlyGoalHr }, ..._prefs.monthlyGoalHistory];
+        await Storage.setPref('monthlyGoalHistory', _prefs.monthlyGoalHistory);
       }
     } catch (err) {
       console.error('[App] Load error:', err);
@@ -226,6 +231,13 @@ const App = (() => {
     clearTimeout(_autoBackupTimer);
     _autoBackupTimer = setTimeout(async () => {
       try {
+        // Permission can only be requested during a user gesture, not a timer.
+        // If the folder handle is missing or permission hasn't been granted yet,
+        // skip silently — it will succeed once the user interacts with the page.
+        const handle = await Storage.getDirectoryHandle();
+        if (!handle) return;
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return;
         await backupCurrentProfile(true);
       } catch (err) {
         if (localStorage.getItem('lt_backup_skipped') !== 'true') {
@@ -527,7 +539,7 @@ const App = (() => {
     setEl('month-period', monthName);
     setEl('month-hours', Analytics.formatHours(monthly.totalMinutes));
     setEl('month-entries', `${monthly.entries} ${monthly.entries === 1 ? 'entry' : 'entries'}`);
-    const monthGoalMin = (_prefs.monthlyGoalHr || 20) * 60;
+    const monthGoalMin = _monthGoalHrFor(Analytics.today().slice(0, 7)) * 60;
     const monthPct     = Math.min(100, Math.round((monthly.totalMinutes / monthGoalMin) * 100));
     const monthBar     = document.getElementById('month-progress-bar');
     if (monthBar) monthBar.style.width = `${monthPct}%`;
@@ -573,6 +585,16 @@ const App = (() => {
         </div>
       `;
     }).join('');
+  }
+
+  function _monthGoalHrFor(yearMonth) {
+    const history = _prefs.monthlyGoalHistory || [];
+    if (!history.length) return _prefs.monthlyGoalHr || 20;
+    let best = null;
+    for (const g of history) {
+      if (g.from <= yearMonth && (!best || g.from > best.from)) best = g;
+    }
+    return best ? best.goalHr : (_prefs.monthlyGoalHr || 20);
   }
 
   function renderGoalProgress() {
@@ -2120,20 +2142,55 @@ const App = (() => {
     const monthly = parseInt(document.getElementById('setting-monthly-goal')?.value, 10) || 20;
     const reminderTime = document.getElementById('setting-reminder-time')?.value || '20:00';
 
-    // Track goal history so past medals/badges use the goal that was active then
+    // Track daily goal history so past medals/badges use the goal active on each day
     if (daily !== _prefs.dailyGoalMin) {
       const today = Analytics.today();
       const history = [...(_prefs.goalHistory || [])];
-      // Anchor the old goal at the start of time so dates before any history entry
-      // still resolve to the original goal, not the new one being set now.
       if (!history.some(g => g.from === '0000-01-01')) {
         history.unshift({ from: '0000-01-01', goalMin: _prefs.dailyGoalMin });
       }
-      const idx = history.findIndex(g => g.from === today);
-      if (idx >= 0) history[idx].goalMin = daily; else history.push({ from: today, goalMin: daily });
+      // What was the effective goal before today (ignoring any today override)?
+      let prevBest = null;
+      for (const g of history) {
+        if (g.from < today && (!prevBest || g.from > prevBest.from)) prevBest = g;
+      }
+      const prevEffective = prevBest ? prevBest.goalMin : _prefs.dailyGoalMin;
+      const todayIdx = history.findIndex(g => g.from === today);
+      if (daily === prevEffective) {
+        // Reverting to what it already was — drop the today override if present
+        if (todayIdx >= 0) history.splice(todayIdx, 1);
+      } else {
+        if (todayIdx >= 0) history[todayIdx].goalMin = daily; else history.push({ from: today, goalMin: daily });
+      }
       _prefs.goalHistory = history;
       await Storage.setPref('goalHistory', history);
     }
+
+    // Track monthly goal history so past months use the goal active at that time
+    if (monthly !== _prefs.monthlyGoalHr) {
+      const thisMonth = Analytics.today().slice(0, 7); // 'YYYY-MM'
+      const mHistory = [...(_prefs.monthlyGoalHistory || [])];
+      if (!mHistory.some(g => g.from === '0000-01')) {
+        mHistory.unshift({ from: '0000-01', goalHr: _prefs.monthlyGoalHr });
+      }
+      // What was the effective goal before this month (ignoring any this-month override)?
+      let prevBest = null;
+      for (const g of mHistory) {
+        if (g.from < thisMonth && (!prevBest || g.from > prevBest.from)) prevBest = g;
+      }
+      const prevEffective = prevBest ? prevBest.goalHr : _prefs.monthlyGoalHr;
+      const monthIdx = mHistory.findIndex(g => g.from === thisMonth);
+      if (monthly === prevEffective) {
+        // Reverting to what it already was — drop the this-month override if present
+        if (monthIdx >= 0) mHistory.splice(monthIdx, 1);
+      } else {
+        if (monthIdx >= 0) mHistory[monthIdx].goalHr = monthly; else mHistory.push({ from: thisMonth, goalHr: monthly });
+      }
+      _prefs.monthlyGoalHistory = mHistory;
+      await Storage.setPref('monthlyGoalHistory', mHistory);
+    }
+
+    const profileChanged = name !== _prefs.username || daily !== _prefs.dailyGoalMin || monthly !== _prefs.monthlyGoalHr;
 
     _prefs.username      = name;
     _prefs.dailyGoalMin  = daily;
@@ -2147,6 +2204,7 @@ const App = (() => {
 
     updateSidebarUser();
     showToast('Profile saved!', 'success');
+    if (profileChanged) triggerAutoBackup();
   }
 
   function renderCategories() {
@@ -2511,7 +2569,7 @@ const App = (() => {
     const activeDaySet  = new Set(monthEntries.map(e => e.date));
     const activeDays    = activeDaySet.size;
     const dailyGoalMin  = _prefs.dailyGoalMin || 60;
-    const monthlyGoalHr = _prefs.monthlyGoalHr || 20;
+    const monthlyGoalHr = _monthGoalHrFor(monthStr);
     const monthlyGoalMin = monthlyGoalHr * 60;
     const monthlyGoalPct = Math.min(100, Math.round((totalMin / monthlyGoalMin) * 100));
     const daysWithGoal  = monthEntries.reduce((acc, e) => {
@@ -2767,7 +2825,7 @@ const App = (() => {
     const activeDays    = activeDaySet.size;
     const avgMin        = activeDays > 0 ? Math.round(totalMin / activeDays) : 0;
     const dailyGoalMin  = _prefs.dailyGoalMin || 60;
-    const monthlyGoalHr = _prefs.monthlyGoalHr || 20;
+    const monthlyGoalHr = _monthGoalHrFor(monthStr);
     const monthlyGoalMin = monthlyGoalHr * 60;
     const monthlyGoalPct = Math.min(100, Math.round((totalMin / monthlyGoalMin) * 100));
     const daysWithGoal  = monthEntries.reduce((acc, e) => {
@@ -3354,13 +3412,14 @@ const App = (() => {
     try {
       const backup = await Storage.exportAll();
       // Always embed current in-memory profile data so defaults are captured even if never explicitly saved
-      const { lastBackupDate: _dropped, ...exportedPrefs } = backup.data.preferences;
+      const { lastBackupDate: _dropped, compact: _compact, ...exportedPrefs } = backup.data.preferences;
       backup.data.preferences = {
         ...exportedPrefs,
-        username:      _prefs.username,
-        dailyGoalMin:  _prefs.dailyGoalMin,
-        monthlyGoalHr: _prefs.monthlyGoalHr,
-        goalHistory:   _prefs.goalHistory || [],
+        username:             _prefs.username,
+        dailyGoalMin:         _prefs.dailyGoalMin,
+        monthlyGoalHr:        _prefs.monthlyGoalHr,
+        goalHistory:          _prefs.goalHistory || [],
+        monthlyGoalHistory:   _prefs.monthlyGoalHistory || [],
       };
       const json     = JSON.stringify(backup, null, 2);
       const fh       = await dirHandle.getFileHandle(filename, { create: true }); // overwrites if exists
@@ -3524,8 +3583,9 @@ const App = (() => {
         applyAccent(_prefs.accent);
         applyCompact(_prefs.compact);
 
+        const goalNote = result.prefsRestored > 0 ? ' Goal history restored.' : '';
         showImportStatus(
-          `✅ Imported ${result.imported} new entries, ${result.updated} updated, ${result.skipped} skipped.`,
+          `✅ Imported ${result.imported} new entries, ${result.updated} updated, ${result.skipped} skipped.${goalNote}`,
           'success'
         );
 
@@ -3603,9 +3663,9 @@ const App = (() => {
 
     Rewards.fireConfetti('achievement');
 
-    document.getElementById('badge-modal-close').onclick = () => {
-      closeBadgeModal();
-    };
+    const closeBtn = document.getElementById('badge-modal-close');
+    closeBtn.onclick = () => closeBadgeModal();
+    setTimeout(() => closeBtn.focus(), 0);
   }
 
   function closeBadgeModal() {
@@ -4085,13 +4145,15 @@ const App = (() => {
     setEl('confirm-modal-message', message);
     document.getElementById('confirm-modal').style.display = 'flex';
 
-    document.getElementById('confirm-ok').onclick = async () => {
+    const okBtn = document.getElementById('confirm-ok');
+    okBtn.onclick = async () => {
       const cb = _confirmCallback; // capture before close clears it
       closeConfirmModal();
       if (cb) await cb();
     };
 
     document.getElementById('confirm-cancel').onclick = closeConfirmModal;
+    setTimeout(() => okBtn.focus(), 0);
   }
 
   function closeConfirmModal() {
