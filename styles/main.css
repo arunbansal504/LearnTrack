@@ -4125,14 +4125,36 @@ input:disabled {
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
-  transition: var(--transition);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.28s ease,
+              border-color 0.2s ease,
+              background 0.2s ease;
   text-align: center;
+  will-change: transform;
 }
 .profile-card.active-profile {
   border-color: var(--accent);
   background: var(--bg-2);
 }
-.profile-card:hover { border-color: var(--accent-glow); }
+.profile-card:hover {
+  transform: translateY(-7px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 32px var(--accent-glow), 0 4px 12px rgba(0,0,0,0.18);
+}
+.profile-card:hover .profile-card-avatar {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px var(--accent-faint), 0 6px 18px rgba(0,0,0,0.22);
+}
+.profile-card:hover .profile-card-name { color: var(--accent); }
+.profile-card-name { transition: color 0.2s ease; }
+.profile-card:hover .profile-badge {
+  transform: translateY(-2px);
+  border-color: var(--accent-glow);
+  color: var(--text);
+}
+.profile-badge { transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, color 0.2s ease; }
+.profile-card:hover .profile-card-xp-bar-fill { filter: brightness(1.2); }
+.profile-card-xp-bar-fill { transition: width 0.4s ease, filter 0.2s ease; }
 
 .profile-card-avatar {
   width: 72px;
@@ -4146,6 +4168,7 @@ input:disabled {
   color: #fff;
   flex-shrink: 0;
   margin-bottom: var(--s-1);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
 .profile-card-name {
