@@ -15,18 +15,36 @@ const Rewards = (() => {
   const XP_MOOD_BONUS     = { 1: 0.8, 2: 0.9, 3: 1.0, 4: 1.1, 5: 1.25 };
 
   const LEVELS = [
-    { level: 1,  title: 'Beginner',        xpNeeded: 0    },
-    { level: 2,  title: 'Curious Mind',    xpNeeded: 100  },
-    { level: 3,  title: 'Explorer',        xpNeeded: 250  },
-    { level: 4,  title: 'Apprentice',      xpNeeded: 500  },
-    { level: 5,  title: 'Learner',         xpNeeded: 900  },
-    { level: 6,  title: 'Practitioner',    xpNeeded: 1500 },
-    { level: 7,  title: 'Adept',           xpNeeded: 2500 },
-    { level: 8,  title: 'Scholar',         xpNeeded: 4000 },
-    { level: 9,  title: 'Expert',          xpNeeded: 6500 },
-    { level: 10, title: 'Master',          xpNeeded: 10000},
-    { level: 11, title: 'Grand Master',    xpNeeded: 15000},
-    { level: 12, title: 'Legend',          xpNeeded: 22000},
+    { level: 1,  title: 'Beginner',        xpNeeded: 0       },
+    { level: 2,  title: 'Curious Mind',    xpNeeded: 100     },
+    { level: 3,  title: 'Explorer',        xpNeeded: 250     },
+    { level: 4,  title: 'Apprentice',      xpNeeded: 500     },
+    { level: 5,  title: 'Learner',         xpNeeded: 900     },
+    { level: 6,  title: 'Practitioner',    xpNeeded: 1500    },
+    { level: 7,  title: 'Adept',           xpNeeded: 2500    },
+    { level: 8,  title: 'Scholar',         xpNeeded: 4000    },
+    { level: 9,  title: 'Expert',          xpNeeded: 6500    },
+    { level: 10, title: 'Master',          xpNeeded: 10000   },
+    { level: 11, title: 'Grand Master',    xpNeeded: 15000   },
+    { level: 12, title: 'Legend',          xpNeeded: 22000   },
+    { level: 13, title: 'Mythic',          xpNeeded: 32000   },
+    { level: 14, title: 'Sage',            xpNeeded: 45000   },
+    { level: 15, title: 'Virtuoso',        xpNeeded: 62000   },
+    { level: 16, title: 'Luminary',        xpNeeded: 85000   },
+    { level: 17, title: 'Oracle',          xpNeeded: 115000  },
+    { level: 18, title: 'Visionary',       xpNeeded: 155000  },
+    { level: 19, title: 'Prodigy',         xpNeeded: 205000  },
+    { level: 20, title: 'Mastermind',      xpNeeded: 275000  },
+    { level: 21, title: 'Enlightened',     xpNeeded: 360000  },
+    { level: 22, title: 'Transcendent',    xpNeeded: 470000  },
+    { level: 23, title: 'Ascendant',       xpNeeded: 610000  },
+    { level: 24, title: 'Immortal',        xpNeeded: 790000  },
+    { level: 25, title: 'Eternal',         xpNeeded: 1000000 },
+    { level: 26, title: 'Mythweaver',      xpNeeded: 1300000 },
+    { level: 27, title: 'Celestial',       xpNeeded: 1650000 },
+    { level: 28, title: 'Cosmic',          xpNeeded: 2100000 },
+    { level: 29, title: 'Divine',          xpNeeded: 2700000 },
+    { level: 30, title: 'Infinite',        xpNeeded: 3500000 },
   ];
 
   /* ---- Achievement Definitions ----------------------- */
@@ -96,6 +114,24 @@ const Rewards = (() => {
       check: ({ entries }) => entries.length >= 100,
       progress: ({ entries }) => ({ current: Math.min(entries.length, 100), max: 100 }),
     },
+    {
+      id:    'entries_200',
+      name:  'Double Century',
+      icon:  '📖',
+      desc:  'Log 200 learning sessions.',
+      xp:    800,
+      check: ({ entries }) => entries.length >= 200,
+      progress: ({ entries }) => ({ current: Math.min(entries.length, 200), max: 200 }),
+    },
+    {
+      id:    'entries_500',
+      name:  'Half Millennium',
+      icon:  '🏛️',
+      desc:  'Log 500 learning sessions.',
+      xp:    2000,
+      check: ({ entries }) => entries.length >= 500,
+      progress: ({ entries }) => ({ current: Math.min(entries.length, 500), max: 500 }),
+    },
 
     /* ---- Streaks ------------------------------------ */
     {
@@ -135,6 +171,15 @@ const Rewards = (() => {
       progress: ({ streak }) => ({ current: Math.min(Math.max(streak.current, streak.longest), 30), max: 30 }),
     },
     {
+      id:    'streak_50',
+      name:  'Iron Will',
+      icon:  '⚙️',
+      desc:  'Maintain a 50-day learning streak.',
+      xp:    1500,
+      check: ({ streak }) => streak.current >= 50 || streak.longest >= 50,
+      progress: ({ streak }) => ({ current: Math.min(Math.max(streak.current, streak.longest), 50), max: 50 }),
+    },
+    {
       id:    'streak_100',
       name:  'Centurion',
       icon:  '🛡️',
@@ -142,6 +187,15 @@ const Rewards = (() => {
       xp:    2000,
       check: ({ streak }) => streak.current >= 100 || streak.longest >= 100,
       progress: ({ streak }) => ({ current: Math.min(Math.max(streak.current, streak.longest), 100), max: 100 }),
+    },
+    {
+      id:    'streak_365',
+      name:  'Year-Round Scholar',
+      icon:  '🗓️',
+      desc:  'Maintain a 365-day learning streak.',
+      xp:    5000,
+      check: ({ streak }) => streak.current >= 365 || streak.longest >= 365,
+      progress: ({ streak }) => ({ current: Math.min(Math.max(streak.current, streak.longest), 365), max: 365 }),
     },
     {
       id:    'comeback_kid',
@@ -231,6 +285,24 @@ const Rewards = (() => {
       check: ({ stats }) => stats.totalHours >= 500,
       progress: ({ stats }) => ({ current: Math.min(Math.round(stats.totalHours), 500), max: 500 }),
     },
+    {
+      id:    'hours_750',
+      name:  'Three-Quarter Thousand',
+      icon:  '⏰',
+      desc:  'Reach 750 total learning hours.',
+      xp:    7500,
+      check: ({ stats }) => stats.totalHours >= 750,
+      progress: ({ stats }) => ({ current: Math.min(Math.round(stats.totalHours), 750), max: 750 }),
+    },
+    {
+      id:    'hours_1000',
+      name:  'Millennium Learner',
+      icon:  '💎',
+      desc:  'Reach 1000 total learning hours.',
+      xp:    10000,
+      check: ({ stats }) => stats.totalHours >= 1000,
+      progress: ({ stats }) => ({ current: Math.min(Math.round(stats.totalHours), 1000), max: 1000 }),
+    },
 
     /* ---- Daily goal --------------------------------- */
     {
@@ -277,6 +349,68 @@ const Rewards = (() => {
           } else { run = 0; }
         }
         return { current: Math.min(best, 7), max: 7 };
+      },
+    },
+    {
+      id:    'daily_goal_streak_14',
+      name:  'Fortnight Champion',
+      icon:  '🌠',
+      desc:  'Meet your daily goal 14 days in a row.',
+      xp:    500,
+      check: ({ entries, goalForDate }) => {
+        const m = _byDate(entries);
+        const dates = Object.keys(m).sort();
+        let run = 0;
+        for (let i = 0; i < dates.length; i++) {
+          if (m[dates[i]] >= goalForDate(dates[i])) {
+            run = (i > 0 && _daysBetween(dates[i - 1], dates[i]) === 1) ? run + 1 : 1;
+            if (run >= 14) return true;
+          } else { run = 0; }
+        }
+        return false;
+      },
+      progress: ({ entries, goalForDate }) => {
+        const m = _byDate(entries);
+        const dates = Object.keys(m).sort();
+        let run = 0, best = 0;
+        for (let i = 0; i < dates.length; i++) {
+          if (m[dates[i]] >= goalForDate(dates[i])) {
+            run = (i > 0 && _daysBetween(dates[i - 1], dates[i]) === 1) ? run + 1 : 1;
+            best = Math.max(best, run);
+          } else { run = 0; }
+        }
+        return { current: Math.min(best, 14), max: 14 };
+      },
+    },
+    {
+      id:    'daily_goal_streak_30',
+      name:  'Unstoppable',
+      icon:  '🌊',
+      desc:  'Meet your daily goal 30 days in a row.',
+      xp:    1000,
+      check: ({ entries, goalForDate }) => {
+        const m = _byDate(entries);
+        const dates = Object.keys(m).sort();
+        let run = 0;
+        for (let i = 0; i < dates.length; i++) {
+          if (m[dates[i]] >= goalForDate(dates[i])) {
+            run = (i > 0 && _daysBetween(dates[i - 1], dates[i]) === 1) ? run + 1 : 1;
+            if (run >= 30) return true;
+          } else { run = 0; }
+        }
+        return false;
+      },
+      progress: ({ entries, goalForDate }) => {
+        const m = _byDate(entries);
+        const dates = Object.keys(m).sort();
+        let run = 0, best = 0;
+        for (let i = 0; i < dates.length; i++) {
+          if (m[dates[i]] >= goalForDate(dates[i])) {
+            run = (i > 0 && _daysBetween(dates[i - 1], dates[i]) === 1) ? run + 1 : 1;
+            best = Math.max(best, run);
+          } else { run = 0; }
+        }
+        return { current: Math.min(best, 30), max: 30 };
       },
     },
     {
@@ -330,6 +464,24 @@ const Rewards = (() => {
       progress: ({ entries }) => {
         const best = Math.max(0, ...Object.values(_byDate(entries)));
         return { current: Math.min(Math.floor(best / 60), 5), max: 5 };
+      },
+    },
+    {
+      id:    'power_day',
+      name:  'Power Day',
+      icon:  '⚡',
+      desc:  'Log 5 or more separate sessions in a single day.',
+      xp:    200,
+      check: ({ entries }) => {
+        const counts = {};
+        for (const e of entries) counts[e.date] = (counts[e.date] || 0) + 1;
+        return Object.values(counts).some(v => v >= 5);
+      },
+      progress: ({ entries }) => {
+        const counts = {};
+        for (const e of entries) counts[e.date] = (counts[e.date] || 0) + 1;
+        const best = Math.max(0, ...Object.values(counts));
+        return { current: Math.min(best, 5), max: 5 };
       },
     },
 
@@ -387,6 +539,54 @@ const Rewards = (() => {
         max: 20,
       }),
     },
+    {
+      id:    'hard_learner_50',
+      name:  'Hardcore Scholar',
+      icon:  '🧱',
+      desc:  'Complete 50 hard-difficulty sessions.',
+      xp:    800,
+      check: ({ entries }) => entries.filter(e => e.difficulty === 'hard').length >= 50,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => e.difficulty === 'hard').length, 50),
+        max: 50,
+      }),
+    },
+    {
+      id:    'notes_50',
+      name:  'Note Pro',
+      icon:  '📓',
+      desc:  'Add notes to 50 different entries.',
+      xp:    300,
+      check: ({ entries }) => entries.filter(e => (e.notes || '').trim()).length >= 50,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => (e.notes || '').trim()).length, 50),
+        max: 50,
+      }),
+    },
+    {
+      id:    'resource_master',
+      name:  'Resource Master',
+      icon:  '🔖',
+      desc:  'Add resources to 50 entries.',
+      xp:    400,
+      check: ({ entries }) => entries.filter(e => e.resources && e.resources.length > 0).length >= 50,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => e.resources && e.resources.length > 0).length, 50),
+        max: 50,
+      }),
+    },
+    {
+      id:    'peak_mood_10',
+      name:  'In the Zone',
+      icon:  '🌟',
+      desc:  'Log 10 sessions with a mood score of 5.',
+      xp:    200,
+      check: ({ entries }) => entries.filter(e => e.moodScore === 5).length >= 10,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => e.moodScore === 5).length, 10),
+        max: 10,
+      }),
+    },
 
     /* ---- Topics & categories ------------------------ */
     {
@@ -442,6 +642,53 @@ const Rewards = (() => {
         current: Math.min(new Set(entries.map(e => e.category).filter(Boolean)).size, 7),
         max: 7,
       }),
+    },
+    {
+      id:    'category_10',
+      name:  'Category Completionist',
+      icon:  '🎪',
+      desc:  'Learn across 10 or more different categories.',
+      xp:    500,
+      check: ({ entries }) => new Set(entries.map(e => e.category).filter(Boolean)).size >= 10,
+      progress: ({ entries }) => ({
+        current: Math.min(new Set(entries.map(e => e.category).filter(Boolean)).size, 10),
+        max: 10,
+      }),
+    },
+    {
+      id:    'deep_topic',
+      name:  'Deep Diver',
+      icon:  '🤿',
+      desc:  'Log 50+ hours on a single topic.',
+      xp:    800,
+      check: ({ entries }) => {
+        const t = {};
+        for (const e of entries) if (e.topic) t[e.topic] = (t[e.topic] || 0) + (e.durationMinutes || 0);
+        return Object.values(t).some(v => v >= 3000);
+      },
+      progress: ({ entries }) => {
+        const t = {};
+        for (const e of entries) if (e.topic) t[e.topic] = (t[e.topic] || 0) + (e.durationMinutes || 0);
+        const best = Math.max(0, ...Object.values(t));
+        return { current: Math.min(Math.floor(best / 60), 50), max: 50 };
+      },
+    },
+    {
+      id:    'topic_maestro',
+      name:  'Topic Maestro',
+      icon:  '🎭',
+      desc:  'Have 5 different topics each with 5+ hours logged.',
+      xp:    400,
+      check: ({ entries }) => {
+        const t = {};
+        for (const e of entries) if (e.topic) t[e.topic] = (t[e.topic] || 0) + (e.durationMinutes || 0);
+        return Object.values(t).filter(v => v >= 300).length >= 5;
+      },
+      progress: ({ entries }) => {
+        const t = {};
+        for (const e of entries) if (e.topic) t[e.topic] = (t[e.topic] || 0) + (e.durationMinutes || 0);
+        return { current: Math.min(Object.values(t).filter(v => v >= 300).length, 5), max: 5 };
+      },
     },
 
     /* ---- Time of day -------------------------------- */
@@ -527,6 +774,38 @@ const Rewards = (() => {
         return { current: Math.min(best, 2), max: 2 };
       },
     },
+    {
+      id:    'early_bird_10',
+      name:  'Sunrise Scholar',
+      icon:  '🌄',
+      desc:  'Log 10 entries before 8 AM.',
+      xp:    300,
+      check: ({ entries }) => entries.filter(e => {
+        if (!e.createdAt) return false;
+        const h = new Date(e.createdAt).getHours();
+        return h >= 5 && h < 8;
+      }).length >= 10,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => {
+          if (!e.createdAt) return false;
+          const h = new Date(e.createdAt).getHours();
+          return h >= 5 && h < 8;
+        }).length, 10),
+        max: 10,
+      }),
+    },
+    {
+      id:    'night_owl_10',
+      name:  'Night Philosopher',
+      icon:  '🌙',
+      desc:  'Log 10 entries after 10 PM.',
+      xp:    300,
+      check: ({ entries }) => entries.filter(e => new Date(e.createdAt || e.date).getHours() >= 22).length >= 10,
+      progress: ({ entries }) => ({
+        current: Math.min(entries.filter(e => new Date(e.createdAt || e.date).getHours() >= 22).length, 10),
+        max: 10,
+      }),
+    },
 
     /* ---- Consistency & long-term -------------------- */
     {
@@ -602,6 +881,43 @@ const Rewards = (() => {
         }
         const best = Object.values(months).reduce((n, s) => Math.max(n, s.size), 0);
         return { current: Math.min(best, 20), max: 20 };
+      },
+    },
+    {
+      id:    'perfect_month',
+      name:  'Perfect Month',
+      icon:  '🌕',
+      desc:  'Log learning every single day in a calendar month.',
+      xp:    1000,
+      check: ({ entries }) => {
+        const months = {};
+        for (const e of entries) {
+          const mo = e.date.slice(0, 7);
+          if (!months[mo]) months[mo] = new Set();
+          months[mo].add(e.date);
+        }
+        for (const [mo, days] of Object.entries(months)) {
+          const [y, m] = mo.split('-').map(Number);
+          if (days.size >= new Date(y, m, 0).getDate()) return true;
+        }
+        return false;
+      },
+      progress: ({ entries }) => {
+        const months = {};
+        for (const e of entries) {
+          const mo = e.date.slice(0, 7);
+          if (!months[mo]) months[mo] = new Set();
+          months[mo].add(e.date);
+        }
+        let bestCurrent = 0, bestMax = 28;
+        for (const [mo, days] of Object.entries(months)) {
+          const [y, m] = mo.split('-').map(Number);
+          const total = new Date(y, m, 0).getDate();
+          if (days.size / total > bestCurrent / bestMax) {
+            bestCurrent = days.size; bestMax = total;
+          }
+        }
+        return { current: bestCurrent, max: bestMax };
       },
     },
     {

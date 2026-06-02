@@ -113,7 +113,8 @@ const App = (() => {
     setupClock();
     const _backupTsKey   = `lt_last_auto_backup_${UserManager.getActive()?.id || 'default'}`;
     const storedBackupTs = parseInt(localStorage.getItem(_backupTsKey) || '0', 10);
-    if (storedBackupTs) { _lastAutoBackup = storedBackupTs; updateSidebarBackupStatus(false); }
+    if (storedBackupTs) _lastAutoBackup = storedBackupTs;
+    updateSidebarBackupStatus(false);
     setInterval(updateSidebarBackupStatus, 60000);
 
     // Ensure at least one user profile exists (auto-create on first launch)
@@ -153,9 +154,10 @@ const App = (() => {
     applyAccent(_prefs.accent);
     applyCompact(_prefs.compact);
 
-    // Enforce backup folder setup before the user can interact with the app
+    // Enforce backup folder setup (unless user has already skipped)
     const existingHandle = await Storage.getDirectoryHandle();
-    if (!existingHandle) {
+    const backupSkipped  = localStorage.getItem('lt_backup_skipped') === 'true';
+    if (!existingHandle && !backupSkipped) {
       const modal = document.getElementById('backup-required-modal');
       if (modal) modal.style.display = 'flex';
       await waitForBackupFolderSetup();
@@ -179,22 +181,36 @@ const App = (() => {
 
   function waitForBackupFolderSetup() {
     return new Promise(resolve => {
-      const btn = document.getElementById('backup-required-btn');
+      const btn     = document.getElementById('backup-required-btn');
+      const skipBtn = document.getElementById('backup-skip-btn');
       if (!btn) { resolve(); return; }
+
+      function cleanup() {
+        btn.removeEventListener('click', handler);
+        skipBtn?.removeEventListener('click', skipHandler);
+      }
 
       async function handler() {
         btn.disabled = true;
         btn.textContent = 'Choosing…';
         const ok = await configureBackupFolder();
         if (ok) {
-          btn.removeEventListener('click', handler);
+          cleanup();
           resolve();
         } else {
           btn.disabled = false;
           btn.textContent = 'Choose Backup Folder';
         }
       }
+
+      function skipHandler() {
+        localStorage.setItem('lt_backup_skipped', 'true');
+        cleanup();
+        resolve();
+      }
+
       btn.addEventListener('click', handler);
+      skipBtn?.addEventListener('click', skipHandler);
     });
   }
 
@@ -206,12 +222,18 @@ const App = (() => {
       try {
         await backupCurrentProfile(true);
       } catch (err) {
-        showToast('Auto-backup failed — check your backup folder.', 'warning');
+        if (localStorage.getItem('lt_backup_skipped') !== 'true') {
+          showToast('Auto-backup failed — check your backup folder.', 'warning');
+        }
       }
     }, 1500);
   }
 
   function updateSidebarBackupStatus(fresh = false) {
+    const folderName    = localStorage.getItem('lt_backupFolderName');
+    const warnEl        = document.getElementById('sidebar-backup-warning');
+    if (warnEl) warnEl.style.display = folderName ? 'none' : 'flex';
+
     const el   = document.getElementById('sidebar-backup-status');
     const time = document.getElementById('sidebar-backup-time');
     if (!el || !_lastAutoBackup) return;
@@ -252,6 +274,15 @@ const App = (() => {
         if (page === 'log') clearLogFilters();
         if (page) navigateTo(page);
       });
+      if (link.getAttribute('role') === 'button') {
+        link.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const page = link.dataset.page;
+            if (page) navigateTo(page);
+          }
+        });
+      }
     });
 
     document.getElementById('daily-quote-chip')?.addEventListener('click', () => {
@@ -321,7 +352,10 @@ const App = (() => {
         }, 300);
       }
     });
-    document.getElementById('user-switch-btn')?.addEventListener('click', () => openUserPicker(true));
+    document.getElementById('user-switch-btn')?.addEventListener('click', e => { e.stopPropagation(); openUserPicker(true); });
+    ['sidebar-level', 'sidebar-xp-bar', 'sidebar-xp-text', 'sidebar-level-title'].forEach(id => {
+      document.getElementById(id)?.addEventListener('click', () => navigateTo('achievements'));
+    });
     document.getElementById('mobile-sidebar-overlay')?.addEventListener('click', closeMobileSidebar);
   }
 
@@ -334,6 +368,7 @@ const App = (() => {
 
     setEl('sidebar-username', name);
     setEl('sidebar-level', lvInfo.level);
+    setEl('sidebar-level-title', lvInfo.title);
     setEl('sidebar-streak-count', streak.current);
     setEl('user-initials', name.charAt(0).toUpperCase());
 
@@ -1047,8 +1082,7 @@ const App = (() => {
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
-      const focusId = id ? 'entry-topic' : 'entry-duration-hours';
-      document.getElementById(focusId)?.focus();
+      document.getElementById('entry-topic')?.focus();
     }, 100);
   }
 
@@ -1112,10 +1146,6 @@ const App = (() => {
       ? (_entries.find(e => e.id === id)?.date || Analytics.today())
       : (document.getElementById('entry-date').value || Analytics.today());
 
-    if (!id && date > Analytics.today()) {
-      showToast('Cannot log entries for future dates.', 'warning');
-      return;
-    }
     const topic    = document.getElementById('entry-topic').value.trim();
     const category = document.getElementById('entry-category').value;
     const durationHours = parseInt(document.getElementById('entry-duration-hours').value, 10) || 0;
@@ -1126,6 +1156,23 @@ const App = (() => {
     const tags     = document.getElementById('entry-tags').value
                        .split(',').map(t => t.trim()).filter(Boolean);
     const mood     = parseInt(document.getElementById('entry-mood').value, 10) || 4;
+
+    if (!topic) {
+      showToast('Please enter a topic.', 'warning');
+      document.getElementById('entry-topic')?.focus();
+      return;
+    }
+
+    if (!id && !document.getElementById('entry-date').value) {
+      showToast('Please select a date.', 'warning');
+      document.getElementById('entry-date')?.focus();
+      return;
+    }
+
+    if (!id && date > Analytics.today()) {
+      showToast('Cannot log entries for future dates.', 'warning');
+      return;
+    }
 
     if (!duration || duration < 1) {
       showToast('Please enter a valid duration.', 'warning');
@@ -1144,11 +1191,6 @@ const App = (() => {
           : `You've already logged 24 hours on ${date}. No more entries allowed for this day.`,
         'warning'
       );
-      return;
-    }
-
-    if (!topic) {
-      showToast('Please enter a topic.', 'warning');
       return;
     }
 
@@ -1199,8 +1241,12 @@ const App = (() => {
     // Check achievements
     await checkAchievements();
 
-    // Refresh current page
-    renderPage(_currentPage);
+    // On mobile, redirect to Daily Log after a new entry so the user sees it immediately
+    if (isNew && window.innerWidth <= 768) {
+      navigateTo('log');
+    } else {
+      renderPage(_currentPage);
+    }
     updateSidebarUser();
     triggerAutoBackup();
   }
@@ -1261,11 +1307,10 @@ const App = (() => {
     if (!entry) return;
     openEntryModal(null);
     setTimeout(() => {
-      document.getElementById('entry-topic').value      = `${entry.topic} (copy)`;
+      document.getElementById('entry-topic').value      = entry.topic;
       document.getElementById('entry-category').value   = entry.category || '';
-      const dupMin = entry.durationMinutes || 0;
-      document.getElementById('entry-duration-hours').value = Math.floor(dupMin / 60) || '';
-      document.getElementById('entry-duration-mins').value  = dupMin % 60 || '';
+      document.getElementById('entry-duration-hours').value = '';
+      document.getElementById('entry-duration-mins').value  = '';
       document.getElementById('entry-difficulty').value = entry.difficulty || 'medium';
       document.getElementById('entry-notes').value      = entry.notes || '';
       document.getElementById('entry-tags').value       = (entry.tags || []).join(', ');
@@ -1763,6 +1808,21 @@ const App = (() => {
 
     // Medals
     renderMedals();
+
+    // Level progression guide — built from Rewards.LEVELS so it's always in sync
+    const levelsEl = document.getElementById('rewards-guide-levels');
+    if (levelsEl) {
+      levelsEl.innerHTML = Rewards.LEVELS.map((lv, i) => {
+        const isLast    = i === Rewards.LEVELS.length - 1;
+        const isCurrent = lv.level === lvInfo.level;
+        const xpStr     = lv.xpNeeded.toLocaleString();
+        const rowClass  = isCurrent ? 'current-level-row' : (isLast ? 'highlight-row' : '');
+        return `<div class="rewards-guide-row${rowClass ? ' ' + rowClass : ''}">
+          <span>Lv ${lv.level} · ${lv.title}${isCurrent ? ' <span class="level-you-pill">YOU</span>' : ''}</span>
+          <span class="rgv${isLast && !isCurrent ? ' accent' : ''}">${xpStr} XP</span>
+        </div>`;
+      }).join('');
+    }
 
     // Level hero
     animateCounter('achievement-level', lvInfo.level);
@@ -2279,6 +2339,7 @@ const App = (() => {
       const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
       await Storage.saveDirectoryHandle(handle);
       localStorage.setItem('lt_backupFolderName', handle.name);
+      localStorage.removeItem('lt_backup_skipped');
       renderBackup();
       showToast(`Backup folder set to "${handle.name}"`, 'success');
       return true;
@@ -2289,6 +2350,13 @@ const App = (() => {
   }
 
   function setupBackup() {
+    const warnChip = document.getElementById('sidebar-backup-warning');
+    if (warnChip) {
+      const goBackup = () => navigateTo('backup');
+      warnChip.addEventListener('click', goBackup);
+      warnChip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') goBackup(); });
+    }
+
     document.getElementById('backup-btn')?.addEventListener('click', () => backupCurrentProfile());
     document.getElementById('load-backup-btn')?.addEventListener('click', loadBackupForProfile);
     document.getElementById('configure-folder-btn')?.addEventListener('click', configureBackupFolder);
@@ -2317,6 +2385,21 @@ const App = (() => {
     const monthEntries = _entries
       .filter(e => e.date.startsWith(monthStr))
       .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (monthEntries.length === 0) {
+      const container = document.getElementById('report-preview');
+      if (container) {
+        container.innerHTML = `
+          <div style="padding:48px 24px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:12px;">📭</div>
+            <div style="font-size:16px;font-weight:600;color:var(--text-1);margin-bottom:6px;">No entries for ${MONTHS[month]} ${year}</div>
+            <div style="font-size:13px;color:var(--text-3);">There are no learning sessions recorded for this month.</div>
+          </div>`;
+        container.classList.remove('hidden');
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
 
     const incNotes     = document.getElementById('report-inc-notes')?.checked ?? true;
     const incResources = document.getElementById('report-inc-resources')?.checked ?? true;
@@ -2560,16 +2643,29 @@ const App = (() => {
     if (!sel) return;
     const MONTHS = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
-    const now   = new Date();
-    const opts  = [];
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const val = `${y}-${String(m + 1).padStart(2, '0')}`;
-      opts.push(`<option value="${val}">${MONTHS[m]} ${y}</option>`);
+
+    // Collect only months that have at least one entry, grouped by year
+    const monthSet = new Set(_entries.map(e => e.date.slice(0, 7)));
+    if (monthSet.size === 0) {
+      sel.innerHTML = '<option value="">No entries yet</option>';
+      return;
     }
-    sel.innerHTML = opts.join('');
+
+    // Group months by year, most recent year first
+    const byYear = {};
+    [...monthSet].sort((a, b) => b.localeCompare(a)).forEach(val => {
+      const year = val.slice(0, 4);
+      (byYear[year] = byYear[year] || []).push(val);
+    });
+
+    sel.innerHTML = Object.entries(byYear)
+      .sort((a, b) => b[0] - a[0])
+      .map(([year, months]) =>
+        `<optgroup label="${year}">${months.map(val => {
+          const m0 = parseInt(val.slice(5), 10);
+          return `<option value="${val}">${MONTHS[m0 - 1]}</option>`;
+        }).join('')}</optgroup>`
+      ).join('');
   }
 
   async function generateMonthlyReport() {
@@ -2585,6 +2681,12 @@ const App = (() => {
     const monthStr     = `${year}-${String(month + 1).padStart(2, '0')}`;
     const monthEntries = _entries.filter(e => e.date.startsWith(monthStr))
                                  .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (monthEntries.length === 0) {
+      showToast(`No entries found for ${MONTHS[month]} ${year}.`, 'warning');
+      return;
+    }
+
     const daysInMonth  = new Date(year, month + 1, 0).getDate();
 
     // Stats
@@ -3811,7 +3913,7 @@ const App = (() => {
     _lastAutoBackup = parseInt(localStorage.getItem(`lt_last_auto_backup_${userId}`) || '0', 10);
     const sbEl = document.getElementById('sidebar-backup-status');
     if (sbEl) sbEl.style.display = _lastAutoBackup ? 'flex' : 'none';
-    if (_lastAutoBackup) updateSidebarBackupStatus(false);
+    updateSidebarBackupStatus(false);
     navigateTo('dashboard');
     showToast(`Switched to "${UserManager.getActive()?.name || 'profile'}"`, 'success');
   }

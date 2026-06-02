@@ -291,6 +291,13 @@ img, svg { max-width: 100%; }
   border-bottom: 1px solid var(--border);
 }
 
+#sidebar-level,
+#sidebar-xp-bar,
+#sidebar-xp-text,
+#sidebar-level-title {
+  cursor: pointer;
+}
+
 .user-avatar {
   position: relative;
   width: 36px;
@@ -356,6 +363,24 @@ img, svg { max-width: 100%; }
 .user-xp-text {
   font-size: 10px;
   color: var(--text-3);
+}
+
+.user-level-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+#sidebar-level-title:hover {
+  opacity: 1;
+}
+#sidebar-xp-text:hover {
+  color: var(--accent);
 }
 
 /* Streak Chip */
@@ -485,6 +510,19 @@ img, svg { max-width: 100%; }
 .sidebar-toggle-row:has(input:not(:checked)) .sidebar-label-left  { color: var(--text); font-weight: 700; }
 .sidebar-toggle-row:has(input:checked)       .sidebar-label-right { color: var(--text); font-weight: 700; }
 
+.sidebar-accent-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+}
+
+.sidebar-accent-row .accent-swatch {
+  width: 22px;
+  height: 22px;
+}
+
 /* Toggle switch pill */
 .sidebar-switch {
   position: relative;
@@ -582,6 +620,21 @@ img, svg { max-width: 100%; }
 /* Collapsed sidebar: show only the icon */
 .sidebar-collapsed .sbs-chip { padding: 7px; justify-content: center; }
 .sidebar-collapsed .sbs-text  { display: none; }
+
+.sbs-chip.sbs-warn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  cursor: pointer;
+}
+.sbs-chip.sbs-warn:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
+.sbs-chip.sbs-warn .sbs-icon {
+  color: var(--warning, #f59e0b);
+}
+.sbs-warn-text {
+  color: var(--warning, #f59e0b) !important;
+}
 
 .app-version {
   font-size: 10px;
@@ -1333,6 +1386,7 @@ input:disabled {
 }
 
 .required { color: var(--danger); }
+
 
 /* Duration two-field input */
 .duration-inputs {
@@ -2155,6 +2209,11 @@ input:disabled {
   gap: var(--s-3);
 }
 
+.settings-row .settings-card {
+  gap: var(--s-1);
+  padding: var(--s-3);
+}
+
 .setting-row {
   display: flex;
   align-items: center;
@@ -2895,6 +2954,31 @@ input:disabled {
   background: var(--accent-faint);
   color: var(--text);
   font-weight: 600;
+}
+.rewards-guide-row.current-level-row {
+  background: var(--accent-faint);
+  color: var(--accent);
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--accent);
+  box-shadow: inset 3px 0 8px -2px var(--accent-glow);
+}
+.rewards-guide-row.current-level-row .rgv {
+  color: var(--accent);
+}
+.level-you-pill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 99px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  margin-left: 4px;
+  line-height: 1.6;
 }
 .rgv {
   font-size: 11px;

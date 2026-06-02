@@ -464,11 +464,38 @@ const Charts = (() => {
     const gap = isMobile ? 2  : 3;   // gap px
     const stride = cs + gap;
 
-    // On mobile cap weeks so heatmap fits without horizontal scroll
+    // On mobile show complete months that fit without horizontal scroll
     if (isMobile) {
       const availW = container.offsetWidth || (window.innerWidth - 48);
       const maxW   = Math.max(13, Math.floor((availW - gap) / stride));
       if (weeks.length > maxW) weeks = weeks.slice(-maxW);
+      // Trim leading partial month so display starts at a clean month boundary
+      for (let i = 1; i < weeks.length; i++) {
+        const prev = weeks[i - 1].find(c => c !== null);
+        const curr = weeks[i].find(c => c !== null);
+        if (prev && curr && new Date(prev.date + 'T12:00:00').getMonth() !== new Date(curr.date + 'T12:00:00').getMonth()) {
+          weeks = weeks.slice(i);
+          break;
+        }
+      }
+    }
+
+    // Update hint label with actual period shown
+    const hintEl = document.getElementById('heatmap-hint');
+    if (hintEl) {
+      if (isMobile) {
+        const monthKeys = new Set();
+        weeks.forEach(w => w.forEach(c => {
+          if (c) {
+            const d = new Date(c.date + 'T12:00:00');
+            monthKeys.add(d.getFullYear() + '-' + d.getMonth());
+          }
+        }));
+        const n = monthKeys.size;
+        hintEl.textContent = `Last ${n} month${n !== 1 ? 's' : ''}`;
+      } else {
+        hintEl.textContent = 'Last 52 weeks';
+      }
     }
 
     // Month labels — absolutely positioned so each label aligns exactly with its week column
