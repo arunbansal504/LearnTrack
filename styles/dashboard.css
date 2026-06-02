@@ -330,7 +330,7 @@
   stroke-linecap: round;
   stroke-dasharray: 213.6 213.6;
   stroke-dashoffset: 213.6;
-  transition: stroke-dashoffset 0.9s ease, stroke 0.4s ease;
+  transition: stroke-dashoffset 0.9s ease;
 }
 
 .goal-ring-inner {

@@ -28,8 +28,9 @@ const Charts = (() => {
     },
   };
 
-  // Cache for chart instances
+  // Cache for chart instances and recreator functions
   const _charts = {};
+  const _recreators = {};
 
   function getAccentColor() {
     return getComputedStyle(document.documentElement)
@@ -51,12 +52,14 @@ const Charts = (() => {
       _charts[id].destroy();
       delete _charts[id];
     }
+    delete _recreators[id];
   }
 
   /* ---- Daily Time Line Chart ----------------------- */
 
   function renderDailyTimeChart(canvasId, data) {
     destroyChart(canvasId);
+    _recreators[canvasId] = () => renderDailyTimeChart(canvasId, data);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -176,6 +179,7 @@ const Charts = (() => {
 
   function renderMonthlyChart(canvasId, data) {
     destroyChart(canvasId);
+    _recreators[canvasId] = () => renderMonthlyChart(canvasId, data);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -563,14 +567,14 @@ const Charts = (() => {
   /* ---- Refresh all charts on theme/accent change --- */
 
   function refreshAllCharts() {
-    Object.keys(_charts).forEach(id => {
-      const chart = _charts[id];
-      if (!chart) return;
-      chart.options.scales?.x?.ticks && (chart.options.scales.x.ticks.color = getTextColor());
-      chart.options.scales?.y?.ticks && (chart.options.scales.y.ticks.color = getTextColor());
-      chart.options.scales?.x?.grid  && (chart.options.scales.x.grid.color  = getBorderColor());
-      chart.options.scales?.y?.grid  && (chart.options.scales.y.grid.color  = getBorderColor());
-      chart.update();
+    // Recreate charts so getAccentColor() is called fresh inside each render function.
+    // In-place patching of Chart.js dataset options does not work reliably because
+    // Chart.js caches resolved element options in meta._sharedOptions and returns
+    // them verbatim on every subsequent update(), ignoring mutations to ds.pointBackgroundColor.
+    Object.keys(_recreators).forEach(id => _recreators[id]());
+    const accent = getAccentColor();
+    document.querySelectorAll('.heatmap-day').forEach(el => {
+      if (el.style.opacity) el.style.background = accent;
     });
   }
 
