@@ -84,6 +84,44 @@ A separate IndexedDB `LearnTrackHandles` stores the File System Access API direc
 
 ---
 
+## Entry Object Shape
+
+Every learning entry stored in IndexedDB has this shape:
+
+```js
+{
+  id:              String,   // e.g. "1717000000000-abc1234"
+  date:            String,   // "YYYY-MM-DD" in user's local timezone
+  topic:           String,
+  category:        String,   // one of _prefs.categories
+  durationMinutes: Number,
+  difficulty:      String,   // "easy" | "medium" | "hard"
+  moodScore:       Number,   // 1–5
+  notes:           String,
+  resources:       Array,    // [{ label, url }]
+  createdAt:       Number,   // Unix ms
+  updatedAt:       Number,   // Unix ms
+}
+```
+
+Entries in the `deletedEntries` store carry an additional `deletedAt: Number` field.
+
+---
+
+## Preferences Shape
+
+`_prefs` is merged from `DEFAULT_PREFS` and the stored preferences. Key fields beyond the basics:
+
+| Key | Type | Description |
+|---|---|---|
+| `goalHistory` | `[{ from: 'YYYY-MM-DD', goalMin }]` | Sorted ascending; sentinel `from: '0000-01-01'` is always prepended on migration |
+| `monthlyGoalHistory` | `[{ from: 'YYYY-MM', goalHr }]` | Same pattern; sentinel `from: '0000-01'` |
+| `categories` | `String[]` | User-editable list used in all dropdowns |
+
+When reading the goal for a specific date, walk `goalHistory` backwards to find the last entry where `from <= date`.
+
+---
+
 ## Key Patterns
 
 ### Adding a new page
@@ -126,6 +164,28 @@ The report in `generateMonthlyReport()` (bottom of `app.js`) uses **jsPDF direct
 
 After every entry save/delete, `triggerAutoBackup()` is called (1.5 s debounce). It writes to the persisted backup folder. On first launch, a blocking modal requires the user to pick a backup folder before accessing the app.
 
+### Common app.js Utility Functions
+
+These private helpers are available throughout `app.js`:
+
+| Function | Purpose |
+|---|---|
+| `setEl(id, val)` | `document.getElementById(id).textContent = val` (null-safe) |
+| `setInputVal(id, val)` | Sets `.value` on an input by id (null-safe) |
+| `escapeHtml(str)` | XSS-safe HTML escape via `div.textContent` |
+| `safeHref(url)` | Allows only `http:`, `https:`, `file:` protocols; blocks `javascript:`, `data:`. Windows paths (`C:\`) and UNC paths are converted to `file://` |
+| `showToast(msg, type, duration)` | Shows a toast notification. Types: `'info'` \| `'success'` \| `'error'` \| `'warning'` |
+| `animateCounter(elId, target, decimals, suffix)` | Animated number counter, 600 ms eased |
+| `capitalise(str)` | Capitalizes first letter |
+
+### CSS Version Query Strings
+
+CSS files are loaded with cache-busting query strings in `index.html` (e.g., `main.css?v=22`). When making CSS changes, increment the version number for the affected file so browsers don't serve stale cached styles.
+
+### IndexedDB Schema Changes
+
+`DB_VERSION` in `storage.js` is currently `2`. If you add a new object store or index, increment `DB_VERSION` and add the corresponding `db.createObjectStore(...)` branch inside `req.onupgradeneeded`. The upgrade handler uses `if (!db.objectStoreNames.contains(...))` guards for safety.
+
 ---
 
 ## CSS Files
@@ -149,3 +209,5 @@ There is no CSS preprocessor. Variables use native `var(--name)` syntax.
 - Don't use `Storage.deleteEntry()` directly in UI code — use `Storage.softDeleteEntry()` so entries go to Deleted Logs first
 - The `calculateLearningCurve()` function in `analytics.js` exists but its output is intentionally not charted — don't add a chart for it without discussing first
 - Don't use `"beginner"`, `"intermediate"`, `"advanced"`, or `"expert"` as difficulty values — the only valid values are `"easy"`, `"medium"`, `"hard"`
+- Don't bypass `safeHref()` when building links from user-supplied URLs — raw user URLs must not go directly into `href` attributes
+- Don't increment `DB_VERSION` without also handling the upgrade path in `onupgradeneeded`; old versions without the store will break on open

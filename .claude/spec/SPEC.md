@@ -1,7 +1,7 @@
 # LearnTrack — As-Built Product Specification
 
-**Version:** 1.1.0  
-**Last updated:** 2026-05-30  
+**Version:** 1.2.0  
+**Last updated:** 2026-06-02  
 **Status:** Implemented & live
 
 ---
@@ -64,9 +64,10 @@ The app is a single-page app. Pages are `<section data-page="...">` elements sho
 - Streak chip (🔥 N day streak)
 - Nav links: Dashboard, Daily Log, Deleted Logs, Calendar, Achievements, Reports, Profiles, Settings, Backup
 - Dark/Light theme toggle switch
-- Auto-backup status chip (shows time since last auto-backup)
+- Auto-backup status chip (shows time since last auto-backup); warning indicator when no folder is configured
 - App version label
 - Sidebar collapse toggle button
+- **Mobile:** swipe left on the sidebar to close it
 
 ### Bottom nav (mobile)
 Four items: Home (Dashboard), Log, + (FAB — opens Add Entry modal), Awards (Achievements)
@@ -105,32 +106,32 @@ Four items: Home (Dashboard), Log, + (FAB — opens Add Entry modal), Awards (Ac
 - **Consistency** — % of last 30 days with at least one entry (animated counter)
 - **Level** — current XP level (animated counter) with inline XP progress bar
 
-### Insights Strip (up to 7 cards, auto-fit grid)
+### Insights Strip (up to 4 cards, auto-fit grid)
 Cards rendered by `Insights.generateInsights()`. Grid fills full width.
 
 1. Best Day to Learn — day-of-week with highest avg session
 2. Avg Session — total minutes ÷ total entries
-3. Consistency — % of last 30 days active
-4. Most Studied — top topic by total time
-5. Current Streak — streak days + best streak
-6. Total Hours — cumulative time across all active days
-7. Topics Explored — count of unique topic labels
+3. Most Studied — top topic/category by total time
+4. Topics Explored — count of unique topic/category labels
 
 ### Goal Progress
-- **Daily Goal ring** — SVG circle showing today's logged time vs. daily goal (minutes)
-- **Weekly Goal dots** — 7 day-of-week circles (green = goal met, amber = partial with %, gray = no entry)
+- **Daily Goal ring** — SVG circle showing today's logged time vs. daily goal (minutes); green when met, amber when ≥ 50%, accent color otherwise
+- **Weekly Goal dots** — 7 day-of-week circles; each uses the goal active on that date from `goalHistory`
+  - Green + checkmark = goal met
+  - Amber + % = partial
+  - Gray = no entry
 - **Today Summary** — time logged today, entry count, top topic, "+ Log Entry" button
 
 ### Summary Row (3 cards)
 - This Week — hours, entries, 7-day mini bar chart (inline rendered bars, not Chart.js)
-- This Month — hours, entries, progress bar vs. monthly goal (hours)
+- This Month — hours, entries, progress bar vs. monthly goal (uses `monthlyGoalHistory` for historical goal values)
 - Next Milestone — closest unearned achievement with progress bar
 
 ### Medals Card
 Separate widget. Gold / Silver / Bronze counts.
 
 ### Achievements Preview Card
-Separate widget. Mini badge grid of earned badges. "View all" link → Achievements page.
+Separate widget. Mini badge grid (up to 15 badges: earned first sorted by most recent, then unearned). Shows earned count / total. "View all" link → Achievements page.
 
 > **Note:** Medals and Achievements are two separate cards, with Medals appearing first.
 
@@ -150,32 +151,35 @@ Full analytics embedded in the Dashboard with tabbed range selectors:
 
 ### Add / Edit Entry Modal
 
-| Field | Type | Validation |
+| Field | Type | Notes |
 |---|---|---|
-| Date | Read-only text, auto-filled to today | — |
-| Duration | Number input (minutes) | Required, 1–1440 |
+| Date | Date picker (editable for new entries, range: past 365 days to today) | Read-only when editing; locked to selected date when opened from Calendar |
+| Duration | Two inputs: Hours + Minutes | Required; total must be > 0 |
 | Topic | Text input | Required |
 | Category | Select dropdown (user-defined list) | — |
 | Difficulty | Select: Easy / Medium / Hard | — |
-| Mood | 5-button selector (😞 😐 🙂 😊 🚀, values 1–5) | — |
+| Mood | 5-button selector (😞 😐 🙂 😊 🚀, values 1–5) | Defaults to 4 (😊) for new entries |
 | Tags | Comma-separated text | — |
-| Notes | Textarea (5 rows) with character count | Autosaves with indicator |
-| Resources | Dynamic list — add/remove rows (type, title, URL) | — |
+| Notes | Textarea (5 rows) | Saved on form submit |
+| Resources | Dynamic list — add/remove rows (type, title, URL) | URL validation warning shown |
 
-Notes autosave triggers after 800 ms of inactivity. Visual indicator shows: Saving… / Saved / Save failed.
+### Floating Notes Panel
+Clicking a notes preview in the entry list opens a floating overlay (bottom-sheet style) with the full notes content. Closes via X button, backdrop click, or Escape key.
 
 ### Entry List
-- Grouped by month (collapsible sections)
-- Each card shows: date badge, topic, category pill, difficulty, mood emoji, duration badge, tags, notes preview (90 chars), resource link icons, overflow menu (Edit / Duplicate / Delete)
+- **Expand All / Collapse All** toggle button
+- Grouped by month (collapsible sections); current month starts expanded, others collapsed
+- Each card shows: date badge, topic, category pill, difficulty dot, logged time (creation timestamp), duration badge, mood emoji, notes preview (90 chars, clickable → Floating Notes Panel), resource links, tags, icon action buttons (Edit / Duplicate / Delete)
 - Delete moves entry to soft-delete (Deleted Logs) — it does **not** permanently remove immediately
 - Pagination: 20 entries per page with "Load more"
 
 ### Search & Filter
 - Keyword search (topic, notes, category, tags)
-- Date range picker
+- Date range picker (from / to)
 - Category filter
 - Difficulty filter
-- Sort: Newest / Oldest / Longest duration
+- Sort: Newest / Oldest / Longest first / Shortest first
+- Filter toggle button shows visual indicator (`.has-filters` class) when any filter is active
 
 ---
 
@@ -183,12 +187,16 @@ Notes autosave triggers after 800 ms of inactivity. Visual indicator shows: Savi
 
 Soft-deleted entries are stored in the `deletedEntries` IndexedDB store and displayed here.
 
-- Grouped by month (collapsible sections)
-- Each entry card shows topic, category, date, duration, difficulty, plus checkbox for bulk selection
-- **Month-level "select all"** checkbox for bulk operations
-- **Bulk action bar** — appears when entries are selected: Restore selected / Permanently delete selected
+- **Expand All / Collapse All** toggle button
+- Grouped by month (collapsible sections); all months start expanded
+- Each entry card shows topic, category, date, duration, difficulty dot, mood emoji, notes preview, tags, deletion time badge (relative + full tooltip), checkbox for bulk selection
+- **Month-level select-all** checkbox per group (indeterminate state for partial selection)
+- **Global select-all** checkbox + "N of M selected" / "Select all (N)" label
+- **Bulk action bar** — appears when entries are selected: Restore selected / Permanently delete selected / Clear selection
 - Individual entry buttons: Restore / Permanently Delete
-- Search and filter controls (same fields as Daily Log)
+- Search and filter controls (keyword, date range, category, difficulty)
+- Sort options: Deleted newest / Deleted oldest / Original date newest / Original date oldest / Longest first / Shortest first
+- Filter toggle shows visual indicator when active
 - Pagination: 20 per page with "Load more"
 
 ---
@@ -235,8 +243,9 @@ Helper functions defined inside `generateMonthlyReport()`: `tx()`, `fillR()`, `s
 - Other-month days shown dimmed
 - Today highlighted; selected day highlighted
 - Prev/Next/Today navigation buttons
-- Click a day → right-side **Day Panel** shows entry list for that date; click an entry → opens Edit modal
-- Day Panel: day header, entry list (topic + duration + category), Quick Add button (today only), View Entries button
+- **Click** a day → right-side **Day Panel** shows entry list for that date; click an entry → opens Edit modal
+- **Double-click** a day with entries → navigates to Daily Log filtered to that date
+- Day Panel: day header, entry list (topic + duration + category), Quick Add button (today and past only), View Entries button (disabled if no entries)
 
 ### Streak Stats (below calendar)
 - Current Streak
@@ -254,7 +263,7 @@ Helper functions defined inside `generateMonthlyReport()`: `tx()`, `fillR()`, `s
 - Total XP card (animated counter)
 - Badges earned count (animated counter)
 
-### Levels (12 total)
+### Levels (30 total)
 
 | Level | Name | XP Required |
 |---|---|---|
@@ -270,6 +279,24 @@ Helper functions defined inside `generateMonthlyReport()`: `tx()`, `fillR()`, `s
 | 10 | Master | 10,000 |
 | 11 | Grand Master | 15,000 |
 | 12 | Legend | 22,000 |
+| 13 | Mythic | 32,000 |
+| 14 | Sage | 45,000 |
+| 15 | Virtuoso | 62,000 |
+| 16 | Luminary | 85,000 |
+| 17 | Oracle | 115,000 |
+| 18 | Visionary | 155,000 |
+| 19 | Prodigy | 205,000 |
+| 20 | Mastermind | 275,000 |
+| 21 | Enlightened | 360,000 |
+| 22 | Transcendent | 470,000 |
+| 23 | Ascendant | 610,000 |
+| 24 | Immortal | 790,000 |
+| 25 | Eternal | 1,000,000 |
+| 26 | Mythweaver | 1,300,000 |
+| 27 | Celestial | 1,650,000 |
+| 28 | Cosmic | 2,100,000 |
+| 29 | Divine | 2,700,000 |
+| 30 | Infinite | 3,500,000 |
 
 ### XP Calculation
 - Base: 1 XP per minute logged
@@ -289,20 +316,88 @@ Difficulty weights for medal scoring: Easy 0.9×, Medium 1.0×, Hard 1.5×
 Both XP and medals use `goalHistory` to look up the goal that was active on each historical date.
 
 ### Achievements Grid
-40+ badges across categories. Filter tabs: All / Earned / Locked.
+60+ badges across categories. Filter tabs: All / Earned / Locked.
 
 Each badge card: icon, name, description, progress bar, XP reward, lock/unlock state, earned date (if earned).
 
 **Categories and badges:**
-1. First Steps — First Step (1 entry), Habit Builder (10), On a Roll (25), Committed (50), Century Club (100)
-2. Streaks — 3-Day Streak, Week Warrior (7d), Fortnight Focus (14d), Monthly Master (30d), Centurion (100d), Comeback Kid (return after 7+ day break)
-3. Total Hours — Getting Started (5h), Tenacious (10h), Quarter Century (25h), Dedicated Scholar (50h), 100 Hours!, Learning Machine (200h), Half a Thousand (500h)
-4. Daily Goal — Goal Getter (first goal met), Week of Wins (7-day goal streak), Consistent Champion (30 days), Overachiever (2× daily goal in one day)
-5. Single Day — Deep Focus (single session ≥ 3h), Marathon Day (5h in one day)
-6. Quality — Hard Learner (10 hard sessions), Polymath (all 3 difficulty levels), Thoughtful Notes (10 entries with notes), Resource Collector (20 entries with resources)
-7. Topics — Topic Master (10h on one topic), Category Explorer (3 categories), Multi-Topic Explorer (5 categories), Diverse Learner (7 categories)
-8. Time of Day — Early Bird (before 8 AM), Lunch Learner (12–2 PM), Night Owl (after 10 PM), Weekend Warrior (Sat + Sun same week)
-9. Consistency & Long-term — Consistency Master (80% consistency), Perfect Week (daily goal every day for a full week), Monthly Dedication (20+ days in a month), Veteran (90 days span from first to latest)
+
+1. **First Steps**
+   - First Step (1 entry) — 50 XP
+   - Habit Builder (10 entries) — 100 XP
+   - On a Roll (25 entries) — 150 XP
+   - Committed (50 entries) — 400 XP
+   - Century Club (100 entries) — 600 XP
+   - Double Century (200 entries) — 800 XP
+   - Half Millennium (500 entries) — 2,000 XP
+
+2. **Streaks**
+   - 3-Day Streak — 75 XP
+   - Week Warrior (7d) — 200 XP
+   - Fortnight Focus (14d) — 400 XP
+   - Monthly Master (30d) — 1,000 XP
+   - Iron Will (50d) — 1,500 XP
+   - Centurion (100d) — 2,000 XP
+   - Year-Round Scholar (365d) — 5,000 XP
+   - Comeback Kid (return after 7+ day break) — 100 XP
+
+3. **Total Hours**
+   - Getting Started (5h) — 50 XP
+   - Tenacious (10h) — 100 XP
+   - Quarter Century (25h) — 200 XP
+   - Dedicated Scholar (50h) — 500 XP
+   - 100 Hours! — 1,500 XP
+   - Learning Machine (200h) — 2,000 XP
+   - Half a Thousand (500h) — 5,000 XP
+   - Three-Quarter Thousand (750h) — 7,500 XP
+   - Millennium Learner (1000h) — 10,000 XP
+
+4. **Daily Goal**
+   - Goal Getter (first goal met) — 75 XP
+   - Week of Wins (7 consecutive days meeting goal) — 300 XP
+   - Fortnight Champion (14 consecutive days meeting goal) — 500 XP
+   - Unstoppable (30 consecutive days meeting goal) — 1,000 XP
+   - Consistent Champion (goal met on 30 different days) — 500 XP
+   - Overachiever (2× daily goal in one day) — 150 XP
+
+5. **Single Day**
+   - Deep Focus (single session ≥ 3h) — 200 XP
+   - Marathon Day (5h in one day) — 300 XP
+   - Power Day (5 or more separate sessions in one day) — 200 XP
+
+6. **Quality**
+   - Hard Learner (10 hard sessions) — 200 XP
+   - Polymath (all 3 difficulty levels used) — 200 XP
+   - Thoughtful Notes (10 entries with notes) — 100 XP
+   - Resource Collector (20 entries with resources) — 150 XP
+   - Hardcore Scholar (50 hard sessions) — 800 XP
+   - Note Pro (50 entries with notes) — 300 XP
+   - Resource Master (50 entries with resources) — 400 XP
+   - In the Zone (10 sessions with mood score of 5) — 200 XP
+
+7. **Topics & Categories**
+   - Topic Master (10h on one topic) — 300 XP
+   - Category Explorer (3 different categories) — 75 XP
+   - Multi-Topic Explorer (5 different categories) — 150 XP
+   - Diverse Learner (7 different categories) — 400 XP
+   - Category Completionist (10 different categories) — 500 XP
+   - Deep Diver (50h on one topic) — 800 XP
+   - Topic Maestro (5 different topics each with 5+ hours) — 400 XP
+
+8. **Time of Day**
+   - Early Bird (entry logged between 5–8 AM) — 75 XP
+   - Lunch Learner (entry logged 12–2 PM) — 50 XP
+   - Night Owl (entry logged after 10 PM) — 75 XP
+   - Weekend Warrior (entries on both Sat + Sun in the same week) — 100 XP
+   - Sunrise Scholar (10 entries before 8 AM) — 300 XP
+   - Night Philosopher (10 entries after 10 PM) — 300 XP
+
+9. **Consistency & Long-term**
+   - Consistency Master (80%+ consistency over 30 days) — 500 XP
+   - Perfect Week (daily goal met every day of a full Mon–Sun week) — 400 XP
+   - Monthly Dedication (20+ different days logged in one calendar month) — 300 XP
+   - Perfect Month (entries logged every single day of a calendar month) — 1,000 XP
+   - Veteran (entries on 90+ distinct days) — 500 XP
 
 ### Badge Unlock Flow
 - Modal animation on first unlock
@@ -311,7 +406,7 @@ Each badge card: icon, name, description, progress bar, XP reward, lock/unlock s
 - `Rewards.revokeStaleAchievements()` re-checks earned badges and removes those whose condition is no longer met (e.g., after import or data deletion)
 
 ### Rewards Guide (collapsible)
-In-page expandable section explaining XP sources, streak multipliers, medal logic, and level thresholds.
+In-page expandable section explaining XP sources, streak multipliers, medal logic, and all 30 level thresholds (dynamically generated from `Rewards.LEVELS`). Current level row is highlighted.
 
 ---
 
@@ -337,26 +432,28 @@ Full app reload with new user's data.
 ## 8. Settings
 
 ### Profile
-- Display Name
+- Display Name (auto-sizing input)
 - Daily Goal (minutes, 5–720)
 - Monthly Goal (hours, 1–200)
 
 ### Appearance
-- Dark / Light theme toggle
+- Dark / Light theme (button toggle, not a switch)
 - Accent color swatches (6: purple, blue, green, orange, pink, red)
+- Compact mode toggle (checkbox)
 
-> Compact mode is the **default and only mode**. The Normal/Compact toggle has been removed.
+> Compact mode is the **default** (`compact: true` in `DEFAULT_PREFS`). It applies reduced padding/font sizes via `.compact-mode` on `<body>`.
 
 ### Categories
-- View / Add / Remove custom categories used in entry form
+- View / Add / Remove custom categories
+- **Drag-to-reorder** with touch support (long-press to pick up on mobile)
 
 ### Notifications
-- Daily Reminder toggle
+- Daily Reminder toggle (requests browser notification permission if enabled)
 - Reminder Time picker (shown when enabled)
 - Test Notification button
 
 ### Danger Zone
-- Reset All Data (permanent delete of current user's data)
+- Reset All Data (permanent delete of current user's data; preserves profile name from UserManager)
 
 ---
 
@@ -365,10 +462,10 @@ Full app reload with new user's data.
 Per-profile JSON backup using **File System Access API** (with file-picker fallback for unsupported browsers).
 
 ### First-Launch Gate
-On first launch, the app shows a blocking modal requiring the user to choose a backup folder before the app is accessible. This folder is persisted in a separate IndexedDB (`LearnTrackHandles`) so it survives profile switching.
+On first launch, the app shows a blocking modal requiring the user to choose a backup folder before the app is accessible. The modal has both a "Choose Backup Folder" button and a **"Skip for now"** link — skipping sets `lt_backup_skipped = 'true'` in localStorage. The folder handle is persisted in a separate IndexedDB (`LearnTrackHandles`) so it survives profile switching.
 
 ### Auto-Backup
-After every entry save/delete, an auto-backup is triggered (1.5 s debounce). The sidebar shows "Auto-backed up — Xm ago" status chip after each backup.
+Permission is checked/requested during the user gesture (on entry save/delete), not inside the debounced timer. After every entry save/delete, a 1.5 s debounced backup is triggered. The sidebar shows "Auto-backed up — Xm ago" status chip. A warning indicator appears in the sidebar when no backup folder is configured.
 
 ### Backup
 - Shows profile name, entry count, last backup date, filename
@@ -379,8 +476,12 @@ After every entry save/delete, an auto-backup is triggered (1.5 s debounce). The
 - "Load Backup" — auto-reads from configured folder
 - "Browse File" — manual file picker
 - Validates JSON structure before import
-- Merge strategy: keep entry with newest `updatedAt`; achievements and preferences don't overwrite existing
-- Reports merge stats: new / updated / skipped entry counts
+- Merge strategy:
+  - Entries: keep entry with newest `updatedAt`
+  - Deleted entries: add if not already present
+  - Achievements: add if not already present
+  - Preferences: `username`, `goalHistory`, `monthlyGoalHistory` always overwrite existing values; all other keys only fill if not already set
+- Reports merge stats: new / updated / skipped entry counts + prefs restored count
 
 ### Backup History
 Last 5 backup/import operations with timestamp and type (💾 export / 📂 import).
@@ -406,24 +507,27 @@ Last 5 backup/import operations with timestamp and type (💾 export / 📂 impo
 
 ## 10. Pomodoro Timer & Stopwatch
 
-Floating panel (bottom-right FAB, 🍅 icon). Collapsible. Fullscreen toggle (Escape key exits).
+Floating panel (bottom-right FAB, 🍅 icon). Collapsible. Fullscreen toggle (Escape key exits or closes panel).
 
 ### Pomodoro
 - 3 modes: Focus (25 min default), Short Break (5 min), Long Break (15 min)
-- Adjustable durations: work 1–90 min, short break 1–30 min, long break 1–60 min
-- Presets: 15 / 25 / 45 / 60 min for work mode
+- Adjustable durations: **work 1–999 min**, short break 1–30 min, long break 1–60 min
+- Preset buttons: 15 / 25 / 45 / 60 min for work mode; plus a Custom option (opens inline input)
+- Fine-tune buttons (− / +) to adjust duration by 1 min at a time
 - Progress bar visualization
 - "Time's up!" screen with dismiss button before transitioning to next mode
-- Audio alert on completion — ascending arpeggio for work, descending chime for breaks
+- Audio alert on completion — ascending arpeggio (C5 E5 G5 C6) for work done, descending chime (G5 E5 C5) for breaks done; subtle overtone for bell shimmer
 - Session counter; every 4 work sessions auto-advances to Long Break
-- Gradient background cycles through 3 color schemes (🎨 palette button)
+- Gradient background cycles through 8 color schemes (🎨 palette button)
 - Browser title updates while running (`MM:SS · LearnTrack`)
-- Requests notification permission for completion alerts
+- Notification permission requested on first Start press
 - Progress state saved per mode when switching tabs; resumes if still running
+- Fullscreen mode: shows ambient glow, live clock (12-hour format with AM/PM), rotating motivational quotes (every 10 s with fade transition)
 
 ### Stopwatch
 - Start / Pause / Resume / Reset
 - Displays `HH:MM:SS` when ≥ 1 hour, else `MM:SS`
+- Browser title updates while running
 
 ---
 
@@ -436,7 +540,7 @@ Floating panel (bottom-right FAB, 🍅 icon). Collapsible. Fullscreen toggle (Es
   date: "YYYY-MM-DD",          // local date string
   topic: "string",             // required
   category: "string",
-  durationMinutes: number,     // required, 1–1440
+  durationMinutes: number,     // required, > 0
   difficulty: "easy|medium|hard",
   moodScore: number,           // 1–5
   notes: "string",
@@ -464,15 +568,18 @@ Same shape as Learning Entry, plus:
   username: string,
   theme: "light|dark",
   accent: "purple|blue|green|orange|pink|red",
-  compact: boolean,            // always true (only mode)
+  compact: boolean,
   dailyGoalMin: number,
   monthlyGoalHr: number,
   reminder: boolean,
   reminderTime: "HH:MM",
   categories: [string],
-  goalHistory: [{ from: "YYYY-MM-DD", goalMin: number }]  // for XP calculation across time
+  goalHistory: [{ from: "YYYY-MM-DD", goalMin: number }],         // tracks daily goal changes over time
+  monthlyGoalHistory: [{ from: "YYYY-MM", goalHr: number }],      // tracks monthly goal changes over time
 }
 ```
+
+Both goal history arrays include a sentinel entry at `from: "0000-01-01"` / `from: "0000-01"` as a fallback for dates before any recorded change.
 
 ---
 
@@ -508,7 +615,7 @@ A separate IndexedDB `LearnTrackHandles` stores the File System Access API direc
 - `Storage.getNotes()`, `setNotes()` (via low-level `get`/`put`)
 - `Storage.getBackupLog()`, `addBackupLog()`, `clearBackupLog()`
 - `Storage.exportAll()` — returns v2.0 JSON with entries + deletedEntries + achievements + preferences
-- `Storage.importAll(backup)` — merge strategy: newest `updatedAt` wins for entries
+- `Storage.importAll(backup)` — merge strategy as described in Section 9
 - `Storage.resetAll()` — clears all stores for current user
 - `Storage.saveDirectoryHandle()`, `getDirectoryHandle()` — persist folder handle in `LearnTrackHandles`
 
@@ -524,7 +631,7 @@ A separate IndexedDB `LearnTrackHandles` stores the File System Access API direc
 | `today()` | Today's date string |
 | `daysAgo(n)` | Date n days back |
 | `daysBetween(a, b)` | Integer day count |
-| `startOfWeek(dateStr)` | Monday of the week containing the date |
+| `startOfWeek(dateStr)` | Sunday of the week containing the date |
 | `formatDuration(min)` | `"Xh Ym"`, `"Xh"`, or `"Xm"` |
 | `formatHours(min)` | Alias for `formatDuration` |
 | `buildDateMap(entries)` | `{ date: [entries] }` |
@@ -556,10 +663,13 @@ A separate IndexedDB `LearnTrackHandles` stores the File System Access API direc
 | `renderSparklineChart(id, data)` | Mini line | Dashboard weekly summary card |
 | `renderLearningCurveChart(id, curveData)` | Line (dual dataset) | Exists in charts.js but **not called** |
 | `renderDashboardCurve(id, curveData)` | Mini line | Exists in charts.js but **not called** |
-| `refreshAllCharts()` | — | Re-applies theme colors to all active charts |
+| `refreshAllCharts()` | — | Re-creates all active charts with current theme/accent colors |
+| `resizeAllCharts()` | — | Calls `.resize()` on all active Chart.js instances (used on sidebar toggle) |
 | `destroyChart(id)` | — | Cleanup before re-render |
 
-Charts read accent/text/border colors live from CSS custom properties via `getComputedStyle`, so they update automatically on theme/accent changes.
+Charts read accent/text/border colors live from CSS custom properties via `getComputedStyle`, so they update automatically on theme/accent changes. `refreshAllCharts()` fully recreates each chart (not in-place patch) because Chart.js caches resolved styles.
+
+Mobile heatmap: clips to show only complete months that fit without horizontal scroll, trimmed to a clean month boundary.
 
 ---
 
@@ -571,8 +681,8 @@ Charts read accent/text/border colors live from CSS custom properties via `getCo
 |---|---|
 | `getDailyQuote()` | Rotating motivational quote (changes daily, index by day number) |
 | `getRandomQuote()` | Random quote on demand |
-| `getGreeting(username)` | Time-of-day greeting (morning/afternoon/evening) |
-| `generateInsights(entries, streak, stats, consistency, curve)` | Returns up to 7 insight card objects |
+| `getGreeting(username)` | Time-of-day greeting (morning/afternoon/evening), chosen randomly from 3 variants |
+| `generateInsights(entries, streak, stats, consistency, curve)` | Returns up to 4 insight card objects |
 | `renderInsightsRow(containerId, insights)` | Renders insights grid to DOM |
 | `renderCurveInsights(containerId, curve)` | Renders momentum/plateau/burnout chips |
 | `getStreakInsight(streak, consistency)` | Returns motivational string |
@@ -612,10 +722,10 @@ Charts read accent/text/border colors live from CSS custom properties via `getCo
 - `--shadow-sm`, `--shadow-md`, `--shadow-lg` — shadow levels
 
 ### Compact Mode
-App always launches in compact mode (`compact: true` default). Compact mode applies tighter padding, smaller font sizes, and reduced gaps via `.compact-mode` class on `<body>`. This is the only supported layout mode.
+App always launches in compact mode (`compact: true` default). Compact mode applies tighter padding, smaller font sizes, and reduced gaps via `.compact-mode` class on `<body>`. The setting is also exposed as a toggle in Settings.
 
 ### Themes
-- Light and Dark modes, toggled by sidebar switch or Settings page
+- Light and Dark modes, toggled by sidebar switch or Settings page (button toggle)
 - Theme stored in preferences, applied on load
 - CSS handles full theme via variable overrides on `[data-theme="dark"]`
 
@@ -628,6 +738,7 @@ App always launches in compact mode (`compact: true` default). Compact mode appl
 - Smooth chart transitions (Chart.js animations)
 - Toast notifications (slide-in/out)
 - Sidebar backup status chip pop animation (`sbs-pop`)
+- Fullscreen Pomodoro quote fade transition
 
 ---
 
@@ -643,9 +754,10 @@ Auto-dismiss after 3.5 s. Manual close button. Stack vertically.
 - Semantic HTML (nav, main, section, article, button, label)
 - ARIA labels on icon-only buttons
 - ARIA `role="gridcell"` on heatmap cells
+- ARIA `role="button"` + `tabindex="0"` on calendar day cells
 - ARIA `aria-current="page"` on active nav items
 - ARIA `aria-live="polite"` on backup status chip
-- Keyboard navigation (Enter / Space on custom controls; Escape exits Pomodoro fullscreen)
+- Keyboard navigation (Enter / Space on custom controls; Escape exits Pomodoro fullscreen or closes open panel/modal)
 - Focus indicators
 - Color contrast ratios meet WCAG AA for default themes
 
