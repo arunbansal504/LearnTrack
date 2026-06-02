@@ -2658,13 +2658,27 @@ const App = (() => {
     const topicMap      = {};
     const topicSessions = {};
     const topicCat      = {};
+    const topicDiffWt   = {};  // sum of (minutes × difficultyRank) for weighted-avg tiebreak
+    const topicMoodWt   = {};  // sum of (minutes × moodScore) for weighted-avg tiebreak
+    const _DIFF_RANK    = { easy: 1, medium: 2, hard: 3 };
     monthEntries.forEach(e => {
       if (!e.topic) return;
-      topicMap[e.topic]      = (topicMap[e.topic] || 0) + (e.durationMinutes || 0);
+      const mins = e.durationMinutes || 0;
+      topicMap[e.topic]      = (topicMap[e.topic]      || 0) + mins;
       topicSessions[e.topic] = (topicSessions[e.topic] || 0) + 1;
+      topicDiffWt[e.topic]   = (topicDiffWt[e.topic]   || 0) + mins * (_DIFF_RANK[e.difficulty] ?? 2);
+      topicMoodWt[e.topic]   = (topicMoodWt[e.topic]   || 0) + mins * (e.moodScore || 3);
       if (e.category && !topicCat[e.topic]) topicCat[e.topic] = e.category;
     });
-    const topTopics   = Object.entries(topicMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const topTopics = Object.entries(topicMap)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        const avgDiffA = topicDiffWt[a[0]] / a[1];
+        const avgDiffB = topicDiffWt[b[0]] / b[1];
+        if (avgDiffB !== avgDiffA) return avgDiffB - avgDiffA;
+        return (topicMoodWt[b[0]] / b[1]) - (topicMoodWt[a[0]] / a[1]);
+      })
+      .slice(0, 10);
     const maxTopicMin = topTopics[0]?.[1] || 1;
 
     // ── Difficulty ──
@@ -2913,10 +2927,27 @@ const App = (() => {
     const diffMap = { Easy: 0, Medium: 0, Hard: 0 };
     monthEntries.forEach(e => { if (e.difficulty && diffMap[e.difficulty] !== undefined) diffMap[e.difficulty]++; });
 
-    // Top topics
-    const topicMap = {};
-    monthEntries.forEach(e => { if (e.topic) topicMap[e.topic] = (topicMap[e.topic] || 0) + (e.durationMinutes || 0); });
-    const topTopics    = Object.entries(topicMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // Top topics — sorted by duration, then difficulty (hard > medium > easy), then mood
+    const topicMap    = {};
+    const _tDiffWt    = {};
+    const _tMoodWt    = {};
+    const _DIFF_RANK2 = { easy: 1, medium: 2, hard: 3 };
+    monthEntries.forEach(e => {
+      if (!e.topic) return;
+      const mins = e.durationMinutes || 0;
+      topicMap[e.topic] = (topicMap[e.topic] || 0) + mins;
+      _tDiffWt[e.topic] = (_tDiffWt[e.topic] || 0) + mins * (_DIFF_RANK2[e.difficulty] ?? 2);
+      _tMoodWt[e.topic] = (_tMoodWt[e.topic] || 0) + mins * (e.moodScore || 3);
+    });
+    const topTopics = Object.entries(topicMap)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        const avgDiffA = _tDiffWt[a[0]] / a[1];
+        const avgDiffB = _tDiffWt[b[0]] / b[1];
+        if (avgDiffB !== avgDiffA) return avgDiffB - avgDiffA;
+        return (_tMoodWt[b[0]] / b[1]) - (_tMoodWt[a[0]] / a[1]);
+      })
+      .slice(0, 10);
     const maxTopicMin  = topTopics[0]?.[1] || 1;
 
     // Mood
