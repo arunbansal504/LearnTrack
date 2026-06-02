@@ -140,6 +140,12 @@ const App = (() => {
       _entries   = await Storage.getAllEntries();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
       _earnedAch = await Storage.getAllAchievements();
+      // Migration: if goal history exists but has no epoch anchor, past dates fall back
+      // to the current (new) goal instead of the original — add a sentinel using the default.
+      if (_prefs.goalHistory?.length && !_prefs.goalHistory.some(g => g.from === '0000-01-01')) {
+        _prefs.goalHistory = [{ from: '0000-01-01', goalMin: DEFAULT_PREFS.dailyGoalMin }, ..._prefs.goalHistory];
+        await Storage.setPref('goalHistory', _prefs.goalHistory);
+      }
     } catch (err) {
       console.error('[App] Load error:', err);
     }
@@ -597,14 +603,24 @@ const App = (() => {
       : 'Keep going!';
     setEl('goal-today-status', status);
 
-    // Weekly goal bars
+    // Weekly goal bars — each day uses the goal that was active on that date
     const container = document.getElementById('goal-week-days');
     if (!container) return;
-    const weekly = Analytics.calculateWeeklySummary(_entries);
+    const weekly      = Analytics.calculateWeeklySummary(_entries);
+    const goalHistory = _prefs.goalHistory || [];
+    const goalForDate = date => {
+      if (!goalHistory.length) return goalMin;
+      let best = null;
+      for (const g of goalHistory) {
+        if (g.from <= date && (!best || g.from > best.from)) best = g;
+      }
+      return best ? best.goalMin : goalMin;
+    };
     const CHECK_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     container.innerHTML = weekly.days.map(d => {
-      const dayPct     = Math.min(100, Math.round((d.minutes / goalMin) * 100));
-      const met        = d.minutes >= goalMin;
+      const dayGoal    = goalForDate(d.date);
+      const dayPct     = Math.min(100, Math.round((d.minutes / dayGoal) * 100));
+      const met        = d.minutes >= dayGoal;
       const hasData    = d.minutes > 0;
       const stateClass = met ? 'met' : hasData ? 'partial' : 'empty';
       const inner = met
@@ -612,7 +628,7 @@ const App = (() => {
         : hasData ? `<span class="goal-circle-pct">${dayPct}%</span>` : '';
       return `
         <div class="goal-day-item ${stateClass}${d.isToday ? ' is-today' : ''}"
-             title="${d.label}: ${Analytics.formatDuration(d.minutes)} / ${Analytics.formatDuration(goalMin)} (${dayPct}%)">
+             title="${d.label}: ${Analytics.formatDuration(d.minutes)} / ${Analytics.formatDuration(dayGoal)} (${dayPct}%)">
           <div class="goal-day-label">${d.label}</div>
           <div class="goal-day-circle">${inner}</div>
         </div>`;
@@ -2108,6 +2124,11 @@ const App = (() => {
     if (daily !== _prefs.dailyGoalMin) {
       const today = Analytics.today();
       const history = [...(_prefs.goalHistory || [])];
+      // Anchor the old goal at the start of time so dates before any history entry
+      // still resolve to the original goal, not the new one being set now.
+      if (!history.some(g => g.from === '0000-01-01')) {
+        history.unshift({ from: '0000-01-01', goalMin: _prefs.dailyGoalMin });
+      }
       const idx = history.findIndex(g => g.from === today);
       if (idx >= 0) history[idx].goalMin = daily; else history.push({ from: today, goalMin: daily });
       _prefs.goalHistory = history;
