@@ -1067,6 +1067,7 @@ img, svg { max-width: 100%; }
   padding-bottom: 2px;
   min-height: 100px;
   width: 100%;
+  justify-content: flex-start;
 }
 .rp-daily-bar-col {
   display: flex;
@@ -1074,6 +1075,7 @@ img, svg { max-width: 100%; }
   align-items: center;
   gap: 3px;
   flex: 1 1 0;
+  max-width: 40px;
   min-width: 0;
   overflow: hidden;
 }
