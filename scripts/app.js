@@ -1912,18 +1912,28 @@ const App = (() => {
 
   function renderReports() {
     populateReportMonthSelect();
-    const preview = document.getElementById('report-preview');
-    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
+
     const dlBtn = document.getElementById('download-report-btn');
     if (dlBtn && !dlBtn._bound) {
       dlBtn._bound = true;
       dlBtn.addEventListener('click', generateMonthlyReport);
     }
-    const pvBtn = document.getElementById('preview-report-btn');
-    if (pvBtn && !pvBtn._bound) {
-      pvBtn._bound = true;
-      pvBtn.addEventListener('click', renderReportPreview);
+
+    const sel = document.getElementById('report-month');
+    if (sel && !sel._bound) {
+      sel._bound = true;
+      sel.addEventListener('change', renderReportPreview);
     }
+
+    ['report-inc-notes', 'report-inc-resources'].forEach(id => {
+      const cb = document.getElementById(id);
+      if (cb && !cb._bound) {
+        cb._bound = true;
+        cb.addEventListener('change', renderReportPreview);
+      }
+    });
+
+    renderReportPreview();
   }
 
   /* ---- CALENDAR PAGE ------------------------------- */
@@ -2589,7 +2599,6 @@ const App = (() => {
             <div style="font-size:13px;color:var(--text-3);">There are no learning sessions recorded for this month.</div>
           </div>`;
         container.classList.remove('hidden');
-        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
       return;
     }
@@ -2801,7 +2810,6 @@ const App = (() => {
           <div class="rp-title">${esc(reportTitle)}</div>
           <div class="rp-meta">Generated ${generatedOn} · ${esc(username)}</div>
         </div>
-        <button class="rp-close" onclick="document.getElementById('report-preview').classList.add('hidden')" title="Close">✕</button>
       </div>
 
       <div class="rp-stats-grid">${statsHtml}</div>
@@ -2840,7 +2848,6 @@ const App = (() => {
     `;
 
     container.classList.remove('hidden');
-    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /* ---- Monthly PDF Report -------------------------- */
