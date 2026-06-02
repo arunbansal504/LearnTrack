@@ -286,6 +286,29 @@ const App = (() => {
     const sort = document.getElementById('filter-sort');
     if (sort) sort.value = 'newest';
     _logPage = 1;
+    updateFilterToggleState();
+  }
+
+  function updateFilterToggleState() {
+    const active =
+      (document.getElementById('log-search')?.value || '') !== '' ||
+      (document.getElementById('filter-date-from')?.value || '') !== '' ||
+      (document.getElementById('filter-date-to')?.value || '') !== '' ||
+      (document.getElementById('filter-category')?.value || '') !== '' ||
+      (document.getElementById('filter-difficulty')?.value || '') !== '' ||
+      (document.getElementById('filter-sort')?.value || 'newest') !== 'newest';
+    document.getElementById('filter-toggle')?.classList.toggle('has-filters', active);
+  }
+
+  function updateDlFilterToggleState() {
+    const active =
+      (document.getElementById('dl-search')?.value || '') !== '' ||
+      (document.getElementById('dl-filter-date-from')?.value || '') !== '' ||
+      (document.getElementById('dl-filter-date-to')?.value || '') !== '' ||
+      (document.getElementById('dl-filter-category')?.value || '') !== '' ||
+      (document.getElementById('dl-filter-difficulty')?.value || '') !== '' ||
+      (document.getElementById('dl-filter-sort')?.value || 'deleted-newest') !== 'deleted-newest';
+    document.getElementById('dl-filter-toggle')?.classList.toggle('has-filters', active);
   }
 
   function setupNavigation() {
@@ -1013,12 +1036,13 @@ const App = (() => {
       });
       const sort = document.getElementById('filter-sort');
       if (sort) sort.value = 'newest';
+      updateFilterToggleState();
       renderEntryList();
     });
 
     ['log-search','filter-date-from','filter-date-to','filter-category','filter-difficulty','filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { _logPage = 1; renderEntryList(); });
-      document.getElementById(id)?.addEventListener('input',  () => { _logPage = 1; renderEntryList(); });
+      document.getElementById(id)?.addEventListener('change', () => { _logPage = 1; updateFilterToggleState(); renderEntryList(); });
+      document.getElementById(id)?.addEventListener('input',  () => { _logPage = 1; updateFilterToggleState(); renderEntryList(); });
     });
 
     document.getElementById('load-more-btn')?.addEventListener('click', () => {
@@ -1448,13 +1472,14 @@ const App = (() => {
       });
       const sort = document.getElementById('dl-filter-sort');
       if (sort) sort.value = 'deleted-newest';
+      updateDlFilterToggleState();
       _deletedPage = 1;
       renderDeletedLogs();
     });
 
     ['dl-search','dl-filter-date-from','dl-filter-date-to','dl-filter-category','dl-filter-difficulty','dl-filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { _deletedPage = 1; renderDeletedLogs(); });
-      document.getElementById(id)?.addEventListener('input',  () => { _deletedPage = 1; renderDeletedLogs(); });
+      document.getElementById(id)?.addEventListener('change', () => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); });
+      document.getElementById(id)?.addEventListener('input',  () => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); });
     });
 
     document.getElementById('dl-load-more-btn')?.addEventListener('click', () => {
@@ -1896,6 +1921,7 @@ const App = (() => {
         if (fromEl) fromEl.value = ds;
         if (toEl)   toEl.value   = ds;
         _logPage = 1;
+        updateFilterToggleState();
         navigateTo('log');
       },
     });

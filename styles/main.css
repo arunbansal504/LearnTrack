@@ -765,6 +765,14 @@ img, svg { max-width: 100%; }
 }
 .btn-secondary:hover { background: var(--surface-3); border-color: var(--border-2); }
 
+/* Filter button active state — shown when any filter is applied */
+.btn-secondary.has-filters {
+  background: var(--accent-subtle, rgba(108,99,255,0.12));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-secondary.has-filters:hover { background: var(--accent-subtle, rgba(108,99,255,0.18)); }
+
 .btn-ghost {
   background: transparent;
   color: var(--text-2);
