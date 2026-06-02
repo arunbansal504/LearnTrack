@@ -55,6 +55,33 @@ const Charts = (() => {
     delete _recreators[id];
   }
 
+  /* ---- Heatmap cell tooltip (works on mobile tap) -- */
+
+  function _showHeatTip(text, anchor) {
+    let tip = document.getElementById('_hm-tip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = '_hm-tip';
+      tip.style.cssText = 'position:fixed;background:var(--surface);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.55);pointer-events:none;opacity:0;transition:opacity 0.15s;';
+      document.body.appendChild(tip);
+      document.addEventListener('click', e => {
+        if (!e.target.classList.contains('heatmap-day')) tip.style.opacity = '0';
+      });
+    }
+    tip.textContent = text;
+    const ar = anchor.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    let top  = ar.top - tr.height - 8;
+    let left = ar.left + ar.width / 2 - tr.width / 2;
+    if (top < 8) top = ar.bottom + 8;
+    left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+    tip.style.top  = top + 'px';
+    tip.style.left = left + 'px';
+    tip.style.opacity = '1';
+    clearTimeout(tip._t);
+    tip._t = setTimeout(() => { tip.style.opacity = '0'; }, 2500);
+  }
+
   /* ---- Daily Time Line Chart ----------------------- */
 
   function renderDailyTimeChart(canvasId, data) {
@@ -539,6 +566,8 @@ const Charts = (() => {
           el.title     = cell.label;
           el.setAttribute('role', 'gridcell');
           el.setAttribute('aria-label', cell.label);
+          el.style.cursor = 'pointer';
+          el.addEventListener('click', e => { e.stopPropagation(); _showHeatTip(cell.label, el); });
 
           if (cell.level === 0) {
             el.style.background = 'var(--border)';
