@@ -3654,6 +3654,10 @@ input:disabled {
   .sidebar {
     transform: translateX(-100%);
     width: 260px !important;
+    height: 100vh;                  /* fallback */
+    height: -webkit-fill-available; /* older iOS Safari */
+    height: 100dvh;                 /* dynamic — excludes browser chrome (address bar, tab bar) */
+    padding-bottom: var(--mobile-nav-height); /* keep footer above the fixed bottom nav */
     box-shadow: var(--shadow-lg);
     z-index: 200;
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);

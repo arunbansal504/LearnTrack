@@ -357,6 +357,56 @@ const App = (() => {
       document.getElementById(id)?.addEventListener('click', () => navigateTo('achievements'));
     });
     document.getElementById('mobile-sidebar-overlay')?.addEventListener('click', closeMobileSidebar);
+
+    // Swipe left on the sidebar to close it on mobile
+    const _swipeSidebar = document.getElementById('sidebar');
+    if (_swipeSidebar) {
+      let _swStartX = 0, _swStartY = 0, _swLastX = 0;
+      let _swTracking = false, _swCommitted = false;
+
+      _swipeSidebar.addEventListener('touchstart', e => {
+        if (window.innerWidth > 768 || !_swipeSidebar.classList.contains('mobile-open')) return;
+        _swStartX = _swLastX = e.touches[0].clientX;
+        _swStartY = e.touches[0].clientY;
+        _swTracking = true;
+        _swCommitted = false;
+      }, { passive: true });
+
+      _swipeSidebar.addEventListener('touchmove', e => {
+        if (!_swTracking) return;
+        const x = e.touches[0].clientX;
+        const y = e.touches[0].clientY;
+        const dx = x - _swStartX;
+        _swLastX = x;
+
+        if (!_swCommitted) {
+          if (Math.abs(dx) < 6 && Math.abs(y - _swStartY) < 6) return; // dead zone
+          if (Math.abs(y - _swStartY) >= Math.abs(dx)) { _swTracking = false; return; } // vertical scroll
+          _swCommitted = true;
+          _swipeSidebar.style.transition = 'none';
+        }
+
+        _swipeSidebar.style.transform = `translateX(${Math.min(0, dx)}px)`;
+      }, { passive: true });
+
+      const _swFinish = () => {
+        if (!_swTracking) return;
+        _swTracking = false;
+        if (!_swCommitted) return;
+        _swCommitted = false;
+        _swipeSidebar.style.transition = '';
+        if (_swLastX - _swStartX < -80) {
+          _swipeSidebar.style.transform = 'translateX(-100%)';
+          closeMobileSidebar();
+          _swipeSidebar.addEventListener('transitionend', () => { _swipeSidebar.style.transform = ''; }, { once: true });
+        } else {
+          _swipeSidebar.style.transform = '';
+        }
+      };
+
+      _swipeSidebar.addEventListener('touchend',   _swFinish, { passive: true });
+      _swipeSidebar.addEventListener('touchcancel', _swFinish, { passive: true });
+    }
   }
 
   function updateSidebarUser() {
