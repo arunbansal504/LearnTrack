@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=22" />
+  <link rel="stylesheet" href="styles/main.css?v=23" />
   <link rel="stylesheet" href="styles/dashboard.css?v=16" />
   <link rel="stylesheet" href="styles/animations.css?v=15" />
 </head>
@@ -996,17 +996,13 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1 class="page-title">Profiles</h1>
-          <p class="page-subtitle">Manage learning profiles — each has its own data, streaks, and achievements</p>
+          <p class="page-subtitle">One household, many learners.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="new-profile-header-btn">+ New Profile</button>
         </div>
       </div>
-      <div class="settings-layout">
-        <div class="settings-section">
-          <div class="settings-card">
-            <div id="users-management-list" class="users-management-list"></div>
-            <button class="btn btn-secondary btn-sm" id="add-profile-btn" style="margin-top:var(--s-3)">+ Add New Profile</button>
-          </div>
-        </div>
-      </div>
+      <div id="users-management-list" class="profile-cards-grid"></div>
     </section>
 
     <!-- ===== PAGE: SETTINGS ===== -->
