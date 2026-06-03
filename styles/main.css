@@ -748,6 +748,16 @@ img, svg { max-width: 100%; }
 }
 .btn-primary:active { transform: translateY(0); }
 
+.btn-current-profile {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 14px var(--accent-glow);
+  cursor: default;
+  pointer-events: none;
+  font-weight: 600;
+}
+
 .btn-press {
   animation: btnPress 0.28s ease forwards;
 }
@@ -4250,6 +4260,7 @@ input:disabled {
   margin-bottom: var(--s-1);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
+.profile-card-avatar.profile-card-switchable { cursor: pointer; }
 
 .profile-card-name {
   font-size: 17px;
@@ -4257,6 +4268,8 @@ input:disabled {
   color: var(--text);
   line-height: 1.2;
 }
+.profile-card-name.profile-card-switchable { cursor: pointer; }
+.profile-card-name.profile-card-switchable:hover { color: var(--accent); }
 
 .profile-card-role {
   font-size: 10px;

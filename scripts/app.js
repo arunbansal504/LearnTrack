@@ -4303,9 +4303,9 @@ const App = (() => {
       const canDelete = users.length > 1 && !isActive;
       return `
         <div class="profile-card${isActive ? ' active-profile' : ''}" data-uid="${u.id}">
-          <div class="profile-card-avatar" style="background:${u.color}">${u.name.charAt(0).toUpperCase()}</div>
+          <div class="profile-card-avatar${!isActive ? ' profile-card-switchable' : ''}" style="background:${u.color}" ${!isActive ? `data-uid="${u.id}"` : ''}>${u.name.charAt(0).toUpperCase()}</div>
           <div class="profile-card-name-wrap">
-            <span class="profile-card-name">${escapeHtml(u.name)}</span>
+            <span class="profile-card-name${!isActive ? ' profile-card-switchable' : ''}" ${!isActive ? `data-uid="${u.id}"` : ''}>${escapeHtml(u.name)}</span>
             <input type="text" class="profile-card-rename-input hidden" value="${escapeHtml(u.name)}" maxlength="30" />
           </div>
           <div class="profile-card-role">${escapeHtml(s.title.toUpperCase())}</div>
@@ -4324,7 +4324,7 @@ const App = (() => {
           </div>
           <div class="profile-card-actions">
             ${isActive
-              ? `<button class="btn btn-primary" disabled>Current Profile</button>`
+              ? `<button class="btn btn-current-profile">Current Profile</button>`
               : `<button class="btn btn-secondary user-manage-switchable" data-uid="${u.id}">Switch</button>`
             }
           </div>
@@ -4337,7 +4337,7 @@ const App = (() => {
       `;
     }).join('') || '<p class="settings-hint">No profiles found.</p>';
 
-    list.querySelectorAll('.user-manage-switchable').forEach(el => {
+    list.querySelectorAll('.user-manage-switchable, .profile-card-switchable').forEach(el => {
       el.addEventListener('click', () => switchUser(el.dataset.uid));
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') switchUser(el.dataset.uid); });
     });
