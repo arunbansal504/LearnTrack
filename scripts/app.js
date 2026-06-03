@@ -252,26 +252,34 @@ const App = (() => {
   }
 
   function updateSidebarBackupStatus(fresh = false) {
-    const folderName    = localStorage.getItem('lt_backupFolderName');
-    const warnEl        = document.getElementById('sidebar-backup-warning');
-    if (warnEl) warnEl.style.display = folderName ? 'none' : 'flex';
+    const folderName = localStorage.getItem('lt_backupFolderName');
+    const warnEl     = document.getElementById('sidebar-backup-warning');
+    const el         = document.getElementById('sidebar-backup-status');
+    const time       = document.getElementById('sidebar-backup-time');
 
-    const el   = document.getElementById('sidebar-backup-status');
-    const time = document.getElementById('sidebar-backup-time');
+    if (!folderName) {
+      // No folder configured — always show warning, never show auto-backup status
+      if (warnEl) warnEl.style.display = 'flex';
+      if (el) el.style.display = 'none';
+      return;
+    }
+
+    // Folder configured — warning never shows, status shows if a backup has run
+    if (warnEl) warnEl.style.display = 'none';
     if (!el || !_lastAutoBackup) return;
 
     const diffMin = Math.floor((Date.now() - _lastAutoBackup) / 60000);
     const diffHr  = Math.floor(diffMin / 60);
-    time.textContent = diffMin < 1  ? 'Just now'
-                     : diffMin < 60 ? `${diffMin}m ago`
-                     : diffHr < 24  ? `${diffHr}h ago`
-                     : 'Over a day ago';
+    if (time) time.textContent = diffMin < 1  ? 'Just now'
+                               : diffMin < 60 ? `${diffMin}m ago`
+                               : diffHr < 24  ? `${diffHr}h ago`
+                               : 'Over a day ago';
 
     el.style.display = 'flex';
 
     if (fresh) {
       el.classList.remove('sbs-pop');
-      void el.offsetWidth; // force reflow to restart animation
+      void el.offsetWidth;
       el.classList.add('sbs-pop');
     }
   }
@@ -1102,10 +1110,11 @@ const App = (() => {
         const input = document.getElementById(btn.dataset.field);
         if (!input) return;
         const dir  = parseInt(btn.dataset.dir, 10);
+        const min  = parseInt(input.min, 10) || 0;
         const max  = parseInt(input.max, 10);
         const val  = parseInt(input.value, 10) || 0;
         const next = val + dir;
-        if (next >= 0 && next <= max) input.value = next;
+        if (next >= min && next <= max) input.value = next;
       });
     });
 
@@ -2212,9 +2221,24 @@ const App = (() => {
 
   async function saveProfile() {
     const name  = document.getElementById('setting-username')?.value.trim() || 'Learner';
-    const daily = parseInt(document.getElementById('setting-daily-goal')?.value, 10) || 60;
-    const monthly = parseInt(document.getElementById('setting-monthly-goal')?.value, 10) || 20;
+    const dailyRaw = parseInt(document.getElementById('setting-daily-goal')?.value, 10);
+    const daily = isNaN(dailyRaw) ? 60 : dailyRaw;
+    const monthlyRaw = parseInt(document.getElementById('setting-monthly-goal')?.value, 10);
+    const monthly = isNaN(monthlyRaw) ? 20 : monthlyRaw;
     const reminderTime = document.getElementById('setting-reminder-time')?.value || '20:00';
+
+    if (daily < 1) {
+      showToast('Daily goal must be at least 1 minute.', 'warning');
+      return;
+    }
+    if (daily > 1440) {
+      showToast('Daily goal cannot exceed 24 hours (1440 minutes).', 'warning');
+      return;
+    }
+    if (monthly < 1) {
+      showToast('Monthly goal must be at least 1 hour.', 'warning');
+      return;
+    }
 
     // Track daily goal history so past medals/badges use the goal active on each day
     if (daily !== _prefs.dailyGoalMin) {
@@ -4360,12 +4384,18 @@ const App = (() => {
           if (!newName) { showToast('Name cannot be empty', 'warning'); return; }
           const duplicate = UserManager.getUsers().find(u => u.id !== uid && u.name.toLowerCase() === newName.toLowerCase());
           if (duplicate) { showToast(`A profile named "${duplicate.name}" already exists.`, 'warning'); return; }
+          const oldUser     = UserManager.getUsers().find(u => u.id === uid);
+          const oldFilename = getBackupFilename(oldUser);
           UserManager.updateUser(uid, newName);
           if (uid === UserManager.getActiveId()) {
-            _prefs.username = newName;
-            Storage.setPref('username', newName);
-            updateSidebarUser();
+            triggerAutoBackup();
           }
+          // Remove old backup file so the folder doesn't accumulate stale files
+          Storage.getDirectoryHandle().then(async dirHandle => {
+            if (!dirHandle) return;
+            const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+            if (perm === 'granted') dirHandle.removeEntry(oldFilename).catch(() => {});
+          }).catch(() => {});
           showToast('Profile renamed', 'success');
           renderUsersManagement();
         }
