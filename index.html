@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=63" />
+  <link rel="stylesheet" href="styles/main.css?v=77" />
   <link rel="stylesheet" href="styles/dashboard.css?v=17" />
   <link rel="stylesheet" href="styles/animations.css?v=15" />
 </head>
@@ -409,6 +409,18 @@
         </div>
       </div>
 
+      <!-- Academic Goals Widget -->
+      <div class="widget goals-dashboard-widget">
+        <div class="widget-header">
+          <h3>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h3>
+          <a href="#" class="widget-action" data-page="goals" data-expand-goals="true">View all</a>
+        </div>
+        <div id="goals-mini-stats-row"><!-- Rendered by JS --></div>
+        <div id="goals-widget-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
       <!-- Dashboard Bottom Row -->
       <div class="dashboard-bottom">
         <!-- Activity Feed -->
@@ -525,17 +537,6 @@
           </div>
         </div>
 
-        <!-- Academic Goals Widget -->
-        <div class="widget goals-dashboard-widget">
-          <div class="widget-header">
-            <h3>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h3>
-            <a href="#" class="widget-action" data-page="goals" data-expand-goals="true">View all</a>
-          </div>
-          <div id="goals-mini-stats-row"><!-- Rendered by JS --></div>
-          <div id="goals-widget-list">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
 
       </div>
     </section>

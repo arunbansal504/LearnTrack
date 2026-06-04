@@ -70,6 +70,7 @@ const App = (() => {
   let _goalsSelection    = new Set();
   let _deletedGoalsSelection = new Set();
   let _pendingHistoryMode = null; // 'all' | 'today' | 'fresh' | null
+  let _dashGoalsCollapsed = false; // dashboard open-goals list, default expanded
   let _autoBackupTimer      = null;
   let _lastAutoBackup       = 0;
   let _backupInProgress     = false;
@@ -4932,7 +4933,9 @@ const App = (() => {
     document.getElementById('goal-priority').value    = goal?.priority    || 'medium';
     // '0000-01-01' means "from beginning" — browsers can't render year 0, so show as blank
     document.getElementById('goal-start-date').value  = (goal?.startDate && goal.startDate !== '0000-01-01') ? goal.startDate : (goal ? '' : Analytics.today());
-    document.getElementById('goal-target-date').value = goal?.targetDate  || '';
+    const targetDateEl = document.getElementById('goal-target-date');
+    targetDateEl.value = goal?.targetDate || '';
+    targetDateEl.min   = Analytics.today();
     document.getElementById('goal-description').value = goal?.description || '';
     document.getElementById('goal-target-hours').value  = goal?.targetMinutes ? (goal.targetMinutes / 60) : '';
     document.getElementById('goal-target-count').value  = goal?.targetCount  || '';
@@ -4990,6 +4993,11 @@ const App = (() => {
     const description = document.getElementById('goal-description').value.trim();
 
     if (!title) { showToast('Please enter a goal title.', 'warning'); return; }
+    if (targetDate && targetDate < Analytics.today()) {
+      showToast('Deadline / Exam date cannot be in the past.', 'warning');
+      document.getElementById('goal-target-date').focus();
+      return;
+    }
 
     // Duplicate check — only for new goals (skipped when user explicitly chose "Create New" after deleted-dup warning)
     if (!id && !skipDupCheck) {
@@ -5481,7 +5489,7 @@ const App = (() => {
         const body      = items.length
           ? `<div class="goals-grid goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}">${items.map(g => _renderGoalCard(g)).join('')}</div>`
           : emptyMsg
-          ? `<p class="goals-section-empty goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}">${emptyMsg}</p>`
+          ? `<div class="goals-section-empty goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}"><span class="gse-icon">${icon}</span><span class="gse-text">${emptyMsg}</span></div>`
           : '';
         const secCb = items.length ? `
           <label onclick="event.stopPropagation()" style="display:flex;align-items:center;flex-shrink:0;cursor:pointer">
@@ -5816,24 +5824,51 @@ const App = (() => {
       return;
     }
 
-    container.innerHTML = `<div class="goals-widget-section-label">Open Goals</div>` + active.map(g => {
-      const daysLeft = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
+    const typeLabel = { time: '⏱ Study Hours', checklist: '✅ Task List', count: '🔢 Problem Count', exam: '📝 Exam Prep' };
+    const prioLabel = { high: 'High', medium: 'Med', low: 'Low' };
+
+    const itemsHtml = active.map(g => {
+      const daysLeft  = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
       const isOverdue = daysLeft !== null && daysLeft < 0;
-      const deadline = daysLeft === null ? '' : isOverdue ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Today' : `📅 ${daysLeft}d`;
+      const deadline  = daysLeft === null ? '' : isOverdue ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Due today' : `📅 ${daysLeft}d left`;
+      const prio      = g.priority || 'medium';
       const progressBar = g.type !== 'exam'
         ? `<div class="goal-widget-bar"><div class="goal-widget-fill" style="width:${Math.min(g.prog.pct, 100)}%"></div></div>`
         : '';
-      const pctLabel = g.type !== 'exam' ? `${g.prog.pct}%` : g.prog.label;
       return `
         <div class="goal-widget-item" data-id="${g.id}" data-type="${g.type}" data-status="${isOverdue ? 'overdue' : 'active'}" role="button" tabindex="0">
-          <div class="goal-widget-info">
-            <span class="goal-widget-title">${escapeHtml(g.title)}</span>
-            ${deadline ? `<span class="goal-widget-deadline${isOverdue ? ' overdue' : ''}">${deadline}</span>` : ''}
+          <span class="goal-widget-title">${escapeHtml(g.title)}</span>
+          <div class="gwi-meta">
+            <span class="gwi-type-tag">${typeLabel[g.type] || g.type}</span>
+            ${g.category ? `<span class="gwi-sep">·</span><span class="gwi-cat-tag">${escapeHtml(g.category)}</span>` : ''}
+            ${deadline ? `<span class="gwi-sep">·</span><span class="gwi-deadline${isOverdue ? ' overdue' : ''}">${deadline}</span>` : ''}
           </div>
-          ${progressBar}
-          <span class="goal-widget-pct">${pctLabel}</span>
+          <div class="gwi-bottom">
+            ${progressBar}
+            <span class="gwi-prog-label">${g.prog.label}${g.type !== 'exam' ? ` <span class="gwi-pct">(${g.prog.pct}%)</span>` : ''}</span>
+          </div>
+          <span class="gwi-priority gwi-prio-${prio}">${prioLabel[prio] || prio}</span>
         </div>`;
     }).join('');
+
+    container.innerHTML = `
+      <div class="goals-section-hd goals-sec-toggle" id="gwi-toggle-hd">
+        <span class="goals-section-icon">📋</span>
+        <span class="goals-section-label">Open Goals</span>
+        <span class="goals-section-count">${active.length}</span>
+        <svg class="goals-sec-chevron${_dashGoalsCollapsed ? ' goals-sec-chevron-up' : ''}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div id="gwi-items-wrap" class="goals-section-body${_dashGoalsCollapsed ? ' goals-sec-collapsed' : ''}">
+        ${itemsHtml}
+      </div>`;
+
+    container.querySelector('#gwi-toggle-hd').addEventListener('click', () => {
+      _dashGoalsCollapsed = !_dashGoalsCollapsed;
+      const wrap    = container.querySelector('#gwi-items-wrap');
+      const chevron = container.querySelector('.goals-sec-chevron');
+      wrap.classList.toggle('goals-sec-collapsed', _dashGoalsCollapsed);
+      chevron.classList.toggle('goals-sec-chevron-up', _dashGoalsCollapsed);
+    });
 
     container.querySelectorAll('.goal-widget-item').forEach(el => {
       el.addEventListener('click', () => {
