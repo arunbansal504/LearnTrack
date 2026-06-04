@@ -11,6 +11,9 @@ learning-tracker-backup*.json
 # Temporary screenshots captured during development
 *.png
 
+# Node / Jest dev dependencies
+node_modules/
+
 # OS junk
 .DS_Store
 Thumbs.db

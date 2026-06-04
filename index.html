@@ -26,8 +26,8 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=92" />
-  <link rel="stylesheet" href="styles/dashboard.css?v=25" />
+  <link rel="stylesheet" href="styles/main.css?v=93" />
+  <link rel="stylesheet" href="styles/dashboard.css?v=26" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
 <body>
@@ -304,7 +304,7 @@
       <div class="summary-row">
         <div class="summary-card">
           <div class="summary-header">
-            <h3>This Week <i class="info-tip" data-tip="Total logged time for the current Mon–Sun week. Bar heights are proportional to each day's duration relative to the week's peak day.">i</i></h3>
+            <h2>This Week <i class="info-tip" data-tip="Total logged time for the current Mon–Sun week. Bar heights are proportional to each day's duration relative to the week's peak day.">i</i></h2>
             <span class="summary-period" id="week-period"></span>
           </div>
           <div class="summary-body">
@@ -317,7 +317,7 @@
         </div>
         <div class="summary-card">
           <div class="summary-header">
-            <h3>This Month <i class="info-tip" data-tip="Total logged time for the current calendar month vs your monthly goal (set in Settings). Progress bar shows % of monthly goal reached.">i</i></h3>
+            <h2>This Month <i class="info-tip" data-tip="Total logged time for the current calendar month vs your monthly goal (set in Settings). Progress bar shows % of monthly goal reached.">i</i></h2>
             <span class="summary-period" id="month-period"></span>
           </div>
           <div class="summary-body">
@@ -331,7 +331,7 @@
         </div>
         <div class="summary-card upcoming-milestone-card">
           <div class="summary-header">
-            <h3>Next Milestone <i class="info-tip" data-tip="The closest unearned achievement based on your current progress. Progress bar shows how far along you are toward unlocking it.">i</i></h3>
+            <h2>Next Milestone <i class="info-tip" data-tip="The closest unearned achievement based on your current progress. Progress bar shows how far along you are toward unlocking it.">i</i></h2>
           </div>
           <div class="summary-body" id="next-milestone-body">
             <div class="milestone-icon" id="milestone-icon">🏆</div>
@@ -348,7 +348,7 @@
       <div class="charts-grid">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Daily Learning Time</h3>
+            <h2>Daily Learning Time</h2>
             <div class="chart-range-tabs" id="daily-range-tabs">
               <button class="chart-range-tab" data-val="7">7d</button>
               <button class="chart-range-tab" data-val="14">14d</button>
@@ -363,7 +363,7 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Monthly Progress</h3>
+            <h2>Monthly Progress</h2>
             <div class="chart-range-tabs" id="monthly-range-tabs">
               <button class="chart-range-tab" data-val="3">3m</button>
               <button class="chart-range-tab active" data-val="6">6m</button>
@@ -376,7 +376,7 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Category Distribution</h3>
+            <h2>Category Distribution</h2>
             <div class="chart-range-tabs" id="category-range-tabs">
               <button class="chart-range-tab active" data-val="30">30d</button>
               <button class="chart-range-tab" data-val="90">90d</button>
@@ -390,7 +390,7 @@
         </div>
         <div class="chart-card full-width">
           <div class="chart-header">
-            <h3>Activity Heatmap</h3>
+            <h2>Activity Heatmap</h2>
             <span class="chart-hint" id="heatmap-hint">Last 52 weeks</span>
           </div>
           <div class="heatmap-container" id="heatmap-container"></div>
@@ -411,7 +411,7 @@
       <!-- Academic Goals Widget -->
       <div class="widget goals-dashboard-widget">
         <div class="widget-header">
-          <h3>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h3>
+          <h2>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h2>
           <a href="#" class="widget-action" data-page="goals" data-expand-goals="true">View all</a>
         </div>
         <div id="goals-mini-stats-row"><!-- Rendered by JS --></div>
@@ -425,7 +425,7 @@
         <!-- Activity Feed -->
         <div class="widget activity-feed-widget">
           <div class="widget-header">
-            <h3>Recent Activity <i class="info-tip" data-tip="Your most recent learning entries sorted by date. Shows topic, category, duration, and difficulty at a glance.">i</i></h3>
+            <h2>Recent Activity <i class="info-tip" data-tip="Your most recent learning entries sorted by date. Shows topic, category, duration, and difficulty at a glance.">i</i></h2>
             <a href="#" class="widget-action" data-page="log">View all</a>
           </div>
           <div class="activity-list" id="activity-list">
@@ -440,7 +440,7 @@
         <!-- Trophies -->
         <div class="widget medals-preview-widget">
           <div class="widget-header">
-            <h3>Trophies</h3>
+            <h2>Trophies</h2>
           </div>
           <div class="medals-widget-row">
 
@@ -525,7 +525,7 @@
         <!-- Achievements Preview -->
         <div class="widget achievements-preview-widget">
           <div class="widget-header">
-            <h3>Achievements <i class="info-tip" data-tip="Badges unlocked by hitting milestones — streaks, hours, sessions, difficulty, topics, and more. Each badge also awards bonus XP.">i</i></h3>
+            <h2>Achievements <i class="info-tip" data-tip="Badges unlocked by hitting milestones — streaks, hours, sessions, difficulty, topics, and more. Each badge also awards bonus XP.">i</i></h2>
             <a href="#" class="widget-action" data-page="achievements">View all</a>
           </div>
           <div class="badges-grid-mini" id="badges-grid-mini">
@@ -571,21 +571,21 @@
       <div class="filter-panel" id="filter-panel" style="display:none">
         <div class="filter-row">
           <div class="filter-group">
-            <label>Date From</label>
+            <label for="filter-date-from">Date From</label>
             <input type="date" id="filter-date-from" />
           </div>
           <div class="filter-group">
-            <label>Date To</label>
+            <label for="filter-date-to">Date To</label>
             <input type="date" id="filter-date-to" />
           </div>
           <div class="filter-group">
-            <label>Category</label>
+            <label for="filter-category">Category</label>
             <select id="filter-category">
               <option value="">All categories</option>
             </select>
           </div>
           <div class="filter-group">
-            <label>Difficulty</label>
+            <label for="filter-difficulty">Difficulty</label>
             <select id="filter-difficulty">
               <option value="">All levels</option>
               <option value="easy">Easy</option>
@@ -594,7 +594,7 @@
             </select>
           </div>
           <div class="filter-group">
-            <label>Sort by</label>
+            <label for="filter-sort">Sort by</label>
             <select id="filter-sort">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -612,7 +612,7 @@
           <div class="empty-icon">📚</div>
           <h3>No learning entries yet</h3>
           <p>Start tracking your learning journey by adding your first entry.</p>
-          <button class="btn btn-primary" onclick="document.getElementById('add-entry-btn').click()">Add First Entry</button>
+          <button class="btn btn-primary" id="log-empty-add-btn">Add First Entry</button>
         </div>
       </div>
 
@@ -627,7 +627,7 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1 class="page-title">Deleted Logs</h1>
-          <p class="page-subtitle">Entries moved here can be restored or permanently removed.</p>
+          <p class="page-subtitle">Entries moved here can be restored or permanently removed. Items are automatically deleted after 90 days.</p>
         </div>
         <div class="page-actions">
           <div class="search-bar">
@@ -649,21 +649,21 @@
       <div class="filter-panel" id="dl-filter-panel" style="display:none">
         <div class="filter-row">
           <div class="filter-group">
-            <label>Date From</label>
+            <label for="dl-filter-date-from">Date From</label>
             <input type="date" id="dl-filter-date-from" />
           </div>
           <div class="filter-group">
-            <label>Date To</label>
+            <label for="dl-filter-date-to">Date To</label>
             <input type="date" id="dl-filter-date-to" />
           </div>
           <div class="filter-group">
-            <label>Category</label>
+            <label for="dl-filter-category">Category</label>
             <select id="dl-filter-category">
               <option value="">All categories</option>
             </select>
           </div>
           <div class="filter-group">
-            <label>Difficulty</label>
+            <label for="dl-filter-difficulty">Difficulty</label>
             <select id="dl-filter-difficulty">
               <option value="">All levels</option>
               <option value="easy">Easy</option>
@@ -672,7 +672,7 @@
             </select>
           </div>
           <div class="filter-group">
-            <label>Sort by</label>
+            <label for="dl-filter-sort">Sort by</label>
             <select id="dl-filter-sort">
               <option value="deleted-newest">Recently deleted</option>
               <option value="deleted-oldest">Oldest deletion</option>
@@ -888,13 +888,13 @@
       <div class="filter-panel" id="dg-filter-panel" style="display:none">
         <div class="filter-row">
           <div class="filter-group">
-            <label>Category</label>
+            <label for="dg-filter-category">Category</label>
             <select id="dg-filter-category">
               <option value="">All categories</option>
             </select>
           </div>
           <div class="filter-group">
-            <label>Type</label>
+            <label for="dg-filter-type">Type</label>
             <select id="dg-filter-type">
               <option value="">All types</option>
               <option value="time">Study Hours</option>
@@ -904,7 +904,7 @@
             </select>
           </div>
           <div class="filter-group">
-            <label>Sort by</label>
+            <label for="dg-filter-sort">Sort by</label>
             <select id="dg-filter-sort">
               <option value="deleted-newest">Recently deleted</option>
               <option value="deleted-oldest">Oldest deletion</option>
@@ -1445,11 +1445,11 @@
           <div class="form-group">
             <label for="entry-mood">Mood / Productivity</label>
             <div class="mood-selector" id="mood-selector">
-              <button type="button" class="mood-btn" data-mood="1" title="Very low">😞</button>
-              <button type="button" class="mood-btn" data-mood="2" title="Low">😐</button>
-              <button type="button" class="mood-btn" data-mood="3" title="Okay" aria-pressed="true">🙂</button>
-              <button type="button" class="mood-btn active" data-mood="4" title="Good">😊</button>
-              <button type="button" class="mood-btn" data-mood="5" title="Excellent">🚀</button>
+              <button type="button" class="mood-btn" data-mood="1" title="Very low" aria-label="Very low (1 of 5)" aria-pressed="false">😞</button>
+              <button type="button" class="mood-btn" data-mood="2" title="Low" aria-label="Low (2 of 5)" aria-pressed="false">😐</button>
+              <button type="button" class="mood-btn" data-mood="3" title="Okay" aria-label="Okay (3 of 5)" aria-pressed="false">🙂</button>
+              <button type="button" class="mood-btn active" data-mood="4" title="Good" aria-label="Good (4 of 5)" aria-pressed="true">😊</button>
+              <button type="button" class="mood-btn" data-mood="5" title="Excellent" aria-label="Excellent (5 of 5)" aria-pressed="false">🚀</button>
             </div>
             <input type="hidden" id="entry-mood" value="4" />
           </div>

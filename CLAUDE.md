@@ -19,7 +19,20 @@ start index.html
 # Or drag index.html into a browser window
 ```
 
-All external dependencies (Chart.js, canvas-confetti, jsPDF, Google Fonts) are loaded from CDN. If offline, charts and PDF export will fail silently.
+All external dependencies (Chart.js, canvas-confetti, jsPDF, Google Fonts) are loaded from CDN. If offline, these degrade gracefully: chart renderers (`charts.js`) guard on `typeof Chart` and show an inline "Charts unavailable" placeholder, PDF export guards on `window.jspdf`, and confetti calls guard on `typeof confetti`.
+
+---
+
+## Tests
+
+There is a Jest suite at `tests/academic-goals.test.js` (pure-logic tests that replicate goal/analytics behavior — no DOM, no app import). Run it with:
+
+```
+npm install   # one-time, installs jest as a devDependency
+npm test      # runs jest
+```
+
+There is no CI wired up yet; run `npm test` locally before committing logic changes.
 
 ---
 
@@ -66,15 +79,17 @@ A separate IndexedDB `LearnTrackHandles` stores the File System Access API direc
 
 ---
 
-## Pages (9 total)
+## Pages (11 total)
 
 | Page id | Purpose |
 |---|---|
 | `dashboard` | Stats, insights, charts, activity feed |
 | `log` | Entry list, search, filter, add/edit |
-| `deleted-logs` | Recycle bin — restore or permanently delete soft-deleted entries |
+| `deleted-logs` | Recycle bin — restore or permanently delete soft-deleted entries (auto-purged after 90 days) |
 | `reports` | PDF monthly report generation with preview |
 | `calendar` | Month grid, day panel |
+| `goals` | Academic goals — create/track time, count, checklist, exam goals |
+| `deleted-goals` | Recycle bin for goals — restore or permanently delete |
 | `achievements` | XP, levels, badges, medals |
 | `profiles` | Multi-user management |
 | `settings` | Appearance, goals, categories |
@@ -184,7 +199,7 @@ CSS files are loaded with cache-busting query strings in `index.html` (e.g., `ma
 
 ### IndexedDB Schema Changes
 
-`DB_VERSION` in `storage.js` is currently `2`. If you add a new object store or index, increment `DB_VERSION` and add the corresponding `db.createObjectStore(...)` branch inside `req.onupgradeneeded`. The upgrade handler uses `if (!db.objectStoreNames.contains(...))` guards for safety.
+`DB_VERSION` in `storage.js` is currently `4`. If you add a new object store or index, increment `DB_VERSION` and add the corresponding `db.createObjectStore(...)` branch inside `req.onupgradeneeded`. The upgrade handler uses `if (!db.objectStoreNames.contains(...))` guards for safety.
 
 ---
 

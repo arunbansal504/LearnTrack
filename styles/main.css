@@ -153,6 +153,21 @@ img, svg { max-width: 100%; }
   z-index: 10000;
 }
 
+.fatal-load-error {
+  max-width: 440px;
+  margin: 0 var(--s-4);
+  padding: var(--s-5);
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.fatal-load-error h2 { margin: 0 0 var(--s-3); color: var(--text); }
+.fatal-load-error p { margin: 0 0 var(--s-3); color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.fatal-load-error-detail { color: var(--text-3); font-size: 12px; word-break: break-word; }
+.fatal-load-error .btn { margin-top: var(--s-2); }
+
 .loading-spinner {
   position: relative;
   width: 64px;
@@ -3657,11 +3672,22 @@ input:disabled {
   margin-bottom: var(--s-3);
 }
 
-.chart-header h3 { font-size: 13px; font-weight: 700; }
+.chart-header h2 { font-size: 13px; font-weight: 700; }
 .chart-hint { font-size: 11px; color: var(--text-3); }
 
 .chart-container { position: relative; height: 200px; overflow: hidden; }
 .chart-container-sm { position: relative; height: 200px; overflow: hidden; }
+.chart-unavailable {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--s-3);
+  font-size: 13px;
+  color: var(--text-3);
+}
 
 /* ---- Chart range pill tabs ---- */
 .chart-range-tabs {
@@ -4000,7 +4026,7 @@ input:disabled {
 
   /* Chart header: allow title + tabs to wrap if tight */
   .chart-header { flex-wrap: wrap; gap: var(--s-2); }
-  .chart-header h3 { flex: 1 0 auto; }
+  .chart-header h2 { flex: 1 0 auto; }
 
   /* Heatmap: smooth touch scrolling (fallback if content still wider than screen) */
   .heatmap-container { -webkit-overflow-scrolling: touch; }

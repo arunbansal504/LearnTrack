@@ -283,6 +283,23 @@ const Storage = (() => {
     return remove(STORES.deletedEntries, id);
   }
 
+  // Soft-deleted entries otherwise live in the recycle bin forever and slowly
+  // consume the IndexedDB quota. Permanently drop anything deleted more than
+  // maxAgeDays ago. Returns the number of entries purged.
+  async function purgeOldDeletedEntries(maxAgeDays = 90) {
+    const cutoff = Date.now() - maxAgeDays * 86400000;
+    const entries = await getAll(STORES.deletedEntries);
+    let purged = 0;
+    for (const e of entries) {
+      // Skip rows missing deletedAt — never purge something we can't age.
+      if (typeof e.deletedAt === 'number' && e.deletedAt < cutoff) {
+        await remove(STORES.deletedEntries, e.id);
+        purged++;
+      }
+    }
+    return purged;
+  }
+
   /* ---- Achievement CRUD ------------------------------ */
 
   async function getAchievement(id) {
@@ -406,17 +423,41 @@ const Storage = (() => {
 
   /* ---- Full Import (merge) --------------------------- */
 
+  // Imported JSON is untrusted — a hand-edited or corrupt file can carry entries with a
+  // missing id, a malformed date, or a non-numeric duration. Returning a normalized entry
+  // (or null to drop it) keeps bad data out of the in-memory array, where it would otherwise
+  // break analytics (e.g. string concatenation in duration sums).
+  const _VALID_DIFFICULTY = new Set(['easy', 'medium', 'hard']);
+  function _sanitizeEntry(e) {
+    if (!e || typeof e !== 'object') return null;
+    if (typeof e.id !== 'string' || !e.id) return null;
+    if (typeof e.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+
+    const duration = Number(e.durationMinutes);
+    const mood     = Number(e.moodScore);
+    return {
+      ...e,
+      durationMinutes: Number.isFinite(duration) && duration >= 0 ? duration : 0,
+      moodScore:       Number.isFinite(mood) ? Math.min(5, Math.max(1, Math.round(mood))) : 3,
+      difficulty:      _VALID_DIFFICULTY.has(e.difficulty) ? e.difficulty : 'medium',
+    };
+  }
+
   async function importAll(backup) {
     if (!backup || backup.appName !== 'LearnTrack' || !backup.data) {
       throw new Error('Invalid backup file format');
     }
 
     const { entries = [], deletedEntries = [], achievements = [], preferences = {}, goals = [], deletedGoals: importedDeletedGoals = [] } = backup.data;
+    if (!Array.isArray(entries) || !Array.isArray(deletedEntries) || !Array.isArray(achievements) || !Array.isArray(goals)) {
+      throw new Error('Invalid backup file format');
+    }
     let imported = 0, skipped = 0, updated = 0;
 
     // Merge entries: keep newest updatedAt
-    for (const incoming of entries) {
-      if (!incoming.id) { skipped++; continue; }
+    for (const raw of entries) {
+      const incoming = _sanitizeEntry(raw);
+      if (!incoming) { skipped++; continue; }
       const existing = await getEntry(incoming.id);
       if (!existing) {
         await put(STORES.entries, incoming);
@@ -434,8 +475,9 @@ const Storage = (() => {
     }
 
     // Merge deleted entries
-    for (const incoming of deletedEntries) {
-      if (!incoming.id) continue;
+    for (const raw of deletedEntries) {
+      const incoming = _sanitizeEntry(raw);
+      if (!incoming) continue;
       const existing = await get(STORES.deletedEntries, incoming.id);
       if (!existing) await put(STORES.deletedEntries, incoming);
     }
@@ -550,6 +592,7 @@ const Storage = (() => {
     getDeletedEntries,
     restoreEntry,
     permanentlyDeleteEntry,
+    purgeOldDeletedEntries,
     // Achievements
     getAchievement,
     getAllAchievements,

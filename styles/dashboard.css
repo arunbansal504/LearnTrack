@@ -154,7 +154,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.summary-header h3 {
+.summary-header h2 {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -621,7 +621,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.widget-header h3 {
+.widget-header h2 {
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1007,7 +1007,7 @@
     margin-bottom: var(--s-1);
     padding-bottom: var(--s-1);
   }
-  .summary-header h3 { font-size: 9px; }
+  .summary-header h2 { font-size: 9px; }
   .summary-period { font-size: 8px; padding: 1px 4px; }
   /* Hide detailed visuals — just show the headline number */
   .week-bars { display: none; }
@@ -1067,5 +1067,5 @@
   .summary-card { padding: var(--s-1) var(--s-2); }
   .summary-big,
   .compact-mode .summary-big { font-size: 13px; }
-  .summary-header h3 { font-size: 8px; }
+  .summary-header h2 { font-size: 8px; }
 }
