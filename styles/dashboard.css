@@ -982,7 +982,8 @@
     margin-bottom: var(--s-3);
   }
   .summary-card { padding: var(--s-2) var(--s-2); min-width: 0; overflow: hidden; }
-  .summary-big { font-size: 11px; letter-spacing: -0.02em; }
+  .summary-big,
+  .compact-mode .summary-big { font-size: 15px; letter-spacing: -0.02em; }
   .summary-meta { font-size: 9px; margin-bottom: 0; }
   .summary-header {
     flex-direction: column;
@@ -1049,6 +1050,7 @@
   .badge-mini { font-size: 18px; }
 
   .summary-card { padding: var(--s-1) var(--s-2); }
-  .summary-big { font-size: 10px; }
+  .summary-big,
+  .compact-mode .summary-big { font-size: 13px; }
   .summary-header h3 { font-size: 8px; }
 }

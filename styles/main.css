@@ -4566,7 +4566,7 @@ input:disabled {
 .compact-mode .summary-row         { gap: var(--s-2); margin-bottom: var(--s-3); }
 .compact-mode .summary-card        { padding: var(--s-3) var(--s-4); }
 .compact-mode .summary-header      { margin-bottom: var(--s-2); }
-.compact-mode .summary-big         { font-size: 26px; }
+.compact-mode .summary-big         { font-size: 20px; }
 
 /* Dashboard bottom widgets */
 .compact-mode .dashboard-bottom    { gap: var(--s-2); }
