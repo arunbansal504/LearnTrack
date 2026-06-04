@@ -5773,6 +5773,8 @@ input:disabled {
 }
 .goal-ms-row.ms-done { color: var(--text-3); text-decoration: line-through; }
 .goal-ms-row input[type="checkbox"] { flex-shrink: 0; accent-color: var(--accent); width: 13px; height: 13px; }
+.goal-ms-row.goal-ms-readonly { cursor: not-allowed; opacity: 0.65; }
+.goal-ms-row.goal-ms-readonly input[type="checkbox"] { pointer-events: none; }
 
 /* Card dates */
 .goal-card-dates { font-size: 11px; color: var(--text-3); margin-top: 0; }

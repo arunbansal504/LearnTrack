@@ -426,11 +426,14 @@ const Analytics = (() => {
     const start = goal.startDate || '0000-01-01';
 
     if (goal.type === 'time') {
+      const titleLower = (goal.title || '').toLowerCase().trim();
       const relevant = entries.filter(e =>
         e.date >= start &&
-        (!goal.category || goal.category === '' || e.category === goal.category)
+        (!goal.category || goal.category === '' || e.category === goal.category) &&
+        (!titleLower || (e.topic || '').toLowerCase().trim() === titleLower)
       );
-      const current = relevant.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+      const raw     = relevant.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+      const current = Math.max(0, raw - (goal.minutesBaseline || 0));
       const target  = goal.targetMinutes || 1;
       const pct     = Math.min(100, Math.floor((current / target) * 100));
       return {

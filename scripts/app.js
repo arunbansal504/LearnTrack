@@ -4846,10 +4846,27 @@ const App = (() => {
     };
 
     // Type-specific fields
+    let _newGoalAlreadyAchieved = false;
     if (type === 'time') {
       const hrs = parseFloat(document.getElementById('goal-target-hours').value);
       if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); return; }
       goal.targetMinutes = Math.round(hrs * 60);
+      // For NEW goals, baseline = minutes logged on previous days matching this goal's
+      // criteria. Today's entries are intentionally included in progress (not baselined out).
+      if (!id) {
+        const today = Analytics.today();
+        const gStart = goal.startDate || '0000-01-01';
+        const titleLower = (goal.title || '').toLowerCase().trim();
+        const historical = _entries.filter(e =>
+          e.date >= gStart &&
+          e.date < today &&
+          (!goal.category || goal.category === '' || e.category === goal.category) &&
+          (!titleLower || (e.topic || '').toLowerCase().trim() === titleLower)
+        );
+        goal.minutesBaseline = historical.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+        const initProg = Analytics.goalProgress(goal, _entries);
+        if (initProg.pct >= 100) _newGoalAlreadyAchieved = true;
+      }
     } else if (type === 'count') {
       const cnt = parseInt(document.getElementById('goal-target-count').value, 10);
       if (!cnt || cnt <= 0) { showToast('Please enter a target count.', 'warning'); return; }
@@ -4873,6 +4890,9 @@ const App = (() => {
 
     closeGoalModal();
     showToast(id ? 'Goal updated!' : 'Goal created!', 'success');
+    if (_newGoalAlreadyAchieved) {
+      setTimeout(() => showToast("🎉 You've already hit this target with today's logged entries! Goal moved to Completed.", 'success', 6000), 500);
+    }
     await checkAchievements();
     updateSidebarUser();
     if (_currentPage === 'goals') renderGoals();
@@ -4924,10 +4944,12 @@ const App = (() => {
     if (goal.status === 'active' && done) {
       goal.status = 'completed';
       goal.completedAt = goal.completedAt || Date.now();
+      goal.progressSnapshot = prog;
       showToast('🎉 Goal completed!', 'success');
     } else if (goal.status === 'completed' && !done) {
       goal.status = 'active';
       goal.completedAt = null;
+      goal.progressSnapshot = null;
       showToast('Goal re-opened — progress dropped below 100%.', 'info');
     }
   }
@@ -4940,7 +4962,9 @@ const App = (() => {
     goal.status = isEffectivelyComplete ? 'active' : 'completed';
     if (!isEffectivelyComplete) {
       goal.completedAt = Date.now();
+      goal.progressSnapshot = Analytics.goalProgress(goal, _entries);
     } else {
+      goal.progressSnapshot = null;
       // For time goals still at/over their target: keep completedAt so the render-loop
       // auto-complete guard (!completedAt) doesn't immediately re-complete the goal.
       // For all other types (or time goals below target), clear it normally.
@@ -4961,8 +4985,11 @@ const App = (() => {
     if (goal.status === 'archived') {
       // Restore to completed if it was completed before archiving, otherwise active
       goal.status = goal.completedAt ? 'completed' : 'active';
+      if (goal.status === 'active') goal.progressSnapshot = null; // clear only when going back to active
     } else {
       goal.status = 'archived';
+      // Preserve existing snapshot (set at completion time); only capture if none exists yet
+      if (!goal.progressSnapshot) goal.progressSnapshot = Analytics.goalProgress(goal, _entries);
     }
     await _persistGoalAndRefresh(goal);
   }
@@ -5055,32 +5082,41 @@ const App = (() => {
     const today = Analytics.today();
     let _goalStateChanged = false;
     let goals = _goals.map(g => {
+      const isLocked = g.status === 'completed' || g.status === 'archived';
+
+      // Completed/archived goals use a frozen snapshot so daily-log changes
+      // never update their displayed progress.
+      if (isLocked && g.progressSnapshot) {
+        return { ...g, derivedStatus: _goalStatusOf(g), prog: g.progressSnapshot };
+      }
+
       const prog = Analytics.goalProgress(g, _entries);
-      if (g.type === 'time') {
-        if (g.status === 'active') {
-          if (!g.completedAt && prog.pct >= 100) {
-            // First time reaching 100% — auto-complete
-            g.status = 'completed';
-            g.completedAt = Date.now();
-            Storage.saveGoal(g);
-            _goalStateChanged = true;
-          } else if (g.completedAt && prog.pct < 100) {
-            // Progress fell below 100% after a manual reopen — reset guard so
-            // the next time it hits 100% auto-complete fires again
-            g.completedAt = null;
-            Storage.saveGoal(g);
-            _goalStateChanged = true;
-          }
-        } else if (g.status === 'completed' && prog.pct < 100) {
-          // Entry edited down below target — reopen automatically
-          g.status = 'active';
+      if (g.type === 'time' && g.status === 'active') {
+        if (!g.completedAt && prog.pct >= 100) {
+          // First time reaching 100% — auto-complete and freeze snapshot
+          g.status = 'completed';
+          g.completedAt = Date.now();
+          g.progressSnapshot = prog;
+          Storage.saveGoal(g);
+          _goalStateChanged = true;
+        } else if (g.completedAt && prog.pct < 100) {
+          // Manually reopened at 100% but progress since dropped — reset the guard
+          // so the next crossing of 100% fires auto-complete again
           g.completedAt = null;
           Storage.saveGoal(g);
           _goalStateChanged = true;
         }
       }
+
+      // Fallback for completed time goals that pre-date the snapshot feature:
+      // force 100% so they don't show a fluctuating bar.
+      let displayProg = prog;
+      if (g.status === 'completed' && g.type === 'time' && !g.progressSnapshot) {
+        displayProg = { ...prog, pct: 100 };
+      }
+
       const derivedStatus = _goalStatusOf(g);
-      return { ...g, derivedStatus, prog };
+      return { ...g, derivedStatus, prog: displayProg };
     });
     if (_goalStateChanged) checkAchievements();
 
@@ -5249,15 +5285,17 @@ const App = (() => {
         </div>`;
     }
 
+    const isReadOnly = derivedStatus === 'completed' || derivedStatus === 'archived';
     let milestoneRows = '';
     if (g.type === 'checklist' && g.milestones?.length) {
       milestoneRows = `<div class="goal-milestones-display">
         ${g.milestones.map(m => `
-          <label class="goal-ms-row ${m.done ? 'ms-done' : ''}">
-            <input type="checkbox" ${m.done ? 'checked' : ''} data-action="toggle-ms" data-id="${g.id}" data-msid="${m.id}" />
+          <label class="goal-ms-row ${m.done ? 'ms-done' : ''}${isReadOnly ? ' goal-ms-readonly' : ''}"${isReadOnly ? ' title="Reopen goal to make changes"' : ''}>
+            <input type="checkbox" ${m.done ? 'checked' : ''} data-action="toggle-ms" data-id="${g.id}" data-msid="${m.id}"${isReadOnly ? ' disabled' : ''} />
             <span>${escapeHtml(m.label)}</span>
           </label>`).join('')}
-      </div>`;
+      </div>
+      `;
     }
 
     const statusClass = derivedStatus === 'overdue' ? 'goal-card-overdue'
