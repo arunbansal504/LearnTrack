@@ -171,7 +171,7 @@
 }
 
 .summary-big {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1;
   color: var(--accent);
@@ -982,7 +982,7 @@
     margin-bottom: var(--s-3);
   }
   .summary-card { padding: var(--s-2) var(--s-2); min-width: 0; overflow: hidden; }
-  .summary-big { font-size: 16px; letter-spacing: -0.02em; }
+  .summary-big { font-size: 11px; letter-spacing: -0.02em; }
   .summary-meta { font-size: 9px; margin-bottom: 0; }
   .summary-header {
     flex-direction: column;
@@ -1049,6 +1049,6 @@
   .badge-mini { font-size: 18px; }
 
   .summary-card { padding: var(--s-1) var(--s-2); }
-  .summary-big { font-size: 14px; }
+  .summary-big { font-size: 10px; }
   .summary-header h3 { font-size: 8px; }
 }
