@@ -4225,7 +4225,7 @@ const App = (() => {
 
       if (dateEl) dateEl.textContent = date;
       if (hmEl)   hmEl.textContent   = hm;
-      if (ssEl)   ssEl.textContent   = String(s).padStart(2, '0');
+      if (ssEl) ssEl.textContent = String(s).padStart(2, '0');
       if (ampmEl) ampmEl.textContent = ampm;
       if (fillEl) fillEl.style.width = `${(s / 60) * 100}%`;
     };

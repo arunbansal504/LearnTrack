@@ -22,6 +22,27 @@
   100% { transform: scale(1) rotate(0deg); }
 }
 
+@keyframes clockFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+
+@keyframes clockSecTick {
+  0%   { transform: translateY(0)    scale(1); }
+  35%  { transform: translateY(-6px) scale(1.28); }
+  62%  { transform: translateY(2px)  scale(0.87); }
+  80%  { transform: translateY(-2px) scale(1.07); }
+  100% { transform: translateY(0)    scale(1); }
+}
+
+@keyframes clockIconBounce {
+  0%   { transform: scale(1)    rotate(0deg); }
+  35%  { transform: scale(1.5)  rotate(-20deg); }
+  62%  { transform: scale(0.83) rotate(10deg); }
+  80%  { transform: scale(1.14) rotate(-5deg); }
+  100% { transform: scale(1)    rotate(0deg); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
