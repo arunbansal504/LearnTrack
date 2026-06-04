@@ -1310,9 +1310,11 @@ const App = (() => {
       if (!entry) return;
 
       title.textContent  = 'Edit Entry';
-      // Keep original date when editing — locked so the date can't be changed
+      // Date stays editable when editing, bounded to the last year and not future
       dateField.value    = entry.date;
-      dateField.readOnly = true;
+      dateField.readOnly = false;
+      dateField.min      = Analytics.daysAgo(365);
+      dateField.max      = todayStr;
       document.getElementById('entry-id').value          = entry.id;
       document.getElementById('entry-topic').value       = entry.topic || '';
       document.getElementById('entry-category').value    = entry.category || '';
@@ -1401,11 +1403,11 @@ const App = (() => {
 
   async function saveEntryFromForm() {
     const id   = document.getElementById('entry-id').value;
-    // For edits keep the original stored date (readonly field can be cleared by
-    // some browsers' date picker). For new entries read what the user chose.
-    const date = id
-      ? (_entries.find(e => e.id === id)?.date || Analytics.today())
-      : (document.getElementById('entry-date').value || Analytics.today());
+    // Read the date from the form field; for edits fall back to the stored date
+    // if the field was cleared, and finally to today as a last resort.
+    const date = document.getElementById('entry-date').value
+      || (id ? _entries.find(e => e.id === id)?.date : null)
+      || Analytics.today();
 
     const topic    = document.getElementById('entry-topic').value.trim();
     const category = document.getElementById('entry-category').value;
@@ -1424,13 +1426,13 @@ const App = (() => {
       return;
     }
 
-    if (!id && !document.getElementById('entry-date').value) {
+    if (!document.getElementById('entry-date').value) {
       showToast('Please select a date.', 'warning');
       document.getElementById('entry-date')?.focus();
       return;
     }
 
-    if (!id && date > Analytics.today()) {
+    if (date > Analytics.today()) {
       showToast('Cannot log entries for future dates.', 'warning');
       return;
     }
