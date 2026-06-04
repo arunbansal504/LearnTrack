@@ -65,7 +65,7 @@ const App = (() => {
   let _goalsFilter     = 'all';
   let _goalsTypeFilter = '';
   let _goalsSearch     = '';
-  let _goalsCollapsed  = { overdue: true, open: true, completed: true, archived: true };
+  let _goalsCollapsed  = { overdue: false, open: false, completed: true, archived: true };
   let _goalsCollapsedSnapshot = null;
   let _goalScrollTarget = null;
   let _goalsSelection    = new Set();
