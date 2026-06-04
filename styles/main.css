@@ -220,6 +220,7 @@ img, svg { max-width: 100%; }
   border-bottom: 1px solid var(--border);
   min-height: 64px;
   gap: var(--s-3);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -290,6 +291,7 @@ img, svg { max-width: 100%; }
   gap: var(--s-3);
   padding: var(--s-4);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 #sidebar-level,
@@ -396,6 +398,7 @@ img, svg { max-width: 100%; }
   font-weight: 600;
   color: var(--warning);
   cursor: default;
+  flex-shrink: 0;
 }
 
 .streak-flame { font-size: 16px; }
@@ -404,6 +407,7 @@ img, svg { max-width: 100%; }
 /* Nav Items */
 .sidebar-nav {
   flex: 1;
+  min-height: 0;
   padding: var(--s-3) var(--s-2);
   overflow-y: auto;
   display: flex;
@@ -411,9 +415,12 @@ img, svg { max-width: 100%; }
   gap: 2px;
 }
 
-.sidebar-nav::-webkit-scrollbar { width: 3px; }
-.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: var(--r-full); }
+.sidebar-nav { scrollbar-width: none; }
+.sidebar-nav::-webkit-scrollbar { width: 0; }
+.sidebar:hover .sidebar-nav { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+.sidebar:hover .sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar:hover .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar:hover .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: var(--r-full); }
 
 .nav-item {
   display: flex;
@@ -428,6 +435,7 @@ img, svg { max-width: 100%; }
   position: relative;
   white-space: nowrap;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -638,12 +646,6 @@ img, svg { max-width: 100%; }
   color: var(--warning, #f59e0b) !important;
 }
 
-.app-version {
-  font-size: 10px;
-  color: var(--text-3);
-  text-align: center;
-  margin-top: var(--s-1);
-}
 
 /* ---- MAIN CONTENT -------------------------------- */
 .main-content {
@@ -4610,10 +4612,15 @@ input:disabled {
 .compact-mode .achievement-icon    { font-size: 28px; margin-bottom: var(--s-2); }
 
 /* Sidebar */
-.compact-mode .sidebar-nav         { padding: var(--s-2) var(--s-1); gap: 1px; }
-.compact-mode .nav-item            { padding: var(--s-1) var(--s-3); font-size: 13px; }
+.compact-mode .sidebar-header      { padding: var(--s-2) var(--s-4); min-height: 52px; }
 .compact-mode .user-strip          { padding: var(--s-2) var(--s-3); }
-.compact-mode .sidebar-footer      { padding: var(--s-2) var(--s-3); }
+.compact-mode .streak-chip         { padding: 4px var(--s-4); }
+.compact-mode .sidebar-nav         { padding: var(--s-2) var(--s-1); gap: 1px; }
+.compact-mode .nav-item            { padding: 3px var(--s-3); font-size: 13px; }
+.compact-mode .sidebar-toggle-row  { padding: 4px var(--s-1); }
+.compact-mode .sidebar-accent-row  { padding-top: 4px; }
+.compact-mode .sidebar-footer      { padding: var(--s-2) var(--s-3); gap: 4px; }
+.compact-mode .sbs-chip            { padding: 5px var(--s-3); }
 
 /* ===================================================
    TIMER PANEL — Gradient redesign
