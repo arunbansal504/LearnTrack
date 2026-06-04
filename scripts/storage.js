@@ -9,7 +9,7 @@
 const Storage = (() => {
 
   let _dbName      = 'LearnTrackDB';
-  const DB_VERSION = 2;
+  const DB_VERSION = 4;
   let _lsPrefix    = 'lt_';
   const STORES = {
     entries:        'entries',
@@ -18,6 +18,8 @@ const Storage = (() => {
     notes:          'notes',
     backupLog:      'backupLog',
     deletedEntries: 'deletedEntries',
+    goals:          'goals',
+    deletedGoals:   'deletedGoals',
   };
 
   let _db = null;
@@ -58,6 +60,17 @@ const Storage = (() => {
         if (!db.objectStoreNames.contains(STORES.deletedEntries)) {
           const ds = db.createObjectStore(STORES.deletedEntries, { keyPath: 'id' });
           ds.createIndex('deletedAt', 'deletedAt');
+        }
+
+        if (!db.objectStoreNames.contains(STORES.goals)) {
+          const gs = db.createObjectStore(STORES.goals, { keyPath: 'id' });
+          gs.createIndex('targetDate', 'targetDate', { unique: false });
+          gs.createIndex('status',     'status',     { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.deletedGoals)) {
+          const dgs = db.createObjectStore(STORES.deletedGoals, { keyPath: 'id' });
+          dgs.createIndex('deletedAt', 'deletedAt');
         }
       };
 
@@ -286,6 +299,56 @@ const Storage = (() => {
     return ach;
   }
 
+  /* ---- Goal CRUD ------------------------------------- */
+
+  async function saveGoal(goal) {
+    if (!goal.id) {
+      goal.id = generateId();
+      goal.createdAt = Date.now();
+    }
+    goal.updatedAt = Date.now();
+    await put(STORES.goals, goal);
+    return goal;
+  }
+
+  async function getAllGoals() {
+    const goals = await getAll(STORES.goals);
+    return goals.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
+  async function getGoal(id) {
+    return get(STORES.goals, id);
+  }
+
+  async function deleteGoal(id) {
+    return remove(STORES.goals, id);
+  }
+
+  async function softDeleteGoal(id) {
+    const goal = await getGoal(id);
+    if (!goal) return;
+    await put(STORES.deletedGoals, { ...goal, deletedAt: Date.now() });
+    return remove(STORES.goals, id);
+  }
+
+  async function getDeletedGoals() {
+    const goals = await getAll(STORES.deletedGoals);
+    return goals.sort((a, b) => b.deletedAt - a.deletedAt);
+  }
+
+  async function restoreGoal(id) {
+    const goal = await get(STORES.deletedGoals, id);
+    if (!goal) return;
+    const { deletedAt: _dropped, ...restored } = goal;
+    restored.updatedAt = Date.now();
+    await put(STORES.goals, restored);
+    return remove(STORES.deletedGoals, id);
+  }
+
+  async function permanentlyDeleteGoal(id) {
+    return remove(STORES.deletedGoals, id);
+  }
+
   /* ---- Backup Log ------------------------------------ */
 
   async function addBackupLog(entry) {
@@ -308,11 +371,13 @@ const Storage = (() => {
   /* ---- Full Export ----------------------------------- */
 
   async function exportAll() {
-    const [entries, deletedEntries, achievements, prefs] = await Promise.all([
+    const [entries, deletedEntries, achievements, prefs, goals, deletedGoals] = await Promise.all([
       getAllEntries(),
       getDeletedEntries(),
       getAllAchievements(),
       getAllPrefs(),
+      getAllGoals(),
+      getDeletedGoals(),
     ]);
 
     return {
@@ -324,6 +389,8 @@ const Storage = (() => {
         deletedEntries,
         achievements,
         preferences: prefs,
+        goals,
+        deletedGoals,
       },
     };
   }
@@ -335,7 +402,7 @@ const Storage = (() => {
       throw new Error('Invalid backup file format');
     }
 
-    const { entries = [], deletedEntries = [], achievements = [], preferences = {} } = backup.data;
+    const { entries = [], deletedEntries = [], achievements = [], preferences = {}, goals = [], deletedGoals: importedDeletedGoals = [] } = backup.data;
     let imported = 0, skipped = 0, updated = 0;
 
     // Merge entries: keep newest updatedAt
@@ -383,6 +450,26 @@ const Storage = (() => {
       } else if (existing === null) {
         await setPref(key, value);
       }
+    }
+
+    // Merge goals: keep newest updatedAt
+    for (const incoming of goals) {
+      if (!incoming.id) continue;
+      const existing = await getGoal(incoming.id);
+      if (!existing) {
+        await put(STORES.goals, incoming);
+      } else {
+        const incomingTs = incoming.updatedAt || incoming.createdAt || 0;
+        const existingTs = existing.updatedAt  || existing.createdAt  || 0;
+        if (incomingTs > existingTs) await put(STORES.goals, incoming);
+      }
+    }
+
+    // Merge deleted goals
+    for (const incoming of importedDeletedGoals) {
+      if (!incoming.id) continue;
+      const existing = await get(STORES.deletedGoals, incoming.id);
+      if (!existing) await put(STORES.deletedGoals, incoming);
     }
 
     return { imported, skipped, updated, prefsRestored };
@@ -434,6 +521,8 @@ const Storage = (() => {
       clearStore(STORES.notes),
       clearStore(STORES.backupLog),
       clearStore(STORES.deletedEntries),
+      clearStore(STORES.goals),
+      clearStore(STORES.deletedGoals),
     ]);
   }
 
@@ -456,6 +545,15 @@ const Storage = (() => {
     getAchievement,
     getAllAchievements,
     saveAchievement,
+    // Goals
+    saveGoal,
+    getAllGoals,
+    getGoal,
+    deleteGoal,
+    softDeleteGoal,
+    getDeletedGoals,
+    restoreGoal,
+    permanentlyDeleteGoal,
     // Preferences
     getPref,
     setPref,

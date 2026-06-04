@@ -60,8 +60,17 @@ const App = (() => {
   let _entries      = [];
   let _prefs        = {};
   let _earnedAch    = [];
-  let _autoBackupTimer = null;
-  let _lastAutoBackup  = 0;
+  let _goals        = [];
+  let _goalsFilter     = 'all';
+  let _goalsTypeFilter = '';
+  let _goalsSearch     = '';
+  let _goalsCollapsed  = { overdue: true, open: true, completed: true, archived: true };
+  let _goalsCollapsedSnapshot = null;
+  let _deletedGoalsSearch = '';
+  let _autoBackupTimer      = null;
+  let _lastAutoBackup       = 0;
+  let _backupInProgress     = false;
+  let _backupPendingRetry   = false;
   let _currentPage  = 'dashboard';
   let _deletedPage  = 1;
   let _deletedSelection = new Set();
@@ -103,6 +112,7 @@ const App = (() => {
     setupSidebar();
     setupMobileNav();
     setupEntryModal();
+    setupGoalModal();
     setupFilterPanel();
     setupDeletedLogsPage();
     setupSettings();
@@ -141,6 +151,7 @@ const App = (() => {
       _entries   = await Storage.getAllEntries();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
       _earnedAch = await Storage.getAllAchievements();
+      _goals     = await Storage.getAllGoals();
       // Migration: if goal history exists but has no epoch anchor, past dates fall back
       // to the current (new) goal instead of the original — add a sentinel using the default.
       if (_prefs.goalHistory?.length && !_prefs.goalHistory.some(g => g.from === '0000-01-01')) {
@@ -241,14 +252,25 @@ const App = (() => {
     }
     clearTimeout(_autoBackupTimer);
     _autoBackupTimer = setTimeout(async () => {
+      // If a backup is already running, mark that another is needed and bail out.
+      // The running backup's finally block will re-trigger.
+      if (_backupInProgress) {
+        _backupPendingRetry = true;
+        return;
+      }
+      _backupInProgress   = true;
+      _backupPendingRetry = false;
       try {
         await backupCurrentProfile(true);
       } catch (err) {
         if (localStorage.getItem('lt_backup_skipped') !== 'true') {
           showToast('Auto-backup failed — check your backup folder.', 'warning');
         }
+      } finally {
+        _backupInProgress = false;
+        if (_backupPendingRetry) triggerAutoBackup();
       }
-    }, 1500);
+    }, 2000);
   }
 
   function updateSidebarBackupStatus(fresh = false) {
@@ -370,6 +392,9 @@ const App = (() => {
       _deletedPage = 1;
       _deletedSelection.clear();
     }
+    if (page !== 'deleted-goals') {
+      _deletedGoalsSearch = '';
+    }
 
     renderPage(page);
 
@@ -465,7 +490,7 @@ const App = (() => {
   function updateSidebarUser() {
     const streak  = Analytics.calculateStreaks(_entries);
     const stats   = Analytics.calculateTotalStats(_entries);
-    const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory, _earnedAch);
     const lvInfo  = Rewards.getLevelInfo(totalXP);
     const name    = _prefs.username || 'Learner';
 
@@ -512,15 +537,17 @@ const App = (() => {
 
   function renderPage(page) {
     switch (page) {
-      case 'dashboard':    renderDashboard();    break;
-      case 'log':          renderLog();          break;
-      case 'deleted-logs': renderDeletedLogs();  break;
-      case 'reports':      renderReports();      break;
-      case 'calendar':     renderCalendar();     break;
-      case 'achievements': renderAchievements(); break;
-      case 'profiles':     renderProfiles();     break;
-      case 'settings':     renderSettings();     break;
-      case 'backup':       renderBackup();       break;
+      case 'dashboard':      renderDashboard();      break;
+      case 'log':            renderLog();            break;
+      case 'deleted-logs':   renderDeletedLogs();    break;
+      case 'reports':        renderReports();        break;
+      case 'calendar':       renderCalendar();       break;
+      case 'goals':          renderGoals();          break;
+      case 'deleted-goals':  setupDeletedGoalsPage(); renderDeletedGoals(); break;
+      case 'achievements':   renderAchievements();   break;
+      case 'profiles':       renderProfiles();       break;
+      case 'settings':       renderSettings();       break;
+      case 'backup':         renderBackup();         break;
     }
   }
 
@@ -530,7 +557,7 @@ const App = (() => {
     const userId = UserManager.getActiveId();
     if (!userId) return;
     const streak  = Analytics.calculateStreaks(_entries);
-    const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory, _earnedAch);
     const lvInfo  = Rewards.getLevelInfo(totalXP);
     try {
       localStorage.setItem(`lt_ustats_${userId}`, JSON.stringify({
@@ -552,7 +579,7 @@ const App = (() => {
     const consistency = Analytics.calculateConsistency(_entries);
     const weekly      = Analytics.calculateWeeklySummary(_entries);
     const monthly     = Analytics.calculateMonthlySummary(_entries);
-    const totalXP     = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const totalXP     = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory, _earnedAch);
     const lvInfo      = Rewards.getLevelInfo(totalXP);
     const curve       = Analytics.calculateLearningCurve(_entries);
     cacheActiveUserStats();
@@ -621,6 +648,9 @@ const App = (() => {
     // Badges mini grid + medals
     renderBadgesMini();
     renderMedals();
+
+    // Academic Goals widget
+    renderGoalsDashboardWidget();
 
     // Full analytics section
     renderDashboardAnalytics();
@@ -1162,6 +1192,10 @@ const App = (() => {
         if (badge && badge.style.display !== 'none') closeBadgeModal();
         const confirm = document.getElementById('confirm-modal');
         if (confirm && confirm.style.display !== 'none') closeConfirmModal();
+        const dlDetail = document.getElementById('dl-detail-modal');
+        if (dlDetail && dlDetail.style.display !== 'none') closeDeletedEntryDetail();
+        const dgDetail = document.getElementById('dg-detail-modal');
+        if (dgDetail && dgDetail.style.display !== 'none') closeDeletedGoalDetail();
       }
     });
   }
@@ -1688,6 +1722,9 @@ const App = (() => {
             ${deletedAgo}
           </div>
           <div class="dl-action-row">
+            <button class="dl-view-btn" data-dl-view="${entry.id}" title="View details">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
             <button class="dl-restore-btn" data-restore="${entry.id}">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               Restore
@@ -1799,7 +1836,14 @@ const App = (() => {
       });
     });
 
-    // Restore / permanent delete buttons
+    // View / Restore / permanent delete buttons
+    container.querySelectorAll('[data-dl-view]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const entry = paginated.find(en => en.id === btn.dataset.dlView);
+        if (entry) showDeletedEntryDetail(entry);
+      });
+    });
     container.querySelectorAll('[data-restore]').forEach(btn => {
       btn.addEventListener('click', e => { e.stopPropagation(); restoreDeletedEntry(btn.dataset.restore); });
     });
@@ -1848,6 +1892,82 @@ const App = (() => {
       await renderDeletedLogs();
       triggerAutoBackup();
     });
+  }
+
+  function showDeletedEntryDetail(e) {
+    const modal = document.getElementById('dl-detail-modal');
+    const body  = document.getElementById('dl-detail-body');
+    if (!modal || !body) return;
+
+    const d    = new Date(e.date + 'T12:00:00');
+    const mood = ['', '😞 Very bad', '😐 Okay', '🙂 Good', '😊 Great', '🚀 Excellent'][e.moodScore || 3];
+    const fmt  = ts => ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const deletedFull = new Date(e.deletedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      + ' · ' + new Date(e.deletedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    const difficultyColors = { easy: 'var(--success)', medium: 'var(--warning)', hard: 'var(--danger)' };
+
+    body.innerHTML = `
+      <div class="dl-detail-meta">
+        <div class="dl-detail-date">${d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div class="dl-detail-chips">
+          ${e.category ? `<span class="entry-category">${escapeHtml(e.category)}</span>` : ''}
+          <span class="difficulty-pill" style="color:${difficultyColors[e.difficulty] || 'inherit'}">${capitalise(e.difficulty || 'easy')}</span>
+          <span class="dl-detail-duration">${Analytics.formatDuration(e.durationMinutes || 0)}</span>
+          <span title="Mood">${mood}</span>
+        </div>
+      </div>
+
+      <div class="dl-detail-section">
+        <div class="dl-detail-section-title">Topic</div>
+        <div class="dl-detail-value">${escapeHtml(e.topic)}</div>
+      </div>
+
+      ${e.notes ? `
+      <div class="dl-detail-section">
+        <div class="dl-detail-section-title">Notes</div>
+        <div class="dl-detail-notes">${escapeHtml(e.notes)}</div>
+      </div>` : ''}
+
+      ${e.resources && e.resources.length ? `
+      <div class="dl-detail-section">
+        <div class="dl-detail-section-title">Resources</div>
+        <div class="dl-detail-resources">
+          ${e.resources.map(r => `<a href="${safeHref(r.url)}" target="_blank" rel="noopener noreferrer" class="dl-detail-resource-link">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            ${escapeHtml(r.label || r.url)}
+          </a>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <div class="dl-detail-section">
+        <div class="dl-detail-section-title">Timestamps</div>
+        <div class="dg-detail-dates">
+          <div class="dg-detail-date-row"><span>Created</span><span>${fmt(e.createdAt)}</span></div>
+          ${e.updatedAt && e.updatedAt !== e.createdAt ? `<div class="dg-detail-date-row"><span>Last edited</span><span>${fmt(e.updatedAt)}</span></div>` : ''}
+          <div class="dg-detail-date-row dg-date-deleted"><span>Deleted</span><span>${deletedFull}</span></div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('dl-detail-restore').onclick = async () => {
+      closeDeletedEntryDetail();
+      await restoreDeletedEntry(e.id);
+    };
+    document.getElementById('dl-detail-perm-delete').onclick = () => {
+      closeDeletedEntryDetail();
+      permanentDeleteEntry(e.id);
+    };
+    document.getElementById('dl-detail-close').onclick     = closeDeletedEntryDetail;
+    document.getElementById('dl-detail-close-btn').onclick = closeDeletedEntryDetail;
+    modal.onclick = ev => { if (ev.target === modal) closeDeletedEntryDetail(); };
+
+    modal.style.display = 'flex';
+  }
+
+  function closeDeletedEntryDetail() {
+    const modal = document.getElementById('dl-detail-modal');
+    if (modal) modal.style.display = 'none';
   }
 
   /* ---- ANALYTICS (embedded in dashboard) ----------- */
@@ -1973,7 +2093,7 @@ const App = (() => {
     const streak      = Analytics.calculateStreaks(_entries);
     const stats       = Analytics.calculateTotalStats(_entries);
     const consistency = Analytics.calculateConsistency(_entries);
-    const totalXP     = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const totalXP     = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory, _earnedAch);
     const lvInfo      = Rewards.getLevelInfo(totalXP);
 
     // Medals
@@ -2012,7 +2132,7 @@ const App = (() => {
     }
 
     // Achievements grid
-    const allAch = await Rewards.buildAchievementList(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const allAch = await Rewards.buildAchievementList(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory, _goals);
     const earnedCount = allAch.filter(a => a.earned).length;
     animateCounter('badges-earned-count', earnedCount);
 
@@ -3874,10 +3994,10 @@ const App = (() => {
     const consistency = Analytics.calculateConsistency(_entries);
 
     // Revoke achievements that no longer qualify (e.g. after editing/deleting past entries)
-    await Rewards.revokeStaleAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
+    await Rewards.revokeStaleAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory, _goals);
 
     // Award any newly qualifying achievements
-    const newlyEarned = await Rewards.checkAndAwardAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory);
+    const newlyEarned = await Rewards.checkAndAwardAchievements(_entries, streak, stats, consistency, _prefs.dailyGoalMin, _prefs.goalHistory, _goals);
     _earnedAch = await Storage.getAllAchievements();
 
     for (const ach of newlyEarned) {
@@ -4300,7 +4420,7 @@ const App = (() => {
   function _getProfileStats(userId) {
     if (userId === UserManager.getActiveId()) {
       const streak  = Analytics.calculateStreaks(_entries);
-      const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory);
+      const totalXP = Rewards.calculateTotalXP(_entries, streak, _prefs.dailyGoalMin, _prefs.goalHistory, _earnedAch);
       const lv      = Rewards.getLevelInfo(totalXP);
       return { level: lv.level, title: lv.title, xpIntoLevel: lv.xpIntoLevel, xpNeededForNext: lv.xpNeededForNext, progressPct: lv.progressPct, streak: streak.current };
     }
@@ -4567,6 +4687,896 @@ const App = (() => {
       <button class="btn btn-primary" onclick="document.getElementById('add-entry-btn').click()">Add First Entry</button>
     `;
     return el;
+  }
+
+  /* ================================================================
+     ACADEMIC GOALS
+     ================================================================ */
+
+  function setupGoalModal() {
+    document.getElementById('new-goal-btn')?.addEventListener('click', () => openGoalModal());
+    document.getElementById('goal-modal-close')?.addEventListener('click', closeGoalModal);
+    document.getElementById('goal-modal-cancel')?.addEventListener('click', closeGoalModal);
+    document.getElementById('goal-modal-save')?.addEventListener('click', saveGoalFromModal);
+
+    // Custom spinner buttons for goal number inputs
+    ['goal-target-hours', 'goal-target-count'].forEach(fieldId => {
+      document.querySelectorAll(`.dur-spin-btn[data-field="${fieldId}"]`).forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(fieldId);
+          if (!input) return;
+          if (btn.dataset.dir === 'up') input.stepUp();
+          else input.stepDown();
+          input.dispatchEvent(new Event('input'));
+        });
+      });
+    });
+    // Intentionally no outside-click-to-close for the goal modal —
+    // users may click the overlay accidentally while filling in a form.
+
+    // Esc closes modal, Enter saves (unless inside textarea or milestone input)
+    document.addEventListener('keydown', e => {
+      const modal = document.getElementById('goal-modal');
+      if (!modal || modal.style.display === 'none') return;
+      if (e.key === 'Escape') { e.preventDefault(); closeGoalModal(); }
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.classList.contains('ms-label')) {
+        e.preventDefault();
+        saveGoalFromModal();
+      }
+    });
+
+    // Show/hide type-specific fields when type changes
+    document.getElementById('goal-type')?.addEventListener('change', () => {
+      _updateGoalTypeFields();
+    });
+
+    // Add milestone button
+    document.getElementById('add-milestone-btn')?.addEventListener('click', () => {
+      _addMilestoneRow('');
+    });
+  }
+
+  function _updateGoalTypeFields() {
+    const type = document.getElementById('goal-type')?.value;
+    ['time','count','checklist','exam'].forEach(t => {
+      const el = document.getElementById(`goal-fields-${t}`);
+      if (el) el.style.display = t === type ? '' : 'none';
+    });
+  }
+
+  function openGoalModal(goalId) {
+    const modal = document.getElementById('goal-modal');
+    if (!modal) return;
+
+    // Populate category dropdown
+    const catSel = document.getElementById('goal-category');
+    if (catSel) {
+      catSel.innerHTML = '<option value="">Any category</option>' +
+        (_prefs.categories || []).map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    }
+
+    const goal = goalId ? _goals.find(g => g.id === goalId) : null;
+    document.getElementById('goal-modal-title').textContent = goal ? 'Edit Goal' : 'New Goal';
+    document.getElementById('goal-id').value          = goal?.id          || '';
+    document.getElementById('goal-title').value       = goal?.title       || '';
+    document.getElementById('goal-type').value        = goal?.type        || 'time';
+    document.getElementById('goal-category').value    = goal?.category    || '';
+    document.getElementById('goal-priority').value    = goal?.priority    || 'medium';
+    document.getElementById('goal-start-date').value  = goal?.startDate   || Analytics.today();
+    document.getElementById('goal-target-date').value = goal?.targetDate  || '';
+    document.getElementById('goal-description').value = goal?.description || '';
+    document.getElementById('goal-target-hours').value  = goal?.targetMinutes ? (goal.targetMinutes / 60) : '';
+    document.getElementById('goal-target-count').value  = goal?.targetCount  || '';
+    document.getElementById('goal-count-unit').value    = goal?.unit         || '';
+
+    // Render existing milestones
+    const msList = document.getElementById('goal-milestones-list');
+    if (msList) {
+      msList.innerHTML = '';
+      (goal?.milestones || []).forEach(m => _addMilestoneRow(m.label, m.id, m.done));
+    }
+
+    _updateGoalTypeFields();
+    modal.style.display = 'flex';
+    document.getElementById('goal-title')?.focus();
+  }
+
+  function closeGoalModal() {
+    const modal = document.getElementById('goal-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function _addMilestoneRow(label = '', id = null, done = false) {
+    const list = document.getElementById('goal-milestones-list');
+    if (!list) return;
+    const msId = id || `ms-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+    const row = document.createElement('div');
+    row.className = 'milestone-row';
+    row.dataset.msId = msId;
+    row.innerHTML = `
+      <input type="checkbox" class="ms-done" ${done ? 'checked' : ''} aria-label="Done" />
+      <input type="text" class="form-input ms-label" value="${escapeHtml(label)}" placeholder="e.g. Sorting Algorithms" maxlength="120" />
+      <button type="button" class="btn btn-ghost btn-icon ms-remove" aria-label="Remove milestone">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    `;
+    row.querySelector('.ms-remove').addEventListener('click', () => row.remove());
+    list.appendChild(row);
+  }
+
+  async function saveGoalFromModal() {
+    const id       = document.getElementById('goal-id').value;
+    const title    = document.getElementById('goal-title').value.trim();
+    const type     = document.getElementById('goal-type').value;
+    const category = document.getElementById('goal-category').value;
+    const priority = document.getElementById('goal-priority').value;
+    const startDate  = document.getElementById('goal-start-date').value;
+    const targetDate = document.getElementById('goal-target-date').value;
+    const description = document.getElementById('goal-description').value.trim();
+
+    if (!title) { showToast('Please enter a goal title.', 'warning'); return; }
+
+    const existing = id ? _goals.find(g => g.id === id) : null;
+    const goal = {
+      ...(existing || {}),
+      id:          id || undefined,
+      title,
+      type,
+      category,
+      priority,
+      startDate:   startDate || Analytics.today(),
+      targetDate:  targetDate || null,
+      description,
+      status:      existing?.status || 'active',
+      completedAt: existing?.completedAt || null,
+    };
+
+    // Type-specific fields
+    if (type === 'time') {
+      const hrs = parseFloat(document.getElementById('goal-target-hours').value);
+      if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); return; }
+      goal.targetMinutes = Math.round(hrs * 60);
+    } else if (type === 'count') {
+      const cnt = parseInt(document.getElementById('goal-target-count').value, 10);
+      if (!cnt || cnt <= 0) { showToast('Please enter a target count.', 'warning'); return; }
+      goal.targetCount  = cnt;
+      goal.currentCount = existing?.currentCount || 0;
+      goal.unit         = document.getElementById('goal-count-unit').value.trim();
+    } else if (type === 'checklist') {
+      const rows = document.querySelectorAll('#goal-milestones-list .milestone-row');
+      if (rows.length === 0) { showToast('Please add at least one milestone.', 'warning'); return; }
+      goal.milestones = Array.from(rows).map(row => ({
+        id:    row.dataset.msId,
+        label: row.querySelector('.ms-label')?.value.trim() || '',
+        done:  row.querySelector('.ms-done')?.checked || false,
+      })).filter(m => m.label);
+    }
+
+    const saved = await Storage.saveGoal(goal);
+    const idx = _goals.findIndex(g => g.id === saved.id);
+    if (idx >= 0) _goals[idx] = saved;
+    else _goals.unshift(saved);
+
+    closeGoalModal();
+    showToast(id ? 'Goal updated!' : 'Goal created!', 'success');
+    await checkAchievements();
+    if (_currentPage === 'goals') renderGoals();
+    if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
+    triggerAutoBackup();
+  }
+
+  async function deleteGoal(goalId) {
+    showConfirm('Delete this goal?', 'It will move to Deleted Goals where you can restore it.', async () => {
+      await Storage.softDeleteGoal(goalId);
+      _goals = _goals.filter(g => g.id !== goalId);
+      showToast('Goal moved to Deleted Goals.', 'info');
+      if (_currentPage === 'goals') renderGoals();
+      if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
+      triggerAutoBackup();
+    });
+  }
+
+  async function toggleMilestone(goalId, msId) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal || !goal.milestones) return;
+    const ms = goal.milestones.find(m => m.id === msId);
+    if (!ms) return;
+    ms.done = !ms.done;
+    _maybeAutoComplete(goal);
+    await _persistGoalAndRefresh(goal);
+  }
+
+  async function setGoalCount(goalId, value) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    goal.currentCount = Math.max(0, Math.min(value, goal.targetCount || Infinity));
+    _maybeAutoComplete(goal);
+    await _persistGoalAndRefresh(goal);
+  }
+
+  async function adjustGoalCount(goalId, delta) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    await setGoalCount(goalId, (goal.currentCount || 0) + delta);
+  }
+
+  function _maybeAutoComplete(goal) {
+    if (goal.type === 'exam' || goal.type === 'time') return;
+    const prog = Analytics.goalProgress(goal, _entries);
+    const done = prog.current >= prog.target;
+    if (goal.status === 'active' && done) {
+      goal.status = 'completed';
+      goal.completedAt = goal.completedAt || Date.now();
+      showToast('🎉 Goal completed!', 'success');
+    } else if (goal.status === 'completed' && !done) {
+      goal.status = 'active';
+      goal.completedAt = null;
+      showToast('Goal re-opened — progress dropped below 100%.', 'info');
+    }
+  }
+
+  async function completeGoal(goalId) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    // Treat archived+completed the same as completed: Re-open goes straight to active
+    const isEffectivelyComplete = goal.status === 'completed' || (goal.status === 'archived' && goal.completedAt);
+    goal.status = isEffectivelyComplete ? 'active' : 'completed';
+    if (!isEffectivelyComplete) {
+      goal.completedAt = Date.now();
+    } else {
+      // For time goals still at/over their target: keep completedAt so the render-loop
+      // auto-complete guard (!completedAt) doesn't immediately re-complete the goal.
+      // For all other types (or time goals below target), clear it normally.
+      const prog = Analytics.goalProgress(goal, _entries);
+      if (goal.type === 'time' && prog.pct >= 100) {
+        // completedAt stays; signals "user consciously reopened past target"
+      } else {
+        goal.completedAt = null;
+      }
+    }
+    await _persistGoalAndRefresh(goal);
+    showToast(isEffectivelyComplete ? 'Goal re-opened.' : '🎉 Goal completed!', 'success');
+  }
+
+  async function archiveGoal(goalId) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    if (goal.status === 'archived') {
+      // Restore to completed if it was completed before archiving, otherwise active
+      goal.status = goal.completedAt ? 'completed' : 'active';
+    } else {
+      goal.status = 'archived';
+    }
+    await _persistGoalAndRefresh(goal);
+  }
+
+  async function _persistGoalAndRefresh(goal) {
+    const saved = await Storage.saveGoal(goal);
+    const idx = _goals.findIndex(g => g.id === saved.id);
+    if (idx >= 0) _goals[idx] = saved;
+    await checkAchievements();
+    updateSidebarUser();
+    if (_currentPage === 'goals') renderGoals();
+    if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
+    triggerAutoBackup();
+  }
+
+  function _goalStatusOf(goal) {
+    if (goal.status === 'completed' || goal.status === 'archived') return goal.status;
+    if (goal.targetDate && goal.targetDate < Analytics.today()) return 'overdue';
+    return 'active';
+  }
+
+  function renderGoals() {
+    const container = document.getElementById('goals-list');
+    if (!container) return;
+
+    // Setup filter chips one-time
+    const filterRow = document.getElementById('goals-filter-row');
+    if (filterRow && !filterRow.dataset.wired) {
+      filterRow.dataset.wired = '1';
+      filterRow.querySelectorAll('.goals-filter-chip[data-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterRow.querySelectorAll('.goals-filter-chip[data-filter]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _goalsFilter = btn.dataset.filter;
+          renderGoals();
+        });
+      });
+      filterRow.querySelectorAll('.goals-filter-chip[data-filter-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const isActive = btn.classList.contains('active');
+          filterRow.querySelectorAll('.goals-filter-chip[data-filter-type]').forEach(b => b.classList.remove('active'));
+          if (!isActive) { btn.classList.add('active'); _goalsTypeFilter = btn.dataset.filterType; }
+          else _goalsTypeFilter = '';
+          renderGoals();
+        });
+      });
+      document.getElementById('goals-reset-filters')?.addEventListener('click', () => {
+        _goalsFilter     = 'all';
+        _goalsTypeFilter = '';
+        _goalsSearch     = '';
+        _goalsCollapsedSnapshot = null;
+        filterRow.querySelectorAll('.goals-filter-chip[data-filter]').forEach(b => b.classList.remove('active'));
+        filterRow.querySelector('.goals-filter-chip[data-filter="all"]')?.classList.add('active');
+        filterRow.querySelectorAll('.goals-filter-chip[data-filter-type]').forEach(b => b.classList.remove('active'));
+        const si = document.getElementById('goals-search');
+        if (si) si.value = '';
+        renderGoals();
+      });
+    }
+
+    // Highlight Clear Filters button when any filter/search is active
+    const clearBtn = document.getElementById('goals-reset-filters');
+    if (clearBtn) {
+      const hasFilters = _goalsFilter !== 'all' || _goalsTypeFilter !== '' || _goalsSearch !== '';
+      clearBtn.classList.toggle('filters-active', hasFilters);
+    }
+
+    // Setup search input one-time
+    const searchInput = document.getElementById('goals-search');
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = '1';
+      searchInput.addEventListener('input', () => {
+        const prev = _goalsSearch;
+        _goalsSearch = searchInput.value.trim().toLowerCase();
+        if (_goalsSearch && !prev) {
+          // Search just started — snapshot current state then expand all
+          _goalsCollapsedSnapshot = { ..._goalsCollapsed };
+          _goalsCollapsed = { overdue: false, open: false, completed: false, archived: false };
+        } else if (!_goalsSearch && prev) {
+          // Search cleared — restore pre-search state
+          if (_goalsCollapsedSnapshot) {
+            _goalsCollapsed = _goalsCollapsedSnapshot;
+            _goalsCollapsedSnapshot = null;
+          }
+        }
+        renderGoals();
+      });
+    }
+
+    const today = Analytics.today();
+    let goals = _goals.map(g => {
+      const prog = Analytics.goalProgress(g, _entries);
+      if (g.type === 'time') {
+        if (g.status === 'active') {
+          if (!g.completedAt && prog.pct >= 100) {
+            // First time reaching 100% — auto-complete
+            g.status = 'completed';
+            g.completedAt = Date.now();
+            Storage.saveGoal(g);
+          } else if (g.completedAt && prog.pct < 100) {
+            // Progress fell below 100% after a manual reopen — reset guard so
+            // the next time it hits 100% auto-complete fires again
+            g.completedAt = null;
+            Storage.saveGoal(g);
+          }
+        } else if (g.status === 'completed' && prog.pct < 100) {
+          // Entry edited down below target — reopen automatically
+          g.status = 'active';
+          g.completedAt = null;
+          Storage.saveGoal(g);
+        }
+      }
+      const derivedStatus = _goalStatusOf(g);
+      return { ...g, derivedStatus, prog };
+    });
+
+    // Filter
+    if (_goalsFilter !== 'all') goals = goals.filter(g => g.derivedStatus === _goalsFilter);
+    if (_goalsTypeFilter) goals = goals.filter(g => g.type === _goalsTypeFilter);
+    if (_goalsSearch) {
+      const q = _goalsSearch;
+      goals = goals.filter(g =>
+        g.title.toLowerCase().includes(q) ||
+        (g.description || '').toLowerCase().includes(q) ||
+        (g.category || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Sort: high priority first, then nearest deadline
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    goals.sort((a, b) => {
+      const pDiff = (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+      if (pDiff !== 0) return pDiff;
+      if (a.targetDate && b.targetDate) return a.targetDate.localeCompare(b.targetDate);
+      if (a.targetDate) return -1;
+      if (b.targetDate) return 1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    if (goals.length === 0) {
+      container.innerHTML = `
+        <div class="goals-empty-wrap">
+          <div class="empty-state">
+            <div class="empty-icon">🎯</div>
+            <h3>No goals yet</h3>
+            <p>${_goalsSearch ? `No goals match "${escapeHtml(_goalsSearch)}".` : _goalsFilter !== 'all' || _goalsTypeFilter ? 'No goals match this filter.' : 'Set academic goals to track your targets, deadlines and milestones.'}</p>
+            ${_goalsFilter === 'all' && !_goalsTypeFilter && !_goalsSearch ? `<button class="btn btn-primary" id="goals-empty-add">Create First Goal</button>` : ''}
+          </div>
+        </div>`;
+      document.getElementById('goals-empty-add')?.addEventListener('click', () => openGoalModal());
+      return;
+    }
+
+    // When "All" is selected, render labelled sections for every status
+    if (_goalsFilter === 'all') {
+      const overdue   = goals.filter(g => g.derivedStatus === 'overdue');
+      const open      = goals.filter(g => g.derivedStatus === 'active');
+      const completed = goals.filter(g => g.derivedStatus === 'completed');
+      const archived  = goals.filter(g => g.derivedStatus === 'archived');
+
+      const renderSection = (label, icon, items, emptyMsg, extraClass = '') => {
+        const key       = label.toLowerCase();
+        const collapsed = !!_goalsCollapsed[key];
+        const body      = items.length
+          ? `<div class="goals-grid goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}">${items.map(g => _renderGoalCard(g)).join('')}</div>`
+          : emptyMsg
+          ? `<p class="goals-section-empty goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}">${emptyMsg}</p>`
+          : '';
+        return `
+          <div class="goals-section${extraClass ? ' ' + extraClass : ''}">
+            <div class="goals-section-hd goals-sec-toggle" data-sec-key="${key}">
+              <span class="goals-section-icon">${icon}</span>
+              <span class="goals-section-label">${label}</span>
+              <span class="goals-section-count">${items.length}</span>
+              <svg class="goals-sec-chevron${collapsed ? ' goals-sec-chevron-up' : ''}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            ${body}
+          </div>`;
+      };
+
+      const sectionKeys = [...(overdue.length ? ['overdue'] : []), 'open', 'completed', ...(archived.length ? ['archived'] : [])];
+      const allCollapsed = sectionKeys.length > 0 && sectionKeys.every(k => !!_goalsCollapsed[k]);
+      const toggleAllBtn = `
+        <div class="goals-sections-bar">
+          <button class="btn btn-ghost goals-toggle-all-btn" id="goals-toggle-all" title="${allCollapsed ? 'Expand all sections' : 'Collapse all sections'}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="${allCollapsed ? '4 14 12 6 20 14' : '4 10 12 18 20 10'}"/></svg>
+            ${allCollapsed ? 'Expand All' : 'Collapse All'}
+          </button>
+        </div>`;
+
+      container.innerHTML =
+        toggleAllBtn +
+        (overdue.length ? renderSection('Overdue', '⚠️', overdue, '', 'goals-section-overdue') : '') +
+        renderSection('Open', '📋', open, 'No open goals.') +
+        renderSection('Completed', '✅', completed, 'No completed goals yet.') +
+        (archived.length ? renderSection('Archived', '📦', archived, '', 'goals-section-archived') : '');
+
+      document.getElementById('goals-toggle-all')?.addEventListener('click', () => {
+        sectionKeys.forEach(k => { _goalsCollapsed[k] = !allCollapsed; });
+        renderGoals();
+      });
+
+      container.querySelectorAll('.goals-sec-toggle').forEach(hd => {
+        hd.addEventListener('click', () => {
+          const key = hd.dataset.secKey;
+          _goalsCollapsed[key] = !_goalsCollapsed[key];
+          renderGoals();
+        });
+      });
+    } else {
+      container.innerHTML = `<div class="goals-grid">${goals.map(g => _renderGoalCard(g)).join('')}</div>`;
+    }
+
+    _wireGoalCards(container);
+  }
+
+  function _renderGoalCard(g) {
+    const { derivedStatus, prog } = g;
+    // Complete button shows "Re-open" for both completed and archived+completed goals
+    const isReopenable = derivedStatus === 'completed' || (derivedStatus === 'archived' && g.completedAt);
+    const daysLeft = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
+    const countdownClass = derivedStatus === 'overdue' ? 'countdown-overdue'
+                         : daysLeft !== null && daysLeft <= 3 ? 'countdown-warn'
+                         : derivedStatus === 'completed' ? 'countdown-done' : '';
+    const countdownLabel = derivedStatus === 'overdue' ? `⚠️ Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
+                         : daysLeft === null            ? ''
+                         : daysLeft === 0               ? '📅 Due today!'
+                         : `📅 ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
+
+    const typeLabel = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' }[g.type] || g.type;
+    const priorityLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' }[g.priority] || '';
+
+    let progressSection = '';
+    if (g.type === 'time' || g.type === 'count') {
+      progressSection = `
+        <div class="goal-prog-bar-wrap">
+          <div class="goal-prog-bar"><div class="goal-prog-fill ${derivedStatus === 'completed' ? 'completed' : ''}" style="width:${prog.pct}%"></div></div>
+          <span class="goal-prog-label">${escapeHtml(prog.label)} (${prog.pct}%)</span>
+        </div>`;
+    } else if (g.type === 'checklist') {
+      progressSection = `
+        <div class="goal-prog-bar-wrap">
+          <div class="goal-prog-bar"><div class="goal-prog-fill ${derivedStatus === 'completed' ? 'completed' : ''}" style="width:${prog.pct}%"></div></div>
+          <span class="goal-prog-label">${prog.pct}% complete (${prog.current}/${prog.target})</span>
+        </div>`;
+    } else if (g.type === 'exam') {
+      progressSection = '';
+    }
+
+    let extraControls = '';
+    if (g.type === 'count' && derivedStatus !== 'completed' && derivedStatus !== 'archived') {
+      extraControls = `
+        <div class="goal-count-controls">
+          <button class="btn btn-ghost btn-icon" data-action="count-dec" data-id="${g.id}" title="Decrement">−</button>
+          <input type="number" class="goal-count-input" data-id="${g.id}" value="${g.currentCount || 0}" min="0" max="${g.targetCount || ''}" title="Click to edit" />
+          <button class="btn btn-ghost btn-icon" data-action="count-inc" data-id="${g.id}" title="Increment">+</button>
+        </div>`;
+    }
+
+    let milestoneRows = '';
+    if (g.type === 'checklist' && g.milestones?.length) {
+      milestoneRows = `<div class="goal-milestones-display">
+        ${g.milestones.map(m => `
+          <label class="goal-ms-row ${m.done ? 'ms-done' : ''}">
+            <input type="checkbox" ${m.done ? 'checked' : ''} data-action="toggle-ms" data-id="${g.id}" data-msid="${m.id}" />
+            <span>${escapeHtml(m.label)}</span>
+          </label>`).join('')}
+      </div>`;
+    }
+
+    const statusClass = derivedStatus === 'overdue' ? 'goal-card-overdue'
+                      : derivedStatus === 'completed' ? 'goal-card-completed'
+                      : derivedStatus === 'archived' ? 'goal-card-archived' : '';
+
+    const statusChip = derivedStatus === 'completed'
+      ? `<span class="goal-status-chip goal-status-chip-completed">✓ Completed</span>`
+      : derivedStatus === 'archived'
+      ? `<span class="goal-status-chip goal-status-chip-archived">Archived</span>`
+      : derivedStatus === 'overdue'
+      ? `<span class="goal-status-chip goal-status-chip-overdue">Overdue</span>`
+      : `<span class="goal-status-chip goal-status-chip-open">Open</span>`;
+
+    return `
+      <div class="goal-card ${statusClass}" data-id="${g.id}" data-type="${g.type}">
+        <div class="goal-card-header">
+          <div class="goal-card-meta">
+            ${statusChip}
+            <span class="goal-type-chip" data-type="${g.type}">${typeLabel}</span>
+            ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
+            <span class="goal-priority-chip goal-priority-${g.priority}">${priorityLabel}</span>
+            ${countdownLabel ? `<span class="goal-countdown ${countdownClass}">${countdownLabel}</span>` : ''}
+          </div>
+          <div class="goal-card-actions">
+            <button class="btn btn-ghost btn-icon" data-action="edit" data-id="${g.id}" title="Edit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-icon${isReopenable ? ' goal-btn-active-complete' : ''}" data-action="complete" data-id="${g.id}" title="${isReopenable ? 'Re-open' : 'Mark complete'}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-icon${derivedStatus === 'archived' ? ' goal-btn-active-archive' : ''}" data-action="archive" data-id="${g.id}" title="${derivedStatus === 'archived' ? 'Unarchive' : 'Archive'}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-icon goal-delete-btn" data-action="delete" data-id="${g.id}" title="Delete">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </div>
+        </div>
+        <h3 class="goal-card-title ${derivedStatus === 'completed' ? 'goal-title-done' : ''}">${escapeHtml(g.title)}</h3>
+        ${g.description ? `<p class="goal-card-desc">${escapeHtml(g.description)}</p>` : ''}
+        ${progressSection}
+        ${extraControls}
+        ${milestoneRows}
+        ${g.startDate ? `<div class="goal-card-dates">Started ${formatRelativeDate(g.startDate)}${g.targetDate ? ` · Due ${new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</div>` : ''}
+      </div>`;
+  }
+
+  function _wireGoalCards(container) {
+    // Guard: only attach one listener per container element (re-renders keep the same DOM node)
+    if (container.dataset.goalsWired) return;
+    container.dataset.goalsWired = '1';
+    container.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id     = btn.dataset.id;
+      if (action === 'edit')       openGoalModal(id);
+      if (action === 'complete')   await completeGoal(id);
+      if (action === 'archive')    await archiveGoal(id);
+      if (action === 'delete')     await deleteGoal(id);
+      if (action === 'count-inc')  await adjustGoalCount(id, 1);
+      if (action === 'count-dec')  await adjustGoalCount(id, -1);
+      if (action === 'toggle-ms')  await toggleMilestone(id, btn.dataset.msid);
+    });
+
+    // Editable count input: inline validation + save on blur or Enter
+    container.addEventListener('input', e => {
+      const input = e.target.closest('.goal-count-input');
+      if (!input) return;
+      const val = parseInt(input.value, 10);
+      const max = parseInt(input.max, 10);
+      const controls = input.closest('.goal-count-controls');
+      let warning = controls?.previousElementSibling;
+      const hasWarning = warning?.classList.contains('goal-count-warning');
+      if (!isNaN(val) && !isNaN(max) && val > max) {
+        input.classList.add('goal-count-input--error');
+        if (!hasWarning) {
+          const w = document.createElement('p');
+          w.className = 'goal-count-warning';
+          w.textContent = `Value can't exceed target of ${max}`;
+          controls.insertAdjacentElement('beforebegin', w);
+        }
+      } else {
+        input.classList.remove('goal-count-input--error');
+        if (hasWarning) warning.remove();
+      }
+    });
+    container.addEventListener('change', async e => {
+      const input = e.target.closest('.goal-count-input');
+      if (!input) return;
+      if (input.classList.contains('goal-count-input--error')) return;
+      const val = parseInt(input.value, 10);
+      if (!isNaN(val)) await setGoalCount(input.dataset.id, val);
+    });
+    container.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.closest('.goal-count-input')) e.target.blur();
+    });
+  }
+
+  function renderGoalsDashboardWidget() {
+    const container = document.getElementById('goals-widget-list');
+    if (!container) return;
+
+    const today = Analytics.today();
+    const active = _goals
+      .filter(g => g.status === 'active' || (g.status !== 'archived' && g.status !== 'completed'))
+      .map(g => ({ ...g, prog: Analytics.goalProgress(g, _entries), derivedStatus: _goalStatusOf(g) }))
+      .filter(g => g.derivedStatus !== 'archived')
+      .sort((a, b) => {
+        const prio = { high: 0, medium: 1, low: 2 };
+        const pDiff = (prio[a.priority] || 1) - (prio[b.priority] || 1);
+        if (pDiff !== 0) return pDiff;
+        if (a.targetDate && b.targetDate) return a.targetDate.localeCompare(b.targetDate);
+        if (a.targetDate) return -1;
+        if (b.targetDate) return 1;
+        return 0;
+      })
+      .slice(0, 4);
+
+    if (active.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state-small">
+          <span>🎯</span>
+          <p>No active goals. <a href="#" data-page="goals">Set one now</a></p>
+        </div>`;
+      container.querySelector('[data-page]')?.addEventListener('click', e => { e.preventDefault(); navigateTo('goals'); });
+      return;
+    }
+
+    container.innerHTML = active.map(g => {
+      const daysLeft = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
+      const deadline = daysLeft === null ? '' : daysLeft < 0 ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Today' : `📅 ${daysLeft}d`;
+      const progressBar = g.type !== 'exam'
+        ? `<div class="goal-widget-bar"><div class="goal-widget-fill" style="width:${g.prog.pct}%"></div></div>`
+        : '';
+      return `
+        <div class="goal-widget-item" data-id="${g.id}" role="button" tabindex="0">
+          <div class="goal-widget-info">
+            <span class="goal-widget-title">${escapeHtml(g.title)}</span>
+            ${deadline ? `<span class="goal-widget-deadline ${daysLeft !== null && daysLeft < 0 ? 'overdue' : ''}">${deadline}</span>` : ''}
+          </div>
+          ${progressBar}
+          <span class="goal-widget-pct">${g.type !== 'exam' ? g.prog.pct + '%' : g.prog.label}</span>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.goal-widget-item').forEach(el => {
+      el.addEventListener('click', () => navigateTo('goals'));
+    });
+  }
+
+  /* ---- Deleted Goals -------------------------------- */
+
+  async function renderDeletedGoals() {
+    const container = document.getElementById('dg-goals-container');
+    if (!container) return;
+
+    const allDeleted = await Storage.getDeletedGoals();
+    const q = _deletedGoalsSearch.toLowerCase();
+    const filtered = q
+      ? allDeleted.filter(g => g.title.toLowerCase().includes(q) || (g.description || '').toLowerCase().includes(q) || (g.category || '').toLowerCase().includes(q))
+      : allDeleted;
+
+    if (filtered.length === 0) {
+      const isEmpty = allDeleted.length === 0;
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">${isEmpty ? '🗑️' : '🔍'}</div>
+          <h3>${isEmpty ? 'No deleted goals' : 'No matching goals'}</h3>
+          <p>${isEmpty ? 'Deleted goals will appear here for recovery.' : 'Try a different search.'}</p>
+        </div>`;
+      return;
+    }
+
+    const typeLabels = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' };
+
+    container.innerHTML = filtered.map(g => {
+      const deletedAgo = _timeAgo(g.deletedAt);
+      return `
+        <div class="dg-goal-row" data-id="${g.id}">
+          <div class="dg-goal-info">
+            <span class="goal-type-chip" data-type="${g.type}">${typeLabels[g.type] || g.type}</span>
+            <span class="dg-goal-title">${escapeHtml(g.title)}</span>
+            ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
+          </div>
+          <div class="dg-goal-meta">
+            <div class="dl-deleted-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              ${deletedAgo}
+            </div>
+            <div class="dl-action-row">
+              <button class="dl-view-btn" data-dg-view="${g.id}" title="View details">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              <button class="dl-restore-btn" data-dg-restore="${g.id}">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Restore
+              </button>
+              <button class="dl-delete-icon-btn" data-dg-delete="${g.id}" title="Delete permanently">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('[data-dg-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const goal = filtered.find(g => g.id === btn.dataset.dgView);
+        if (goal) showDeletedGoalDetail(goal);
+      });
+    });
+    container.querySelectorAll('[data-dg-restore]').forEach(btn => {
+      btn.addEventListener('click', () => restoreDeletedGoal(btn.dataset.dgRestore));
+    });
+    container.querySelectorAll('[data-dg-delete]').forEach(btn => {
+      btn.addEventListener('click', () => permanentDeleteGoal(btn.dataset.dgDelete));
+    });
+  }
+
+  function _timeAgo(ts) {
+    const secs = Math.floor((Date.now() - ts) / 1000);
+    if (secs < 60)   return 'just now';
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    const days = Math.floor(secs / 86400);
+    if (days < 30) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  async function restoreDeletedGoal(id) {
+    await Storage.restoreGoal(id);
+    const restored = await Storage.getGoal(id);
+    if (restored) {
+      const idx = _goals.findIndex(g => g.id === id);
+      if (idx >= 0) _goals[idx] = restored; else _goals.unshift(restored);
+    }
+    showToast('Goal restored!', 'success');
+    await renderDeletedGoals();
+    triggerAutoBackup();
+  }
+
+  function permanentDeleteGoal(id) {
+    showConfirm('Delete permanently?', 'This goal will be gone forever and cannot be recovered.', async () => {
+      await Storage.permanentlyDeleteGoal(id);
+      showToast('Goal permanently deleted.', 'info');
+      await renderDeletedGoals();
+      triggerAutoBackup();
+    });
+  }
+
+  function showDeletedGoalDetail(g) {
+    const modal   = document.getElementById('dg-detail-modal');
+    const body    = document.getElementById('dg-detail-body');
+    if (!modal || !body) return;
+
+    setEl('dg-detail-title', g.title);
+
+    const typeLabels     = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' };
+    const priorityLabels = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' };
+    const statusLabels   = { active: 'Open', completed: 'Completed', archived: 'Archived' };
+
+    // Progress section
+    let progressHtml = '';
+    if (g.type === 'time') {
+      const targetH  = (g.targetHours || 0);
+      const currentH = ((g.currentMinutes || 0) / 60);
+      const pct      = targetH > 0 ? Math.min(100, Math.floor((currentH / targetH) * 100)) : 0;
+      progressHtml = `
+        <div class="dg-detail-section">
+          <div class="dg-detail-section-title">Progress</div>
+          <div class="goal-prog-bar-wrap">
+            <div class="goal-prog-bar"><div class="goal-prog-fill" style="width:${pct}%"></div></div>
+            <span class="goal-prog-label">${currentH.toFixed(1)}h / ${targetH}h (${pct}%)</span>
+          </div>
+        </div>`;
+    } else if (g.type === 'count') {
+      const cur = g.currentCount || 0;
+      const tar = g.targetCount  || 0;
+      const pct = tar > 0 ? Math.min(100, Math.floor((cur / tar) * 100)) : 0;
+      progressHtml = `
+        <div class="dg-detail-section">
+          <div class="dg-detail-section-title">Progress</div>
+          <div class="goal-prog-bar-wrap">
+            <div class="goal-prog-bar"><div class="goal-prog-fill" style="width:${pct}%"></div></div>
+            <span class="goal-prog-label">${cur} / ${tar} (${pct}%)</span>
+          </div>
+        </div>`;
+    } else if (g.type === 'checklist' && g.milestones?.length) {
+      const done  = g.milestones.filter(m => m.done).length;
+      const total = g.milestones.length;
+      const pct   = total > 0 ? Math.floor((done / total) * 100) : 0;
+      progressHtml = `
+        <div class="dg-detail-section">
+          <div class="dg-detail-section-title">Milestones (${done}/${total} · ${pct}%)</div>
+          <div class="dg-detail-milestones">
+            ${g.milestones.map(m => `
+              <div class="dg-detail-ms-row">
+                <span class="dg-detail-ms-check">${m.done ? '✅' : '⬜'}</span>
+                <span class="dg-detail-ms-label ${m.done ? 'dg-ms-done' : ''}">${escapeHtml(m.label)}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    } else if (g.type === 'exam') {
+      progressHtml = g.targetDate ? `
+        <div class="dg-detail-section">
+          <div class="dg-detail-section-title">Exam Date</div>
+          <span class="dg-detail-value">${new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>` : '';
+    }
+
+    // Dates section
+    const fmt = ts => ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const datesRows = [
+      g.startDate  ? `<div class="dg-detail-date-row"><span>Started</span><span>${new Date(g.startDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>` : '',
+      g.targetDate && g.type !== 'exam' ? `<div class="dg-detail-date-row"><span>Target date</span><span>${new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>` : '',
+      g.completedAt ? `<div class="dg-detail-date-row"><span>Completed</span><span>${fmt(g.completedAt)}</span></div>` : '',
+      `<div class="dg-detail-date-row dg-date-deleted"><span>Deleted</span><span>${fmt(g.deletedAt)}</span></div>`,
+    ].filter(Boolean).join('');
+
+    body.innerHTML = `
+      <div class="dg-detail-chips">
+        <span class="goal-type-chip" data-type="${g.type}">${typeLabels[g.type] || g.type}</span>
+        ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
+        <span class="goal-priority-chip goal-priority-${g.priority}">${priorityLabels[g.priority] || ''}</span>
+        <span class="goal-status-chip goal-status-chip-${g.status === 'completed' ? 'completed' : g.status === 'archived' ? 'archived' : 'open'}">${statusLabels[g.status] || g.status}</span>
+      </div>
+      ${g.description ? `<p class="dg-detail-desc">${escapeHtml(g.description)}</p>` : ''}
+      ${progressHtml}
+      ${datesRows ? `<div class="dg-detail-section"><div class="dg-detail-section-title">Dates</div><div class="dg-detail-dates">${datesRows}</div></div>` : ''}
+    `;
+
+    // Footer action buttons wiring
+    document.getElementById('dg-detail-restore').onclick = async () => {
+      closeDeletedGoalDetail();
+      await restoreDeletedGoal(g.id);
+    };
+    document.getElementById('dg-detail-perm-delete').onclick = () => {
+      closeDeletedGoalDetail();
+      permanentDeleteGoal(g.id);
+    };
+    document.getElementById('dg-detail-close').onclick     = closeDeletedGoalDetail;
+    document.getElementById('dg-detail-close-btn').onclick = closeDeletedGoalDetail;
+    modal.onclick = e => { if (e.target === modal) closeDeletedGoalDetail(); };
+
+    modal.style.display = 'flex';
+    setTimeout(() => modal.querySelector('.modal')?.focus?.(), 0);
+  }
+
+  function closeDeletedGoalDetail() {
+    const modal = document.getElementById('dg-detail-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function setupDeletedGoalsPage() {
+    const search = document.getElementById('dg-search');
+    if (!search || search.dataset.wired) return;
+    search.dataset.wired = '1';
+    search.addEventListener('input', () => {
+      _deletedGoalsSearch = search.value.trim();
+      renderDeletedGoals();
+    });
   }
 
   /* ---- Public API ---------------------------------- */

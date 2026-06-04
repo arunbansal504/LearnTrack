@@ -26,8 +26,8 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=28" />
-  <link rel="stylesheet" href="styles/dashboard.css?v=16" />
+  <link rel="stylesheet" href="styles/main.css?v=54" />
+  <link rel="stylesheet" href="styles/dashboard.css?v=17" />
   <link rel="stylesheet" href="styles/animations.css?v=15" />
 </head>
 <body>
@@ -106,6 +106,15 @@
       <a href="#" class="nav-item" data-page="calendar">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span class="nav-label">Calendar</span>
+      </a>
+      <a href="#" class="nav-item" data-page="goals">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span class="nav-label">Goals</span>
+        <span class="nav-badge" id="nav-badge-goals" style="display:none"></span>
+      </a>
+      <a href="#" class="nav-item" data-page="deleted-goals">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><circle cx="12" cy="11" r="2"/><line x1="12" y1="13" x2="12" y2="17"/></svg>
+        <span class="nav-label">Deleted Goals</span>
       </a>
       <a href="#" class="nav-item" data-page="achievements">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
@@ -515,6 +524,18 @@
             <span id="badges-mini-summary" class="badges-mini-count"></span>
           </div>
         </div>
+
+        <!-- Academic Goals Widget -->
+        <div class="widget goals-dashboard-widget">
+          <div class="widget-header">
+            <h3>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h3>
+            <a href="#" class="widget-action" data-page="goals">View all</a>
+          </div>
+          <div id="goals-widget-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -785,6 +806,71 @@
             <div class="streak-message" id="streak-message">Keep it up!</div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ===== PAGE: GOALS ===== -->
+    <section id="page-goals" class="page" aria-label="Academic Goals">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Academic Goals</h1>
+          <p class="page-subtitle">Track your targets, deadlines and milestones</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="new-goal-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Goal
+          </button>
+        </div>
+      </div>
+
+      <!-- Search + Filter toolbar -->
+      <div class="goals-toolbar" id="goals-filter-row">
+        <div class="goals-search-wrap">
+          <svg class="goals-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="goals-search" class="goals-search-input" placeholder="Search goals…" autocomplete="off">
+        </div>
+        <div class="goals-filter-chips">
+          <button class="goals-filter-chip active" data-filter="all">All</button>
+          <button class="goals-filter-chip" data-filter="active">Active</button>
+          <button class="goals-filter-chip" data-filter="overdue">Overdue</button>
+          <button class="goals-filter-chip" data-filter="completed">Completed</button>
+          <button class="goals-filter-chip" data-filter="archived">Archived</button>
+        </div>
+        <div class="goals-filter-chips">
+          <button class="goals-filter-chip" data-filter-type="time">⏱ Time</button>
+          <button class="goals-filter-chip" data-filter-type="checklist">✅ Checklist</button>
+          <button class="goals-filter-chip" data-filter-type="count">🔢 Count</button>
+          <button class="goals-filter-chip" data-filter-type="exam">📅 Exam</button>
+          <button class="goals-reset-btn" id="goals-reset-filters" title="Clear all filters and search">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Clear Filters
+          </button>
+        </div>
+      </div>
+
+      <!-- Goals list -->
+      <div class="goals-list-container" id="goals-list">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ===== PAGE: DELETED GOALS ===== -->
+    <section id="page-deleted-goals" class="page" aria-label="Deleted Goals">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1 class="page-title">Deleted Goals</h1>
+          <p class="page-subtitle">Restore goals or permanently remove them.</p>
+        </div>
+        <div class="page-actions">
+          <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="dg-search" placeholder="Search deleted goals…" aria-label="Search deleted goals" />
+          </div>
+        </div>
+      </div>
+      <div id="dg-goals-container">
+        <!-- Rendered by JS -->
       </div>
     </section>
 
@@ -1374,6 +1460,62 @@
   </div>
 </div>
 
+<!-- ===== DELETED ENTRY DETAIL MODAL ===== -->
+<div id="dl-detail-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dl-detail-title" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2 id="dl-detail-title" style="font-size:15px;font-weight:700">Entry Details</h2>
+      <button class="modal-close" id="dl-detail-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="dl-detail-body" style="overflow-y:auto">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="dl-detail-close-btn">Close</button>
+      <div style="display:flex;gap:var(--s-2)">
+        <button class="btn btn-ghost btn-danger-ghost" id="dl-detail-perm-delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          Delete Forever
+        </button>
+        <button class="btn btn-primary" id="dl-detail-restore">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+          Restore
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DELETED GOAL DETAIL MODAL ===== -->
+<div id="dg-detail-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dg-detail-title" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2 id="dg-detail-title" style="font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></h2>
+      <button class="modal-close" id="dg-detail-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="dg-detail-body" style="overflow-y:auto">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="dg-detail-close-btn">Close</button>
+      <div style="display:flex;gap:var(--s-2)">
+        <button class="btn btn-danger-ghost" id="dg-detail-perm-delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          Delete Forever
+        </button>
+        <button class="btn btn-primary" id="dg-detail-restore">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+          Restore
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== POMODORO FAB ===== -->
 <button id="pomo-fab" class="pomo-fab" aria-label="Open Timer">
   <span id="pomo-fab-content">🍅</span>
@@ -1547,6 +1689,133 @@
   </a>
 </nav>
 
+<!-- ===== MODAL: GOAL CREATE / EDIT ===== -->
+<div id="goal-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title" id="goal-modal-title">New Goal</h2>
+      <button class="modal-close" id="goal-modal-close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="goal-id" />
+
+      <!-- Row 1: Title + Type -->
+      <div class="form-row">
+        <div class="form-group form-group-grow">
+          <label class="form-label" for="goal-title">Goal Title <span class="required">*</span></label>
+          <input type="text" id="goal-title" class="form-input" placeholder="e.g. Finish DSA before end-sem" maxlength="120" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="goal-type">Type <span class="required">*</span></label>
+          <select id="goal-type" class="form-input">
+            <option value="time">⏱ Time Target</option>
+            <option value="checklist">✅ Milestone Checklist</option>
+            <option value="count">🔢 Count Target</option>
+            <option value="exam">📅 Exam Countdown</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Category + Priority -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="goal-category">Subject / Category</label>
+          <select id="goal-category" class="form-input">
+            <option value="">Any category</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="goal-priority">Priority</label>
+          <select id="goal-priority" class="form-input">
+            <option value="high">🔴 High</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 3: Start + Target Date -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="goal-start-date">Start Date</label>
+          <input type="date" id="goal-start-date" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="goal-target-date">Deadline / Exam Date</label>
+          <input type="date" id="goal-target-date" class="form-input" />
+        </div>
+      </div>
+
+      <!-- Type-specific fields -->
+      <!-- Time Target -->
+      <div id="goal-fields-time" class="goal-type-fields">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="goal-target-hours">Target Hours <span class="required">*</span></label>
+            <div class="dur-field">
+              <input type="number" id="goal-target-hours" class="form-input" min="0.5" max="10000" step="0.5" placeholder="e.g. 30" />
+              <div class="dur-spinners">
+                <button type="button" class="dur-spin-btn" data-field="goal-target-hours" data-dir="up" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                <button type="button" class="dur-spin-btn" data-field="goal-target-hours" data-dir="down" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="form-hint">Progress is auto-tracked from your logged entries in the selected category/subject after the start date.</p>
+      </div>
+
+      <!-- Count Target -->
+      <div id="goal-fields-count" class="goal-type-fields" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="goal-target-count">Target Count <span class="required">*</span></label>
+            <div class="dur-field">
+              <input type="number" id="goal-target-count" class="form-input" min="1" max="100000" step="1" placeholder="e.g. 200" />
+              <div class="dur-spinners">
+                <button type="button" class="dur-spin-btn" data-field="goal-target-count" data-dir="up" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
+                <button type="button" class="dur-spin-btn" data-field="goal-target-count" data-dir="down" tabindex="-1"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="goal-count-unit">Unit (optional)</label>
+            <input type="text" id="goal-count-unit" class="form-input" placeholder="e.g. problems, papers" maxlength="40" />
+          </div>
+        </div>
+        <p class="form-hint">Update your count manually from the goal card.</p>
+      </div>
+
+      <!-- Checklist -->
+      <div id="goal-fields-checklist" class="goal-type-fields" style="display:none">
+        <label class="form-label">Milestones / Tasks</label>
+        <div id="goal-milestones-list" class="goal-milestones-list"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="add-milestone-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add milestone
+        </button>
+        <p class="form-hint">Tick milestones from the goal card to track progress.</p>
+      </div>
+
+      <!-- Exam Countdown -->
+      <div id="goal-fields-exam" class="goal-type-fields" style="display:none">
+        <p class="form-hint">Set the exam/deadline date above. Complete the goal manually when done. A live countdown is shown on the card.</p>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label class="form-label" for="goal-description">Notes (optional)</label>
+        <textarea id="goal-description" class="form-input form-textarea" rows="2" placeholder="Any context, syllabus links, or reminders…" maxlength="500"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="goal-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="goal-modal-save">Save Goal</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: BACKUP FOLDER REQUIRED ===== -->
 <div id="backup-required-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="backup-required-title" style="display:none;z-index:10001">
   <div class="modal modal-sm" style="text-align:center;max-width:420px">
@@ -1566,14 +1835,14 @@
 </div>
 
 <!-- Scripts (module order matters) -->
-<script src="scripts/storage.js?v=15"></script>
-<script src="scripts/analytics.js?v=15"></script>
-<script src="scripts/rewards.js?v=18"></script>
+<script src="scripts/storage.js?v=16"></script>
+<script src="scripts/analytics.js?v=16"></script>
+<script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=16"></script>
 <script src="scripts/calendar.js?v=15"></script>
 <script src="scripts/insights.js?v=15"></script>
 <script src="scripts/timer.js?v=15"></script>
-<script src="scripts/app.js?v=26"></script>
+<script src="scripts/app.js?v=28"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 

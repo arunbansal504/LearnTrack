@@ -418,6 +418,79 @@ const Analytics = (() => {
     return { missed, window };
   }
 
+  /* ---- Academic Goal Progress ------------------------ */
+
+  // Pure — takes goal + entries, returns derived progress. Never reads DB.
+  function goalProgress(goal, entries) {
+    const todayStr = today();
+    const start = goal.startDate || '0000-01-01';
+
+    if (goal.type === 'time') {
+      const relevant = entries.filter(e =>
+        e.date >= start &&
+        (!goal.category || goal.category === '' || e.category === goal.category)
+      );
+      const current = relevant.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+      const target  = goal.targetMinutes || 1;
+      const pct     = Math.min(100, Math.floor((current / target) * 100));
+      return {
+        current,
+        target,
+        pct,
+        label: `${formatDuration(current)} / ${formatDuration(target)}`,
+      };
+    }
+
+    if (goal.type === 'count') {
+      const current = goal.currentCount || 0;
+      const target  = goal.targetCount  || 1;
+      const pct     = Math.min(100, Math.floor((current / target) * 100));
+      return {
+        current,
+        target,
+        pct,
+        label: `${current} / ${target} ${goal.unit || ''}`.trim(),
+      };
+    }
+
+    if (goal.type === 'checklist') {
+      const milestones = goal.milestones || [];
+      const current    = milestones.filter(m => m.done).length;
+      const target     = milestones.length || 1;
+      const pct        = milestones.length === 0 ? 0 : Math.min(100, Math.floor((current / target) * 100));
+      return {
+        current,
+        target,
+        pct,
+        label: `${current} / ${target} tasks`,
+      };
+    }
+
+    if (goal.type === 'exam') {
+      const days = goal.targetDate ? daysUntil(goal.targetDate) : null;
+      const pct  = goal.status === 'completed' ? 100 : 0;
+      return {
+        current: days !== null ? Math.max(0, days) : null,
+        target:  null,
+        pct,
+        label: days === null  ? 'No deadline set'
+             : days < 0       ? 'Deadline passed'
+             : days === 0     ? 'Today!'
+             : `${days} day${days === 1 ? '' : 's'} left`,
+      };
+    }
+
+    return { current: 0, target: 1, pct: 0, label: '' };
+  }
+
+  // Returns signed days between today and a future date (negative = past).
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const d1 = new Date(today()   + 'T12:00:00');
+    const d2 = new Date(dateStr   + 'T12:00:00');
+    return Math.round((d2 - d1) / 86400000);
+  }
+
   /* ---- Public API ------------------------------------ */
   return {
     // Helpers
@@ -441,6 +514,8 @@ const Analytics = (() => {
     calculateLearningCurve,
     bestLearningDay,
     missedDays,
+    goalProgress,
+    daysUntil,
   };
 
 })();
