@@ -55,6 +55,22 @@ const Charts = (() => {
     delete _recreators[id];
   }
 
+  // Chart.js is loaded from a CDN. If it failed to load (offline), every renderer
+  // would throw a ReferenceError and abort the surrounding page render. Guard each
+  // renderer with this and show an inline placeholder instead.
+  function _chartLibReady(canvasId) {
+    if (typeof Chart !== 'undefined') return true;
+    const canvas = document.getElementById(canvasId);
+    const container = canvas ? (canvas.closest('.chart-container') || canvas.parentElement) : null;
+    if (container && !container.querySelector('.chart-unavailable')) {
+      const msg = document.createElement('div');
+      msg.className = 'chart-unavailable';
+      msg.textContent = 'Charts unavailable — offline or failed to load.';
+      container.appendChild(msg);
+    }
+    return false;
+  }
+
   /* ---- Heatmap cell tooltip (works on mobile tap) -- */
 
   function _showHeatTip(text, anchor) {
@@ -85,6 +101,7 @@ const Charts = (() => {
   /* ---- Daily Time Line Chart ----------------------- */
 
   function renderDailyTimeChart(canvasId, data) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     _recreators[canvasId] = () => renderDailyTimeChart(canvasId, data);
     const canvas = document.getElementById(canvasId);
@@ -153,6 +170,7 @@ const Charts = (() => {
   /* ---- Topic Distribution Doughnut Chart ----------- */
 
   function renderTopicChart(canvasId, data) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     const canvas = document.getElementById(canvasId);
     if (!canvas || data.length === 0) return;
@@ -205,6 +223,7 @@ const Charts = (() => {
   /* ---- Monthly Progress Bar Chart ------------------ */
 
   function renderMonthlyChart(canvasId, data) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     _recreators[canvasId] = () => renderMonthlyChart(canvasId, data);
     const canvas = document.getElementById(canvasId);
@@ -270,6 +289,7 @@ const Charts = (() => {
   /* ---- Learning Curve Line Chart ------------------- */
 
   function renderLearningCurveChart(canvasId, curveData) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     const canvas = document.getElementById(canvasId);
     if (!canvas || curveData.points.length < 2) return;
@@ -352,6 +372,7 @@ const Charts = (() => {
   /* ---- Dashboard Sparkline (14-day mini trend) ----- */
 
   function renderSparklineChart(canvasId, data) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -425,6 +446,7 @@ const Charts = (() => {
   /* ---- Dashboard Mini Curve Chart ------------------ */
 
   function renderDashboardCurve(canvasId, curveData) {
+    if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
     const canvas = document.getElementById(canvasId);
     if (!canvas || curveData.points.length < 2) return;

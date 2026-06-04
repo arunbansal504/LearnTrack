@@ -30,6 +30,17 @@ function formatDuration(mins) {
   return `${h}h ${m}m`;
 }
 
+/** Formats a Date to a LOCAL "YYYY-MM-DD" string.
+ *  Must match how daysUntil() interprets dates (local midnight) — using
+ *  Date.toISOString() here would yield a UTC date and cause off-by-one
+ *  failures whenever the machine's local date differs from its UTC date. */
+function localYmd(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 /** Days between today and a YYYY-MM-DD target (negative = past) */
 function daysUntil(dateStr) {
   const today = new Date();
@@ -482,7 +493,7 @@ describe('A. Analytics.goalProgress()', () => {
     test('[POS] active exam with future date shows days-left label', () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
-      const dateStr = futureDate.toISOString().slice(0, 10);
+      const dateStr = localYmd(futureDate);
       const goal = makeGoal({ type: 'exam', targetDate: dateStr, status: 'active' });
       const result = goalProgress(goal, []);
       expect(result.label).toBe('10 days left');
@@ -505,7 +516,7 @@ describe('A. Analytics.goalProgress()', () => {
     });
 
     test('[EDGE] exam targetDate is today → "Today!" label', () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localYmd(new Date());
       const goal = makeGoal({ type: 'exam', targetDate: today, status: 'active' });
       expect(goalProgress(goal, []).label).toBe('Today!');
     });
@@ -513,7 +524,7 @@ describe('A. Analytics.goalProgress()', () => {
     test('[EDGE] exam targetDate is yesterday → "Deadline passed"', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const dateStr = yesterday.toISOString().slice(0, 10);
+      const dateStr = localYmd(yesterday);
       const goal = makeGoal({ type: 'exam', targetDate: dateStr, status: 'active' });
       expect(goalProgress(goal, []).label).toBe('Deadline passed');
     });
@@ -522,7 +533,7 @@ describe('A. Analytics.goalProgress()', () => {
       // FIX: Real app uses `day${days === 1 ? '' : 's'}` — singular for exactly 1 day.
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const goal = makeGoal({ type: 'exam', targetDate: tomorrow.toISOString().slice(0, 10), status: 'active' });
+      const goal = makeGoal({ type: 'exam', targetDate: localYmd(tomorrow), status: 'active' });
       expect(goalProgress(goal, []).label).toBe('1 day left');
     });
   });
@@ -835,12 +846,16 @@ describe('D. Goal Sort Order', () => {
     expect(sortGoals(goals)[0].id).toBe('a');
   });
 
-  test('[POS] same priority + same deadline: newer createdAt sorts first', () => {
+  test('[POS] same priority + same deadline: input order is preserved (stable sort)', () => {
+    // The real app (renderGoals) compares two dated goals with
+    // a.targetDate.localeCompare(b.targetDate) and returns that result directly —
+    // it does NOT fall through to a createdAt tiebreak when the dates are equal.
+    // Array.prototype.sort is stable, so the original input order is kept.
     const goals = [
       makeGoal({ id: 'a', priority: 'medium', targetDate: '2026-12-31', createdAt: 100 }),
       makeGoal({ id: 'b', priority: 'medium', targetDate: '2026-12-31', createdAt: 200 }),
     ];
-    expect(sortGoals(goals)[0].id).toBe('b');
+    expect(sortGoals(goals)[0].id).toBe('a');
   });
 
   test('[EDGE] goals with no deadline sort after goals with a deadline (same priority)', () => {

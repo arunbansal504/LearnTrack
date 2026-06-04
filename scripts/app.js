@@ -76,6 +76,10 @@ const App = (() => {
   let _lastAutoBackup       = 0;
   let _backupInProgress     = false;
   let _backupPendingRetry   = false;
+  let _backupFailures       = 0;      // consecutive auto-backup failures
+  let _backupFailing        = false;  // sticky warning state after repeated failures
+  const BACKUP_FAILURE_LIMIT = 3;
+  const DELETED_RETENTION_DAYS = 90;  // recycle-bin entries older than this are auto-purged on load
   let _currentPage  = 'dashboard';
   let _deletedPage  = 1;
   let _deletedSelection = new Set();
@@ -153,6 +157,10 @@ const App = (() => {
   async function loadAndShowApp(userId) {
     try {
       await Storage.init(userId);
+      // Auto-purge recycle-bin entries older than the retention window so the
+      // deleted-entries store can't grow without bound. Failures here are
+      // non-fatal — never block startup on housekeeping.
+      Storage.purgeOldDeletedEntries(DELETED_RETENTION_DAYS).catch(() => {});
       _entries   = await Storage.getAllEntries();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
       _earnedAch = await Storage.getAllAchievements();
@@ -169,6 +177,8 @@ const App = (() => {
       }
     } catch (err) {
       console.error('[App] Load error:', err);
+      showFatalLoadError(err);
+      return;
     }
 
     // One-time startup check: if reminder was saved as enabled but permission is gone, reset silently
@@ -202,6 +212,41 @@ const App = (() => {
         document.getElementById('app').style.display = 'block';
       }, 400);
     }, 600);
+  }
+
+  // Storage.init rejects when IndexedDB is unavailable (private-mode, blocked by another
+  // tab mid-upgrade, or quota issues). Rather than leave the user staring at the spinner
+  // forever, replace the loading overlay with a readable, actionable message.
+  function showFatalLoadError(err) {
+    const overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    const detail = (err && err.message) ? String(err.message) : 'Unknown error';
+    overlay.replaceChildren();
+    const box = document.createElement('div');
+    box.className = 'fatal-load-error';
+    box.setAttribute('role', 'alert');
+
+    const h = document.createElement('h2');
+    h.textContent = 'Couldn’t open your data';
+    const p = document.createElement('p');
+    p.textContent = 'Learn Tracker stores everything in your browser. It couldn’t access local storage, '
+      + 'so the app can’t start. This usually happens in private/incognito windows, when another tab '
+      + 'is open mid-update, or when browser storage is blocked.';
+    const tips = document.createElement('p');
+    tips.textContent = 'Try closing other Learn Tracker tabs and reloading, or open this page in a normal '
+      + '(non-private) browser window.';
+    const small = document.createElement('p');
+    small.className = 'fatal-load-error-detail';
+    small.textContent = 'Details: ' + detail;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.textContent = 'Reload';
+    btn.addEventListener('click', () => location.reload());
+
+    box.append(h, p, tips, small, btn);
+    overlay.appendChild(box);
   }
 
   /* ---- Backup folder gate -------------------------- */
@@ -267,9 +312,15 @@ const App = (() => {
       _backupPendingRetry = false;
       try {
         await backupCurrentProfile(true);
+        // success path resets the failure counter (see backupCurrentProfile)
       } catch (err) {
+        _backupFailures++;
         if (localStorage.getItem('lt_backup_skipped') !== 'true') {
           showToast('Auto-backup failed — check your backup folder.', 'warning');
+        }
+        if (_backupFailures >= BACKUP_FAILURE_LIMIT) {
+          _backupFailing = true;
+          updateSidebarBackupStatus();
         }
       } finally {
         _backupInProgress = false;
@@ -284,9 +335,28 @@ const App = (() => {
     const el         = document.getElementById('sidebar-backup-status');
     const time       = document.getElementById('sidebar-backup-time');
 
+    const setWarn = (label, sub, title) => {
+      if (!warnEl) return;
+      warnEl.style.display = 'flex';
+      const labelEl = warnEl.querySelector('.sbs-label');
+      const subEl   = warnEl.querySelector('.sbs-warn-text');
+      if (labelEl) labelEl.textContent = label;
+      if (subEl)   subEl.textContent   = sub;
+      warnEl.setAttribute('title', title);
+      warnEl.setAttribute('aria-label', title);
+    };
+
     if (!folderName) {
       // No folder configured — always show warning, never show auto-backup status
-      if (warnEl) warnEl.style.display = 'flex';
+      setWarn('Backup off', 'Set up folder', 'Backup not configured — click to set up');
+      if (el) el.style.display = 'none';
+      return;
+    }
+
+    // Folder configured but auto-backup keeps failing — keep a sticky warning so the
+    // user doesn't assume their data is safe when it isn't.
+    if (_backupFailing) {
+      setWarn('Backup failing', 'Check folder', 'Auto-backup is failing repeatedly — click to reconnect your backup folder');
       if (el) el.style.display = 'none';
       return;
     }
@@ -612,7 +682,14 @@ const App = (() => {
       const greetingText = Insights.getGreeting(username);
       const splitIdx = greetingText.indexOf('! ');
       if (splitIdx !== -1) {
-        greetingEl.innerHTML = `${greetingText.slice(0, splitIdx + 1)}<br>${greetingText.slice(splitIdx + 2)}`;
+        // Build with text nodes so the user-supplied username can never inject HTML.
+        const head = greetingText.slice(0, splitIdx + 1);
+        const tail = greetingText.slice(splitIdx + 2);
+        greetingEl.replaceChildren(
+          document.createTextNode(head),
+          document.createElement('br'),
+          document.createTextNode(tail)
+        );
       } else {
         greetingEl.textContent = greetingText;
       }
@@ -1180,6 +1257,7 @@ const App = (() => {
 
     document.getElementById('add-entry-btn')?.addEventListener('click', () => openEntryModal());
     document.getElementById('quick-add-btn')?.addEventListener('click', () => openEntryModal());
+    document.getElementById('log-empty-add-btn')?.addEventListener('click', () => openEntryModal());
 
     document.getElementById('log-expand-toggle')?.addEventListener('click', () => {
       const groups = document.querySelectorAll('#entries-container .month-group');
@@ -1237,8 +1315,7 @@ const App = (() => {
     // Mood selector
     document.querySelectorAll('.mood-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setActiveMood(btn.dataset.mood);
         const moodInput = document.getElementById('entry-mood');
         if (moodInput) moodInput.value = btn.dataset.mood;
       });
@@ -1297,8 +1374,7 @@ const App = (() => {
     document.getElementById('entry-id').value = '';
 
     // Reset mood to 4
-    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('.mood-btn[data-mood="4"]')?.classList.add('active');
+    setActiveMood('4');
     document.getElementById('entry-mood').value = '4';
 
 
@@ -1328,9 +1404,7 @@ const App = (() => {
       document.getElementById('entry-tags').value        = (entry.tags || []).join(', ');
 
       // Mood
-      document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
-      const moodBtn = document.querySelector(`.mood-btn[data-mood="${entry.moodScore || 4}"]`);
-      if (moodBtn) moodBtn.classList.add('active');
+      setActiveMood(String(entry.moodScore || 4));
       document.getElementById('entry-mood').value = entry.moodScore || 4;
 
       // Resources
@@ -4126,6 +4200,8 @@ const App = (() => {
       await Storage.addBackupLog({ type: 'export', label: `Backed up → ${dirHandle.name}/${filename}` });
       _lastAutoBackup = Date.now();
       localStorage.setItem(`lt_last_auto_backup_${UserManager.getActive()?.id || 'default'}`, _lastAutoBackup);
+      _backupFailures = 0;
+      _backupFailing  = false;
       updateSidebarBackupStatus(true);
       if (!silent) {
         showToast('Backup completed successfully!', 'success');
@@ -4215,7 +4291,8 @@ const App = (() => {
       applyTheme(_prefs.theme);
       applyAccent(_prefs.accent);
       applyCompact(_prefs.compact);
-      showImportStatus(`✅ Imported ${result.imported} entries into your profile.`, 'success');
+      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
+      showImportStatus(`✅ Imported ${result.imported} entries into your profile.${skipNote}`, 'success');
       await Storage.addBackupLog({ type: 'import', label: `Browsed & imported: ${file.name}` });
     } else {
       // Existing data — create a new profile for the imported data and switch to it
@@ -4239,7 +4316,8 @@ const App = (() => {
       applyTheme(_prefs.theme);
       applyAccent(_prefs.accent);
       applyCompact(_prefs.compact);
-      showImportStatus(`✅ Created profile "${importedName}" with ${result.imported} imported entries.`, 'success');
+      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
+      showImportStatus(`✅ Created profile "${importedName}" with ${result.imported} imported entries.${skipNote}`, 'success');
       await Storage.addBackupLog({ type: 'import', label: `Browsed & imported as new profile: ${file.name}` });
     }
 
@@ -5082,6 +5160,16 @@ const App = (() => {
     return d.innerHTML;
   }
 
+  // Toggle the selected mood button, keeping the `active` class and `aria-pressed`
+  // state in sync so screen readers announce the current selection.
+  function setActiveMood(moodVal) {
+    document.querySelectorAll('.mood-btn').forEach(b => {
+      const isActive = b.dataset.mood === String(moodVal);
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
   // Returns a safe href. Allows http/https/file; blocks javascript:, data:, etc.
   // Bare Windows paths (C:\...) and UNC paths (\\server\...) are converted to file:// URLs.
   function safeHref(url) {
@@ -5125,8 +5213,9 @@ const App = (() => {
       <div class="empty-icon">📚</div>
       <h3>No learning entries yet</h3>
       <p>Start tracking your learning journey.</p>
-      <button class="btn btn-primary" onclick="document.getElementById('add-entry-btn').click()">Add First Entry</button>
+      <button class="btn btn-primary" id="log-empty-add-btn">Add First Entry</button>
     `;
+    el.querySelector('#log-empty-add-btn')?.addEventListener('click', () => openEntryModal());
     return el;
   }
 
