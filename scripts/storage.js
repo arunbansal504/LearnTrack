@@ -327,6 +327,15 @@ const Storage = (() => {
   async function softDeleteGoal(id) {
     const goal = await getGoal(id);
     if (!goal) return;
+    // Replace any existing deleted goal with the same title+type+category
+    const titleLower = (goal.title || '').toLowerCase().trim();
+    const allDeleted = await getAll(STORES.deletedGoals);
+    const duplicate  = allDeleted.find(g =>
+      (g.title || '').toLowerCase().trim() === titleLower &&
+      g.type === goal.type &&
+      (g.category || '') === (goal.category || '')
+    );
+    if (duplicate) await remove(STORES.deletedGoals, duplicate.id);
     await put(STORES.deletedGoals, { ...goal, deletedAt: Date.now() });
     return remove(STORES.goals, id);
   }

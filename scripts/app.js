@@ -67,7 +67,9 @@ const App = (() => {
   let _goalsCollapsed  = { overdue: true, open: true, completed: true, archived: true };
   let _goalsCollapsedSnapshot = null;
   let _goalScrollTarget = null;
-  let _deletedGoalsSearch = '';
+  let _goalsSelection    = new Set();
+  let _deletedGoalsSelection = new Set();
+  let _pendingHistoryMode = null; // 'all' | 'today' | 'fresh' | null
   let _autoBackupTimer      = null;
   let _lastAutoBackup       = 0;
   let _backupInProgress     = false;
@@ -342,6 +344,15 @@ const App = (() => {
     document.getElementById('dl-filter-toggle')?.classList.toggle('has-filters', active);
   }
 
+  function updateDgFilterToggleState() {
+    const active =
+      (document.getElementById('dg-search')?.value || '') !== '' ||
+      (document.getElementById('dg-filter-category')?.value || '') !== '' ||
+      (document.getElementById('dg-filter-type')?.value || '') !== '' ||
+      (document.getElementById('dg-filter-sort')?.value || 'deleted-newest') !== 'deleted-newest';
+    document.getElementById('dg-filter-toggle')?.classList.toggle('has-filters', active);
+  }
+
   function setupNavigation() {
     document.querySelectorAll('[data-page]').forEach(link => {
       link.addEventListener('click', e => {
@@ -398,7 +409,10 @@ const App = (() => {
       _deletedSelection.clear();
     }
     if (page !== 'deleted-goals') {
-      _deletedGoalsSearch = '';
+      _deletedGoalsSelection.clear();
+    }
+    if (page !== 'goals') {
+      _goalsSelection.clear();
     }
 
     renderPage(page);
@@ -1679,6 +1693,31 @@ const App = (() => {
     return list;
   }
 
+  function applyDeletedGoalFilters(goals) {
+    let list = [...goals];
+
+    const search   = (document.getElementById('dg-search')?.value || '').toLowerCase().trim();
+    const category = document.getElementById('dg-filter-category')?.value;
+    const type     = document.getElementById('dg-filter-type')?.value;
+    const sort     = document.getElementById('dg-filter-sort')?.value || 'deleted-newest';
+
+    if (search)   list = list.filter(g =>
+      g.title?.toLowerCase().includes(search) ||
+      (g.description || '').toLowerCase().includes(search) ||
+      (g.category || '').toLowerCase().includes(search)
+    );
+    if (category) list = list.filter(g => g.category === category);
+    if (type)     list = list.filter(g => g.type === type);
+
+    switch (sort) {
+      case 'deleted-newest': list.sort((a, b) => b.deletedAt - a.deletedAt); break;
+      case 'deleted-oldest': list.sort((a, b) => a.deletedAt - b.deletedAt); break;
+      case 'az':             list.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break;
+      case 'za':             list.sort((a, b) => (b.title || '').localeCompare(a.title || '')); break;
+    }
+    return list;
+  }
+
   function createDeletedEntryCard(entry) {
     const mood  = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
     const d     = new Date(entry.date + 'T12:00:00');
@@ -1710,7 +1749,7 @@ const App = (() => {
         </div>
         <div class="dl-card-body">
           <div class="dl-card-header">
-            <span class="dl-card-topic">${escapeHtml(entry.topic)}</span>
+            <span class="dl-card-topic dl-topic-link" data-dl-view="${entry.id}" title="View details">${escapeHtml(entry.topic)}</span>
             ${entry.category ? `<span class="entry-category">${escapeHtml(entry.category)}</span>` : ''}
           </div>
           <div class="dl-card-meta">
@@ -1727,9 +1766,6 @@ const App = (() => {
             ${deletedAgo}
           </div>
           <div class="dl-action-row">
-            <button class="dl-view-btn" data-dl-view="${entry.id}" title="View details">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
             <button class="dl-restore-btn" data-restore="${entry.id}">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               Restore
@@ -2606,7 +2642,7 @@ const App = (() => {
 
   function populateCategorySelects() {
     const cats = _prefs.categories || DEFAULT_PREFS.categories;
-    ['entry-category', 'filter-category', 'dl-filter-category'].forEach(id => {
+    ['entry-category', 'filter-category', 'dl-filter-category', 'dg-filter-category'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
       const current = sel.value;
@@ -4585,6 +4621,113 @@ const App = (() => {
     _confirmCallback = null;
   }
 
+  /* ---- Duplicate Goal Warning ---------------------- */
+
+  function _nextGoalTitle(title) {
+    let n = 1;
+    while (_goals.some(g => g.title.toLowerCase() === `${title}_${n}`.toLowerCase())) n++;
+    return `${title}_${n}`;
+  }
+
+  let _dupGoalKeyHandler = null;
+
+  function _attachDupGoalKeyboard() {
+    if (_dupGoalKeyHandler) document.removeEventListener('keydown', _dupGoalKeyHandler);
+    _dupGoalKeyHandler = e => {
+      if (e.key === 'Escape') { e.preventDefault(); closeDupGoalModal(); }
+      if (e.key === 'Enter') {
+        const focused = document.activeElement;
+        if (focused && focused.closest('#dup-goal-modal')) { e.preventDefault(); focused.click(); }
+      }
+    };
+    document.addEventListener('keydown', _dupGoalKeyHandler);
+  }
+
+  function showDupGoalWarning(existing, suggestedTitle, onCreateAnyway, onView) {
+    const statusLabels = { active: 'Open', completed: 'Completed', archived: 'Archived' };
+    const status = statusLabels[existing.status] || existing.status;
+    const catText = existing.category ? ` in category <strong>${escapeHtml(existing.category)}</strong>` : '';
+    document.getElementById('dup-goal-message').innerHTML =
+      `A goal named <strong>"${escapeHtml(existing.title)}"</strong>${catText} already exists with status <strong>${status}</strong>.<br><br>` +
+      `If you proceed, your new goal will be created as <strong>"${escapeHtml(suggestedTitle)}"</strong>.`;
+
+    const createBtn = document.getElementById('dup-goal-create');
+    const viewBtn   = document.getElementById('dup-goal-view');
+
+    createBtn.textContent = `Create as "${suggestedTitle}"`;
+    createBtn.className   = 'btn btn-primary';
+    viewBtn.textContent   = 'View Existing Goal';
+    viewBtn.className     = 'btn btn-secondary';
+
+    createBtn.onclick = () => { closeDupGoalModal(); onCreateAnyway(); };
+    viewBtn.onclick   = () => { closeDupGoalModal(); onView(); };
+    document.getElementById('dup-goal-cancel').onclick = closeDupGoalModal;
+    document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
+
+    _attachDupGoalKeyboard();
+    document.getElementById('dup-goal-modal').style.display = 'flex';
+    setTimeout(() => createBtn.focus(), 0);
+  }
+
+  function showDeletedDupWarning(deletedGoal, onRestore, onCreateNew) {
+    const catText = deletedGoal.category ? ` in category <strong>${escapeHtml(deletedGoal.category)}</strong>` : '';
+    document.getElementById('dup-goal-message').innerHTML =
+      `A deleted goal named <strong>"${escapeHtml(deletedGoal.title)}"</strong>${catText} already exists in your recycle bin.<br><br>` +
+      `Would you like to restore it, or create a new goal?`;
+
+    const createBtn = document.getElementById('dup-goal-create');
+    const viewBtn   = document.getElementById('dup-goal-view');
+
+    createBtn.textContent  = 'Create New Goal';
+    createBtn.className    = 'btn btn-secondary';
+    viewBtn.textContent    = 'Restore Deleted Goal';
+    viewBtn.className      = 'btn btn-primary';
+
+    viewBtn.onclick   = () => { closeDupGoalModal(); onRestore(); };
+    createBtn.onclick = () => { closeDupGoalModal(); onCreateNew(); };
+    document.getElementById('dup-goal-cancel').onclick = closeDupGoalModal;
+    document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
+
+    _attachDupGoalKeyboard();
+    document.getElementById('dup-goal-modal').style.display = 'flex';
+    setTimeout(() => viewBtn.focus(), 0);
+  }
+
+  function closeDupGoalModal() {
+    if (_dupGoalKeyHandler) {
+      document.removeEventListener('keydown', _dupGoalKeyHandler);
+      _dupGoalKeyHandler = null;
+    }
+    document.getElementById('dup-goal-modal').style.display = 'none';
+  }
+
+  function showHistoryGoalPrompt(title, totalMinutes, todayMinutes, onAll, onToday, onFresh) {
+    const totalH = (totalMinutes / 60).toFixed(1);
+    const todayH = (todayMinutes / 60).toFixed(1);
+    document.getElementById('history-goal-message').innerHTML =
+      `You've already logged <strong>${totalH}h</strong> for <strong>"${escapeHtml(title)}"</strong>.<br><br>` +
+      `Do you want to count these hours as completed progress in this goal?`;
+
+    const allBtn   = document.getElementById('history-goal-all');
+    const todayBtn = document.getElementById('history-goal-today');
+    allBtn.textContent   = `Include All (${totalH}h)`;
+    todayBtn.textContent = `Today Only (${todayH}h)`;
+    todayBtn.style.display = todayMinutes > 0 ? '' : 'none';
+
+    allBtn.onclick   = () => { closeHistoryGoalModal(); onAll(); };
+    todayBtn.onclick = () => { closeHistoryGoalModal(); onToday(); };
+    document.getElementById('history-goal-fresh').onclick  = () => { closeHistoryGoalModal(); onFresh(); };
+    document.getElementById('history-goal-cancel').onclick = closeHistoryGoalModal;
+    document.getElementById('history-goal-modal').onclick  = e => { if (e.target.id === 'history-goal-modal') closeHistoryGoalModal(); };
+
+    document.getElementById('history-goal-modal').style.display = 'flex';
+    setTimeout(() => allBtn.focus(), 0);
+  }
+
+  function closeHistoryGoalModal() {
+    document.getElementById('history-goal-modal').style.display = 'none';
+  }
+
   /* ---- Toast Notifications ------------------------- */
 
   function showToast(message, type = 'info', duration = 3500) {
@@ -4732,8 +4875,11 @@ const App = (() => {
     document.addEventListener('keydown', e => {
       const modal = document.getElementById('goal-modal');
       if (!modal || modal.style.display === 'none') return;
+      // Don't handle keys when a child modal is open on top
+      if (document.getElementById('dup-goal-modal')?.style.display === 'flex') return;
+      if (document.getElementById('history-goal-modal')?.style.display === 'flex') return;
       if (e.key === 'Escape') { e.preventDefault(); closeGoalModal(); }
-      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.classList.contains('ms-label')) {
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('ms-label')) {
         e.preventDefault();
         saveGoalFromModal();
       }
@@ -4756,6 +4902,14 @@ const App = (() => {
       const el = document.getElementById(`goal-fields-${t}`);
       if (el) el.style.display = t === type ? '' : 'none';
     });
+    const placeholders = {
+      time:      'e.g. Study Maths',
+      count:     'e.g. Solve 50 problems',
+      checklist: 'e.g. Complete Science chapters',
+      exam:      'e.g. Board Exam',
+    };
+    const titleInput = document.getElementById('goal-title');
+    if (titleInput) titleInput.placeholder = placeholders[type] || 'Enter goal title';
   }
 
   function openGoalModal(goalId) {
@@ -4776,7 +4930,8 @@ const App = (() => {
     document.getElementById('goal-type').value        = goal?.type        || 'time';
     document.getElementById('goal-category').value    = goal?.category    || '';
     document.getElementById('goal-priority').value    = goal?.priority    || 'medium';
-    document.getElementById('goal-start-date').value  = goal?.startDate   || Analytics.today();
+    // '0000-01-01' means "from beginning" — browsers can't render year 0, so show as blank
+    document.getElementById('goal-start-date').value  = (goal?.startDate && goal.startDate !== '0000-01-01') ? goal.startDate : (goal ? '' : Analytics.today());
     document.getElementById('goal-target-date').value = goal?.targetDate  || '';
     document.getElementById('goal-description').value = goal?.description || '';
     document.getElementById('goal-target-hours').value  = goal?.targetMinutes ? (goal.targetMinutes / 60) : '';
@@ -4815,10 +4970,16 @@ const App = (() => {
       </button>
     `;
     row.querySelector('.ms-remove').addEventListener('click', () => row.remove());
+    const labelInput = row.querySelector('.ms-label');
+    labelInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); saveGoalFromModal(); }
+    });
     list.appendChild(row);
+    // Only auto-focus when adding a new empty row (not when loading existing milestones)
+    if (!label) setTimeout(() => labelInput.focus(), 0);
   }
 
-  async function saveGoalFromModal() {
+  async function saveGoalFromModal(skipDupCheck = false, skipHistoryCheck = false) {
     const id       = document.getElementById('goal-id').value;
     const title    = document.getElementById('goal-title').value.trim();
     const type     = document.getElementById('goal-type').value;
@@ -4830,6 +4991,65 @@ const App = (() => {
 
     if (!title) { showToast('Please enter a goal title.', 'warning'); return; }
 
+    // Duplicate check — only for new goals (skipped when user explicitly chose "Create New" after deleted-dup warning)
+    if (!id && !skipDupCheck) {
+      const titleLower = title.toLowerCase();
+
+      // 1. Check active goals first
+      const activeDup = _goals.find(g =>
+        g.title.toLowerCase() === titleLower &&
+        g.category === category &&
+        g.type === type
+      );
+      if (activeDup) {
+        const suggested = _nextGoalTitle(title);
+        showDupGoalWarning(
+          activeDup,
+          suggested,
+          async () => {
+            document.getElementById('goal-title').value = suggested;
+            await saveGoalFromModal();
+          },
+          () => {
+            closeGoalModal();
+            _goalScrollTarget = activeDup.id;
+            navigateTo('goals');
+          }
+        );
+        return;
+      }
+
+      // 2. Check deleted goals
+      const allDeleted = await Storage.getDeletedGoals();
+      const deletedDup = allDeleted.find(g =>
+        g.title.toLowerCase() === titleLower &&
+        g.category === category &&
+        g.type === type
+      );
+      if (deletedDup) {
+        showDeletedDupWarning(
+          deletedDup,
+          async () => {
+            await restoreDeletedGoal(deletedDup.id);
+            // Force Open status — user is starting fresh with this goal
+            const g = _goals.find(g => g.id === deletedDup.id);
+            if (g && g.status !== 'active') {
+              g.status = 'active';
+              g.completedAt = null;
+              g.progressSnapshot = null;
+              await Storage.saveGoal(g);
+            }
+            // Set scroll target after status is corrected so renderGoals places it in Open
+            _goalScrollTarget = deletedDup.id;
+            renderGoals();
+            closeGoalModal();
+          },
+          () => saveGoalFromModal(true)
+        );
+        return;
+      }
+    }
+
     const existing = id ? _goals.find(g => g.id === id) : null;
     const goal = {
       ...(existing || {}),
@@ -4838,7 +5058,7 @@ const App = (() => {
       type,
       category,
       priority,
-      startDate:   startDate || Analytics.today(),
+      startDate:   startDate || (existing?.startDate ?? Analytics.today()),
       targetDate:  targetDate || null,
       description,
       status:      existing?.status || 'active',
@@ -4851,19 +5071,44 @@ const App = (() => {
       const hrs = parseFloat(document.getElementById('goal-target-hours').value);
       if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); return; }
       goal.targetMinutes = Math.round(hrs * 60);
-      // For NEW goals, baseline = minutes logged on previous days matching this goal's
-      // criteria. Today's entries are intentionally included in progress (not baselined out).
       if (!id) {
-        const today = Analytics.today();
-        const gStart = goal.startDate || '0000-01-01';
+        const todayStr   = Analytics.today();
         const titleLower = (goal.title || '').toLowerCase().trim();
-        const historical = _entries.filter(e =>
-          e.date >= gStart &&
-          e.date < today &&
+        const allMatching = _entries.filter(e =>
           (!goal.category || goal.category === '' || e.category === goal.category) &&
           (!titleLower || (e.topic || '').toLowerCase().trim() === titleLower)
         );
-        goal.minutesBaseline = historical.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+        const totalMinutes = allMatching.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+        const todayMinutes = allMatching.filter(e => e.date === todayStr)
+                                        .reduce((s, e) => s + (e.durationMinutes || 0), 0);
+
+        if (totalMinutes > 0 && !skipHistoryCheck) {
+          showHistoryGoalPrompt(
+            goal.title, totalMinutes, todayMinutes,
+            () => { _pendingHistoryMode = 'all';   saveGoalFromModal(skipDupCheck, true); },
+            () => { _pendingHistoryMode = 'today'; saveGoalFromModal(skipDupCheck, true); },
+            () => { _pendingHistoryMode = 'fresh'; saveGoalFromModal(skipDupCheck, true); }
+          );
+          return;
+        }
+
+        const mode = _pendingHistoryMode;
+        _pendingHistoryMode = null;
+
+        if (mode === 'all') {
+          goal.startDate       = allMatching.reduce((min, e) => e.date < min ? e.date : min, allMatching[0]?.date || Analytics.today());
+          goal.minutesBaseline = 0;
+        } else if (mode === 'today') {
+          goal.startDate       = todayStr;
+          goal.minutesBaseline = 0;
+        } else if (mode === 'fresh') {
+          goal.startDate       = todayStr;
+          goal.minutesBaseline = todayMinutes;
+        } else {
+          // No matching history — start clean from the chosen start date
+          goal.minutesBaseline = 0;
+        }
+
         const initProg = Analytics.goalProgress(goal, _entries);
         if (initProg.pct >= 100) _newGoalAlreadyAchieved = true;
       }
@@ -5011,6 +5256,51 @@ const App = (() => {
     return 'active';
   }
 
+  function updateGoalsSelectionBar() {
+    const selBar   = document.getElementById('goals-selection-bar');
+    const bulkActs = document.getElementById('goals-bulk-actions');
+    const label    = document.getElementById('goals-selection-label');
+    const total    = document.querySelectorAll('.goals-checkbox').length;
+    const n        = _goalsSelection.size;
+
+    if (selBar) selBar.style.display = total > 0 ? 'flex' : 'none';
+    if (label) label.textContent = n === 0 ? '' : `${n} ${n === 1 ? 'goal' : 'goals'} selected`;
+    if (bulkActs) bulkActs.style.display = n > 0 ? 'flex' : 'none';
+
+    document.querySelectorAll('.goals-sec-checkbox').forEach(scb => {
+      const key    = scb.dataset.secKey;
+      const secCbs = document.querySelectorAll(`.goals-checkbox[data-sec="${key}"]`);
+      const sel    = [...secCbs].filter(cb => _goalsSelection.has(cb.dataset.id)).length;
+      scb.indeterminate = sel > 0 && sel < secCbs.length;
+      scb.checked = secCbs.length > 0 && sel === secCbs.length;
+    });
+
+    document.querySelectorAll('.goal-card').forEach(card => {
+      card.classList.toggle('goal-card-selected', _goalsSelection.has(card.dataset.id));
+    });
+  }
+
+  function bulkDeleteGoals() {
+    const ids = [..._goalsSelection];
+    if (!ids.length) return;
+    const n = ids.length;
+    showConfirm(
+      `Delete ${n} ${n === 1 ? 'goal' : 'goals'}?`,
+      'They will move to Deleted Goals where you can restore them.',
+      async () => {
+        await Promise.all(ids.map(id => Storage.softDeleteGoal(id)));
+        _goals = _goals.filter(g => !ids.includes(g.id));
+        _goalsSelection.clear();
+        showToast(`${n} ${n === 1 ? 'goal' : 'goals'} moved to Deleted Goals.`, 'info');
+        await checkAchievements();
+        renderGoals();
+        if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
+        updateSidebarUser();
+        triggerAutoBackup();
+      }
+    );
+  }
+
   function renderGoals() {
     const container = document.getElementById('goals-list');
     if (!container) return;
@@ -5048,6 +5338,16 @@ const App = (() => {
         if (si) si.value = '';
         renderGoals();
       });
+
+      document.getElementById('goals-clear-selection-btn')?.addEventListener('click', () => {
+        _goalsSelection.clear();
+        document.querySelectorAll('.goals-checkbox').forEach(cb => { cb.checked = false; });
+        const all = document.getElementById('goals-select-all');
+        if (all) { all.checked = false; all.indeterminate = false; }
+        updateGoalsSelectionBar();
+      });
+
+      document.getElementById('goals-bulk-delete-btn')?.addEventListener('click', bulkDeleteGoals);
     }
 
     // Highlight Clear Filters button when any filter/search is active
@@ -5154,6 +5454,8 @@ const App = (() => {
           </div>
         </div>`;
       document.getElementById('goals-empty-add')?.addEventListener('click', () => openGoalModal());
+      _goalsSelection.clear();
+      updateGoalsSelectionBar();
       return;
     }
 
@@ -5181,9 +5483,15 @@ const App = (() => {
           : emptyMsg
           ? `<p class="goals-section-empty goals-section-body${collapsed ? ' goals-sec-collapsed' : ''}">${emptyMsg}</p>`
           : '';
+        const secCb = items.length ? `
+          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;flex-shrink:0;cursor:pointer">
+            <input type="checkbox" class="goals-sec-checkbox" data-sec-key="${key}"
+              style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" />
+          </label>` : '';
         return `
           <div class="goals-section${extraClass ? ' ' + extraClass : ''}">
             <div class="goals-section-hd goals-sec-toggle" data-sec-key="${key}">
+              ${secCb}
               <span class="goals-section-icon">${icon}</span>
               <span class="goals-section-label">${label}</span>
               <span class="goals-section-count">${items.length}</span>
@@ -5193,7 +5501,7 @@ const App = (() => {
           </div>`;
       };
 
-      const sectionKeys = [...(overdue.length ? ['overdue'] : []), 'open', 'completed', ...(archived.length ? ['archived'] : [])];
+      const sectionKeys = [...(overdue.length ? ['overdue'] : []), 'open', 'completed', 'archived'];
       const allCollapsed = sectionKeys.length > 0 && sectionKeys.every(k => !!_goalsCollapsed[k]);
       const toggleAllBtn = `
         <div class="goals-sections-bar">
@@ -5208,7 +5516,7 @@ const App = (() => {
         (overdue.length ? renderSection('Overdue', '⚠️', overdue, '', 'goals-section-overdue') : '') +
         renderSection('Open', '📋', open, 'No open goals.') +
         renderSection('Completed', '✅', completed, 'No completed goals yet.') +
-        (archived.length ? renderSection('Archived', '📦', archived, '', 'goals-section-archived') : '');
+        renderSection('Archived', '📦', archived, 'No archived goals.', 'goals-section-archived');
 
       document.getElementById('goals-toggle-all')?.addEventListener('click', () => {
         sectionKeys.forEach(k => { _goalsCollapsed[k] = !allCollapsed; });
@@ -5222,11 +5530,26 @@ const App = (() => {
           renderGoals();
         });
       });
+
+      // Section-level select-all checkboxes
+      container.querySelectorAll('.goals-sec-checkbox').forEach(scb => {
+        scb.addEventListener('change', e => {
+          e.stopPropagation();
+          const key    = scb.dataset.secKey;
+          const secCbs = container.querySelectorAll(`.goals-checkbox[data-sec="${key}"]`);
+          secCbs.forEach(cb => {
+            cb.checked = scb.checked;
+            scb.checked ? _goalsSelection.add(cb.dataset.id) : _goalsSelection.delete(cb.dataset.id);
+          });
+          updateGoalsSelectionBar();
+        });
+      });
     } else {
       container.innerHTML = `<div class="goals-grid">${goals.map(g => _renderGoalCard(g)).join('')}</div>`;
     }
 
     _wireGoalCards(container);
+    updateGoalsSelectionBar();
 
     if (_goalScrollTarget) {
       const targetId = _goalScrollTarget;
@@ -5255,7 +5578,7 @@ const App = (() => {
                          : daysLeft === 0               ? '📅 Due today!'
                          : `📅 ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
 
-    const typeLabel = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' }[g.type] || g.type;
+    const typeLabel = { time: '⏳ Study Hours', checklist: '📋 Task List', count: '🏆 Problem Count', exam: '🎓 Exam Prep' }[g.type] || g.type;
     const priorityLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' }[g.priority] || '';
 
     let progressSection = '';
@@ -5310,8 +5633,16 @@ const App = (() => {
       ? `<span class="goal-status-chip goal-status-chip-overdue">Overdue</span>`
       : `<span class="goal-status-chip goal-status-chip-open">Open</span>`;
 
+    const secKey = derivedStatus === 'active' ? 'open' : derivedStatus;
+    const isChecked = _goalsSelection.has(g.id) ? 'checked' : '';
     return `
-      <div class="goal-card ${statusClass}" data-id="${g.id}" data-type="${g.type}">
+      <div class="goal-card ${statusClass}${_goalsSelection.has(g.id) ? ' goal-card-selected' : ''}" data-id="${g.id}" data-type="${g.type}">
+        <div class="goal-card-cb">
+          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;cursor:pointer">
+            <input type="checkbox" class="goals-checkbox" data-id="${g.id}" data-sec="${secKey}" ${isChecked}
+              style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" />
+          </label>
+        </div>
         <div class="goal-card-header">
           <div class="goal-card-meta">
             ${statusChip}
@@ -5362,6 +5693,14 @@ const App = (() => {
       if (action === 'toggle-ms')  await toggleMilestone(id, btn.dataset.msid);
     });
 
+    container.addEventListener('change', e => {
+      const cb = e.target.closest('.goals-checkbox');
+      if (!cb) return;
+      e.stopPropagation();
+      cb.checked ? _goalsSelection.add(cb.dataset.id) : _goalsSelection.delete(cb.dataset.id);
+      updateGoalsSelectionBar();
+    });
+
     // Editable count input: inline validation + save on blur or Enter
     container.addEventListener('input', e => {
       const input = e.target.closest('.goal-count-input');
@@ -5401,6 +5740,57 @@ const App = (() => {
     if (!container) return;
 
     const today = Analytics.today();
+
+    // --- Mini stats cards ---
+    const statsRow = document.getElementById('goals-mini-stats-row');
+    if (statsRow) {
+      const openGoals      = _goals.filter(g => g.status === 'active' && !(g.targetDate && g.targetDate < today));
+      const overdueGoals   = _goals.filter(g => g.status === 'active' && g.targetDate && g.targetDate < today);
+      const completedGoals = _goals.filter(g => g.status === 'completed');
+      const archivedGoals  = _goals.filter(g => g.status === 'archived');
+      const overdueClass   = overdueGoals.length > 0 ? ' gms-danger' : '';
+      statsRow.innerHTML = `
+        <div class="goals-mini-stats">
+          <div class="goals-mini-stat gms-clickable" data-gms-filter="all">
+            <div class="gms-val">${_goals.length}</div>
+            <div class="gms-label">Total</div>
+          </div>
+          <div class="goals-mini-stat gms-clickable" data-gms-filter="open">
+            <div class="gms-val">${openGoals.length}</div>
+            <div class="gms-label">Open</div>
+          </div>
+          <div class="goals-mini-stat gms-clickable${overdueClass}" data-gms-filter="overdue">
+            <div class="gms-val">${overdueGoals.length}</div>
+            <div class="gms-label">Overdue</div>
+          </div>
+          <div class="goals-mini-stat gms-clickable" data-gms-filter="completed">
+            <div class="gms-val">${completedGoals.length}</div>
+            <div class="gms-label">Completed</div>
+          </div>
+          <div class="goals-mini-stat gms-clickable" data-gms-filter="archived">
+            <div class="gms-val">${archivedGoals.length}</div>
+            <div class="gms-label">Archived</div>
+          </div>
+        </div>`;
+
+      statsRow.querySelectorAll('.gms-clickable').forEach(card => {
+        card.addEventListener('click', () => {
+          const f = card.dataset.gmsFilter;
+          _goalsFilter = 'all';
+          if (f === 'all') {
+            _goalsCollapsed = { overdue: false, open: false, completed: false, archived: false };
+          } else {
+            _goalsCollapsed = { overdue: true, open: true, completed: true, archived: true };
+            if (f === 'open')      _goalsCollapsed.open      = false;
+            if (f === 'overdue')   _goalsCollapsed.overdue   = false;
+            if (f === 'completed') _goalsCollapsed.completed = false;
+            if (f === 'archived')  _goalsCollapsed.archived  = false;
+          }
+          navigateTo('goals');
+        });
+      });
+    }
+
     const active = _goals
       .filter(g => g.status === 'active' || (g.status !== 'archived' && g.status !== 'completed'))
       .map(g => ({ ...g, prog: Analytics.goalProgress(g, _entries), derivedStatus: _goalStatusOf(g) }))
@@ -5426,7 +5816,7 @@ const App = (() => {
       return;
     }
 
-    container.innerHTML = active.map(g => {
+    container.innerHTML = `<div class="goals-widget-section-label">Open Goals</div>` + active.map(g => {
       const daysLeft = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
       const isOverdue = daysLeft !== null && daysLeft < 0;
       const deadline = daysLeft === null ? '' : isOverdue ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Today' : `📅 ${daysLeft}d`;
@@ -5459,11 +5849,10 @@ const App = (() => {
     const container = document.getElementById('dg-goals-container');
     if (!container) return;
 
+    populateCategorySelects();
+
     const allDeleted = await Storage.getDeletedGoals();
-    const q = _deletedGoalsSearch.toLowerCase();
-    const filtered = q
-      ? allDeleted.filter(g => g.title.toLowerCase().includes(q) || (g.description || '').toLowerCase().includes(q) || (g.category || '').toLowerCase().includes(q))
-      : allDeleted;
+    const filtered   = applyDeletedGoalFilters(allDeleted);
 
     if (filtered.length === 0) {
       const isEmpty = allDeleted.length === 0;
@@ -5473,18 +5862,27 @@ const App = (() => {
           <h3>${isEmpty ? 'No deleted goals' : 'No matching goals'}</h3>
           <p>${isEmpty ? 'Deleted goals will appear here for recovery.' : 'Try a different search.'}</p>
         </div>`;
+      updateDgBulkBar();
       return;
     }
 
-    const typeLabels = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' };
+    const typeLabels = { time: '⏳ Study Hours', checklist: '📋 Task List', count: '🏆 Problem Count', exam: '🎓 Exam Prep' };
 
     container.innerHTML = filtered.map(g => {
       const deletedAgo = _timeAgo(g.deletedAt);
+      const checked    = _deletedGoalsSelection.has(g.id) ? 'checked' : '';
+      const selClass   = _deletedGoalsSelection.has(g.id) ? ' dl-selected' : '';
       return `
-        <div class="dg-goal-row" data-id="${g.id}">
+        <div class="dg-goal-row${selClass}" data-id="${g.id}">
+          <div class="dg-goal-checkbox">
+            <label style="display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+              <input type="checkbox" class="dg-checkbox" data-id="${g.id}" ${checked}
+                style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent)" />
+            </label>
+          </div>
           <div class="dg-goal-info">
             <span class="goal-type-chip" data-type="${g.type}">${typeLabels[g.type] || g.type}</span>
-            <span class="dg-goal-title">${escapeHtml(g.title)}</span>
+            <span class="dg-goal-title dg-title-link" data-dg-view="${g.id}" title="View details">${escapeHtml(g.title)}</span>
             ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
           </div>
           <div class="dg-goal-meta">
@@ -5493,9 +5891,6 @@ const App = (() => {
               ${deletedAgo}
             </div>
             <div class="dl-action-row">
-              <button class="dl-view-btn" data-dg-view="${g.id}" title="View details">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
               <button class="dl-restore-btn" data-dg-restore="${g.id}">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                 Restore
@@ -5515,10 +5910,44 @@ const App = (() => {
       });
     });
     container.querySelectorAll('[data-dg-restore]').forEach(btn => {
-      btn.addEventListener('click', () => restoreDeletedGoal(btn.dataset.dgRestore));
+      btn.addEventListener('click', e => { e.stopPropagation(); restoreDeletedGoal(btn.dataset.dgRestore); });
     });
     container.querySelectorAll('[data-dg-delete]').forEach(btn => {
-      btn.addEventListener('click', () => permanentDeleteGoal(btn.dataset.dgDelete));
+      btn.addEventListener('click', e => { e.stopPropagation(); permanentDeleteGoal(btn.dataset.dgDelete); });
+    });
+
+    container.querySelectorAll('.dg-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        e.stopPropagation();
+        cb.checked ? _deletedGoalsSelection.add(cb.dataset.id) : _deletedGoalsSelection.delete(cb.dataset.id);
+        updateDgBulkBar();
+      });
+    });
+
+    updateDgBulkBar();
+  }
+
+  function updateDgBulkBar() {
+    const selBar   = document.getElementById('dg-selection-bar');
+    const bulkActs = document.getElementById('dg-bulk-actions');
+    const label    = document.getElementById('dg-selection-label');
+    const allCheck = document.getElementById('dg-select-all');
+    const allCbs   = document.querySelectorAll('.dg-checkbox');
+    const total    = allCbs.length;
+    const n        = _deletedGoalsSelection.size;
+
+    if (selBar) selBar.style.display = total > 0 ? 'flex' : 'none';
+
+    if (allCheck) {
+      allCheck.indeterminate = n > 0 && n < total;
+      allCheck.checked = total > 0 && n === total;
+    }
+
+    if (label) label.textContent = n === 0 ? `Select all (${total})` : `${n} of ${total} selected`;
+    if (bulkActs) bulkActs.style.display = n > 0 ? 'flex' : 'none';
+
+    document.querySelectorAll('.dg-goal-row').forEach(row => {
+      row.classList.toggle('dl-selected', _deletedGoalsSelection.has(row.dataset.id));
     });
   }
 
@@ -5541,7 +5970,9 @@ const App = (() => {
     }
     showToast('Goal restored!', 'success');
     await checkAchievements();
-    await renderDeletedGoals();
+    if (_currentPage === 'deleted-goals') await renderDeletedGoals();
+    if (_currentPage === 'goals') renderGoals();
+    if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
     updateSidebarUser();
     triggerAutoBackup();
   }
@@ -5562,28 +5993,29 @@ const App = (() => {
 
     setEl('dg-detail-title', g.title);
 
-    const typeLabels     = { time: '⏱ Time', checklist: '✅ Checklist', count: '🔢 Count', exam: '📅 Exam' };
+    const typeLabels     = { time: '⏳ Study Hours', checklist: '📋 Task List', count: '🏆 Problem Count', exam: '🎓 Exam Prep' };
     const priorityLabels = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' };
     const statusLabels   = { active: 'Open', completed: 'Completed', archived: 'Archived' };
 
-    // Progress section
+    // Progress section — use frozen snapshot for completed/archived goals, else compute live
+    const snap = g.progressSnapshot || Analytics.goalProgress(g, _entries);
     let progressHtml = '';
     if (g.type === 'time') {
-      const targetH  = (g.targetHours || 0);
-      const currentH = ((g.currentMinutes || 0) / 60);
-      const pct      = targetH > 0 ? Math.min(100, Math.floor((currentH / targetH) * 100)) : 0;
+      const currentH = snap.current / 60;
+      const targetH  = snap.target  / 60;
+      const pct      = snap.pct;
       progressHtml = `
         <div class="dg-detail-section">
           <div class="dg-detail-section-title">Progress</div>
           <div class="goal-prog-bar-wrap">
             <div class="goal-prog-bar"><div class="goal-prog-fill" style="width:${pct}%"></div></div>
-            <span class="goal-prog-label">${currentH.toFixed(1)}h / ${targetH}h (${pct}%)</span>
+            <span class="goal-prog-label">${currentH.toFixed(1)}h / ${targetH.toFixed(1)}h (${pct}%)</span>
           </div>
         </div>`;
     } else if (g.type === 'count') {
-      const cur = g.currentCount || 0;
-      const tar = g.targetCount  || 0;
-      const pct = tar > 0 ? Math.min(100, Math.floor((cur / tar) * 100)) : 0;
+      const cur = snap.current;
+      const tar = snap.target;
+      const pct = snap.pct;
       progressHtml = `
         <div class="dg-detail-section">
           <div class="dg-detail-section-title">Progress</div>
@@ -5662,9 +6094,79 @@ const App = (() => {
     const search = document.getElementById('dg-search');
     if (!search || search.dataset.wired) return;
     search.dataset.wired = '1';
-    search.addEventListener('input', () => {
-      _deletedGoalsSearch = search.value.trim();
+
+    document.getElementById('dg-filter-toggle')?.addEventListener('click', () => {
+      const panel = document.getElementById('dg-filter-panel');
+      if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('dg-filter-clear')?.addEventListener('click', () => {
+      ['dg-filter-category', 'dg-filter-type'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const sort = document.getElementById('dg-filter-sort');
+      if (sort) sort.value = 'deleted-newest';
+      search.value = '';
+      updateDgFilterToggleState();
       renderDeletedGoals();
+    });
+
+    ['dg-search', 'dg-filter-category', 'dg-filter-type', 'dg-filter-sort'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => { updateDgFilterToggleState(); renderDeletedGoals(); });
+      document.getElementById(id)?.addEventListener('input',  () => { updateDgFilterToggleState(); renderDeletedGoals(); });
+    });
+
+    document.getElementById('dg-select-all')?.addEventListener('change', e => {
+      const checked = e.target.checked;
+      document.querySelectorAll('.dg-checkbox').forEach(cb => {
+        cb.checked = checked;
+        checked ? _deletedGoalsSelection.add(cb.dataset.id) : _deletedGoalsSelection.delete(cb.dataset.id);
+      });
+      updateDgBulkBar();
+    });
+
+    document.getElementById('dg-clear-selection-btn')?.addEventListener('click', () => {
+      _deletedGoalsSelection.clear();
+      document.querySelectorAll('.dg-checkbox').forEach(cb => { cb.checked = false; });
+      const all = document.getElementById('dg-select-all');
+      if (all) { all.checked = false; all.indeterminate = false; }
+      updateDgBulkBar();
+    });
+
+    document.getElementById('dg-bulk-delete-btn')?.addEventListener('click', () => {
+      if (!_deletedGoalsSelection.size) return;
+      const n = _deletedGoalsSelection.size;
+      showConfirm(
+        `Permanently delete ${n} ${n === 1 ? 'goal' : 'goals'}?`,
+        'This cannot be undone.',
+        async () => {
+          await Promise.all([..._deletedGoalsSelection].map(id => Storage.permanentlyDeleteGoal(id)));
+          _deletedGoalsSelection.clear();
+          showToast(`${n} ${n === 1 ? 'goal' : 'goals'} permanently deleted`, 'info');
+          await renderDeletedGoals();
+          triggerAutoBackup();
+        }
+      );
+    });
+
+    document.getElementById('dg-bulk-restore-btn')?.addEventListener('click', async () => {
+      if (!_deletedGoalsSelection.size) return;
+      const ids = [..._deletedGoalsSelection];
+      await Promise.all(ids.map(id => Storage.restoreGoal(id)));
+      for (const id of ids) {
+        const restored = await Storage.getGoal(id);
+        if (restored) {
+          const idx = _goals.findIndex(g => g.id === id);
+          if (idx >= 0) _goals[idx] = restored; else _goals.unshift(restored);
+        }
+      }
+      _deletedGoalsSelection.clear();
+      await checkAchievements();
+      showToast(`${ids.length} ${ids.length === 1 ? 'goal' : 'goals'} restored`, 'success');
+      await renderDeletedGoals();
+      updateSidebarUser();
+      triggerAutoBackup();
     });
   }
 

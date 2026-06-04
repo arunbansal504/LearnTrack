@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=57" />
+  <link rel="stylesheet" href="styles/main.css?v=63" />
   <link rel="stylesheet" href="styles/dashboard.css?v=17" />
   <link rel="stylesheet" href="styles/animations.css?v=15" />
 </head>
@@ -531,6 +531,7 @@
             <h3>Academic Goals <i class="info-tip" data-tip="Your active academic goals — deadlines, milestones, and study targets. Auto-tracked from your logged entries.">i</i></h3>
             <a href="#" class="widget-action" data-page="goals" data-expand-goals="true">View all</a>
           </div>
+          <div id="goals-mini-stats-row"><!-- Rendered by JS --></div>
           <div id="goals-widget-list">
             <!-- Rendered by JS -->
           </div>
@@ -838,14 +839,23 @@
           <button class="goals-filter-chip" data-filter="archived">Archived</button>
         </div>
         <div class="goals-filter-chips">
-          <button class="goals-filter-chip" data-filter-type="time">⏱ Time</button>
-          <button class="goals-filter-chip" data-filter-type="checklist">✅ Checklist</button>
-          <button class="goals-filter-chip" data-filter-type="count">🔢 Count</button>
-          <button class="goals-filter-chip" data-filter-type="exam">📅 Exam</button>
+          <button class="goals-filter-chip" data-filter-type="time">⏳ Study Hours</button>
+          <button class="goals-filter-chip" data-filter-type="checklist">📋 Task List</button>
+          <button class="goals-filter-chip" data-filter-type="count">🏆 Problem Count</button>
+          <button class="goals-filter-chip" data-filter-type="exam">🎓 Exam Prep</button>
           <button class="goals-reset-btn" id="goals-reset-filters" title="Clear all filters and search">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Clear Filters
           </button>
+        </div>
+      </div>
+
+      <!-- Goals selection bar -->
+      <div id="goals-selection-bar" style="display:none;align-items:center;gap:0.75rem;padding:0.5rem 0 0.75rem;border-bottom:1px solid var(--border);margin-bottom:0.25rem;flex-wrap:wrap">
+        <span id="goals-selection-label" style="font-size:13px;font-weight:500"></span>
+        <div id="goals-bulk-actions" style="display:none;align-items:center;gap:0.5rem">
+          <button class="btn btn-sm btn-danger" id="goals-bulk-delete-btn">Delete Selected</button>
+          <button class="btn btn-sm btn-ghost" id="goals-clear-selection-btn">Clear</button>
         </div>
       </div>
 
@@ -867,6 +877,54 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" id="dg-search" placeholder="Search deleted goals…" aria-label="Search deleted goals" />
           </div>
+          <button class="btn btn-secondary" id="dg-filter-toggle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Panel -->
+      <div class="filter-panel" id="dg-filter-panel" style="display:none">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Category</label>
+            <select id="dg-filter-category">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Type</label>
+            <select id="dg-filter-type">
+              <option value="">All types</option>
+              <option value="time">Study Hours</option>
+              <option value="checklist">Task List</option>
+              <option value="count">Problem Count</option>
+              <option value="exam">Exam Prep</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Sort by</label>
+            <select id="dg-filter-sort">
+              <option value="deleted-newest">Recently deleted</option>
+              <option value="deleted-oldest">Oldest deletion</option>
+              <option value="az">A – Z</option>
+              <option value="za">Z – A</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" id="dg-filter-clear">Clear filters</button>
+        </div>
+      </div>
+      <!-- Selection bar: visible whenever goals exist -->
+      <div id="dg-selection-bar" style="display:none;align-items:center;gap:0.75rem;padding:0.5rem 0 0.75rem;border-bottom:1px solid var(--border);margin-bottom:0.25rem;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:13px;font-weight:500;user-select:none">
+          <input type="checkbox" id="dg-select-all" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" />
+          <span id="dg-selection-label">Select all</span>
+        </label>
+        <div id="dg-bulk-actions" style="display:none;align-items:center;gap:0.5rem">
+          <button class="btn btn-sm btn-danger" id="dg-bulk-delete-btn">Delete Permanently</button>
+          <button class="btn btn-sm btn-ghost" id="dg-bulk-restore-btn">Restore Selected</button>
+          <button class="btn btn-sm btn-ghost" id="dg-clear-selection-btn">Clear</button>
         </div>
       </div>
       <div id="dg-goals-container">
@@ -1460,6 +1518,41 @@
   </div>
 </div>
 
+<!-- ===== MODAL: DUPLICATE GOAL WARNING ===== -->
+<div id="dup-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;z-index:1050">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Duplicate Goal</h2>
+    </div>
+    <div class="modal-body">
+      <p id="dup-goal-message" style="line-height:1.6"></p>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:0.5rem">
+      <button class="btn btn-ghost" id="dup-goal-cancel">Cancel</button>
+      <button class="btn btn-secondary" id="dup-goal-view">View Existing Goal</button>
+      <button class="btn btn-primary" id="dup-goal-create"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: HISTORY-BASED GOAL START ===== -->
+<div id="history-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;z-index:1050">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Previous Study History Found</h2>
+    </div>
+    <div class="modal-body">
+      <p id="history-goal-message" style="line-height:1.6"></p>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:0.5rem">
+      <button class="btn btn-ghost" id="history-goal-cancel">Cancel</button>
+      <button class="btn btn-secondary" id="history-goal-today" style="display:none"></button>
+      <button class="btn btn-secondary" id="history-goal-fresh">Start from 0</button>
+      <button class="btn btn-primary" id="history-goal-all"></button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== DELETED ENTRY DETAIL MODAL ===== -->
 <div id="dl-detail-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dl-detail-title" style="display:none">
   <div class="modal" style="max-width:520px">
@@ -1710,10 +1803,10 @@
         <div class="form-group">
           <label class="form-label" for="goal-type">Type <span class="required">*</span></label>
           <select id="goal-type" class="form-input">
-            <option value="time">⏱ Time Target</option>
-            <option value="checklist">✅ Milestone Checklist</option>
-            <option value="count">🔢 Count Target</option>
-            <option value="exam">📅 Exam Countdown</option>
+            <option value="time">⏳ Study Hours</option>
+            <option value="checklist">📋 Task List</option>
+            <option value="count">🏆 Problem Count</option>
+            <option value="exam">🎓 Exam Prep</option>
           </select>
         </div>
       </div>
@@ -1749,7 +1842,7 @@
       </div>
 
       <!-- Type-specific fields -->
-      <!-- Time Target -->
+      <!-- Study Hours -->
       <div id="goal-fields-time" class="goal-type-fields">
         <div class="form-row">
           <div class="form-group">
@@ -1787,7 +1880,7 @@
         <p class="form-hint">Update your count manually from the goal card.</p>
       </div>
 
-      <!-- Checklist -->
+      <!-- Task List -->
       <div id="goal-fields-checklist" class="goal-type-fields" style="display:none">
         <label class="form-label">Milestones / Tasks</label>
         <div id="goal-milestones-list" class="goal-milestones-list"></div>
