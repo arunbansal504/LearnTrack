@@ -3526,7 +3526,7 @@ const App = (() => {
       };
 
       const drawPill = (label, x, y, rowH, clr) => {
-        const pillH = 11, pillW = Math.min(pdf.getTextWidth(label) + 10, 76);
+        const pillH = 11, pillW = Math.min(pdf.getTextWidth(label) + 10, 96);
         const pillY = y + (rowH - pillH) / 2;
         pdf.setFillColor(...clr.bg);
         pdf.roundedRect(x, pillY, pillW, pillH, 2.5, 2.5, 'F');
@@ -3762,7 +3762,7 @@ const App = (() => {
 
         // Table
         const gRH    = 19;
-        const wType  = 44, wStatus = 56, wDue = 52, wProg = 80;
+        const wType  = 80, wStatus = 56, wDue = 52, wProg = 80;
         const wTitle = CW - wType - wStatus - wDue - wProg;
         const gXs    = [ML + 6, ML + wTitle, ML + wTitle + wType, ML + wTitle + wType + wStatus, ML + CW - wProg + 2];
         fillR(ML, y, CW, gRH, CDBG);
@@ -3795,10 +3795,10 @@ const App = (() => {
           tx(pdf.splitTextToSize(goal.title || '—', wTitle - 14)[0] || '—', gXs[0], y + 13, 8, CBK);
 
           const _PDF_TYPE = {
-            time:      { bg:[239,246,255], text:[30,64,175],  label:'Time' },
-            count:     { bg:[245,243,255], text:[91,33,182],  label:'Count' },
-            checklist: { bg:[236,253,245], text:[6,95,70],    label:'Tasks' },
-            exam:      { bg:[255,241,242], text:[159,18,57],  label:'Exam' },
+            time:      { bg:[239,246,255], text:[30,64,175],  label:'Study Hours' },
+            count:     { bg:[245,243,255], text:[91,33,182],  label:'Problem Count' },
+            checklist: { bg:[236,253,245], text:[6,95,70],    label:'Task List' },
+            exam:      { bg:[255,241,242], text:[159,18,57],  label:'Exam Prep' },
           };
           const typePdfDef = _PDF_TYPE[goal.type] || _PDF_TYPE.exam;
           drawPill(typePdfDef.label, gXs[1], y, gRH, typePdfDef);
