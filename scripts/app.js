@@ -61,6 +61,7 @@ const App = (() => {
   let _prefs        = {};
   let _earnedAch    = [];
   let _goals        = [];
+  let _goalRingListenerBound = false;
   let _goalsFilter     = 'all';
   let _goalsTypeFilter = '';
   let _goalsSearch     = '';
@@ -742,6 +743,34 @@ const App = (() => {
       : todayMin >= Math.round(goalMin * 0.5)  ? 'Halfway there'
       : 'Keep going!';
     setEl('goal-today-status', status);
+
+    const ringWrap = document.querySelector('.goal-ring-wrap');
+    if (ringWrap) {
+      ringWrap.classList.toggle('goal-ring-achieved', pct >= 100);
+      if (!_goalRingListenerBound) {
+        _goalRingListenerBound = true;
+        let _lastCelebMs = 0;
+        ringWrap.addEventListener('mouseenter', () => {
+          if (!ringWrap.classList.contains('goal-ring-achieved')) return;
+          const now = Date.now();
+          if (now - _lastCelebMs < 2000) return;
+          _lastCelebMs = now;
+          if (typeof confetti === 'undefined') return;
+          const rect = ringWrap.getBoundingClientRect();
+          const ox = (rect.left + rect.width / 2) / window.innerWidth;
+          const oy = (rect.top + rect.height / 2) / window.innerHeight;
+          confetti({
+            particleCount: 45,
+            spread: 65,
+            startVelocity: 22,
+            gravity: 0.9,
+            scalar: 0.85,
+            origin: { x: ox, y: oy },
+            colors: ['#10b981', '#6c63ff', '#f59e0b', '#ec4899', '#ffffff'],
+          });
+        });
+      }
+    }
 
     // Weekly goal bars — each day uses the goal that was active on that date
     const container = document.getElementById('goal-week-days');
