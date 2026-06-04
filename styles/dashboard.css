@@ -314,17 +314,32 @@
 
 .goal-ring-wrap.goal-ring-achieved {
   cursor: pointer;
+  transition: transform 0.15s ease;
 }
 
-.goal-ring-wrap.goal-ring-achieved:hover {
+/* Desktop (real hover devices) — hover triggers infinite glow */
+@media (hover: hover) {
+  .goal-ring-wrap.goal-ring-achieved:hover {
+    transform: scale(1.12);
+  }
+  .goal-ring-wrap.goal-ring-achieved:hover .goal-ring-svg {
+    animation: goal-ring-glow-pulse 0.9s ease-in-out infinite;
+  }
+  .goal-ring-wrap.goal-ring-achieved:hover .goal-ring-pct {
+    animation: goal-pct-celebrate 0.55s ease-out forwards;
+    display: inline-block;
+    transform-origin: center;
+  }
+}
+
+/* Mobile (touch) — JS adds this class, plays once then removes it */
+.goal-ring-wrap.goal-ring-tapped {
   transform: scale(1.12);
 }
-
-.goal-ring-wrap.goal-ring-achieved:hover .goal-ring-svg {
-  animation: goal-ring-glow-pulse 0.9s ease-in-out infinite;
+.goal-ring-wrap.goal-ring-tapped .goal-ring-svg {
+  animation: goal-ring-glow-pulse 0.9s ease-in-out 1;
 }
-
-.goal-ring-wrap.goal-ring-achieved:hover .goal-ring-pct {
+.goal-ring-wrap.goal-ring-tapped .goal-ring-pct {
   animation: goal-pct-celebrate 0.55s ease-out forwards;
   display: inline-block;
   transform-origin: center;

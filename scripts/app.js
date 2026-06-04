@@ -750,11 +750,8 @@ const App = (() => {
       if (!_goalRingListenerBound) {
         _goalRingListenerBound = true;
         let _lastCelebMs = 0;
-        ringWrap.addEventListener('mouseenter', () => {
-          if (!ringWrap.classList.contains('goal-ring-achieved')) return;
-          const now = Date.now();
-          if (now - _lastCelebMs < 2000) return;
-          _lastCelebMs = now;
+
+        const _fireConfetti = () => {
           if (typeof confetti === 'undefined') return;
           const rect = ringWrap.getBoundingClientRect();
           const ox = (rect.left + rect.width / 2) / window.innerWidth;
@@ -768,7 +765,30 @@ const App = (() => {
             origin: { x: ox, y: oy },
             colors: ['#10b981', '#6c63ff', '#f59e0b', '#ec4899', '#ffffff'],
           });
+        };
+
+        // Desktop: hover triggers confetti (CSS handles glow)
+        ringWrap.addEventListener('mouseenter', () => {
+          if (!ringWrap.classList.contains('goal-ring-achieved')) return;
+          const now = Date.now();
+          if (now - _lastCelebMs < 2000) return;
+          _lastCelebMs = now;
+          _fireConfetti();
         });
+
+        // Mobile: touchstart triggers confetti + one-shot glow class
+        ringWrap.addEventListener('touchstart', () => {
+          if (!ringWrap.classList.contains('goal-ring-achieved')) return;
+          const now = Date.now();
+          if (now - _lastCelebMs < 2000) return;
+          _lastCelebMs = now;
+          _fireConfetti();
+          ringWrap.classList.remove('goal-ring-tapped');
+          // Force reflow so re-tapping restarts the animation
+          void ringWrap.offsetWidth;
+          ringWrap.classList.add('goal-ring-tapped');
+          setTimeout(() => ringWrap.classList.remove('goal-ring-tapped'), 1200);
+        }, { passive: true });
       }
     }
 
