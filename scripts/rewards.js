@@ -933,6 +933,59 @@ const Rewards = (() => {
         return { current: Math.min(new Set(entries.map(e => e.date)).size, 90), max: 90 };
       },
     },
+    /* ---- Academic Goals ----------------------------- */
+    {
+      id:    'goal_setter',
+      name:  'Goal Setter',
+      icon:  '🎯',
+      desc:  'Create your first academic goal.',
+      xp:    75,
+      check: ({ goals }) => (goals || []).length >= 1,
+      progress: ({ goals }) => ({ current: Math.min((goals || []).length, 1), max: 1 }),
+    },
+    {
+      id:    'goal_accomplished',
+      name:  'Mission Accomplished',
+      icon:  '🏆',
+      desc:  'Complete your first academic goal.',
+      xp:    200,
+      check: ({ goals }) => (goals || []).some(g => g.completedAt),
+      progress: ({ goals }) => ({
+        current: Math.min((goals || []).filter(g => g.completedAt).length, 1),
+        max: 1,
+      }),
+    },
+    {
+      id:    'goal_finisher_5',
+      name:  'Finisher',
+      icon:  '🚀',
+      desc:  'Complete 5 academic goals.',
+      xp:    500,
+      check: ({ goals }) => (goals || []).filter(g => g.completedAt).length >= 5,
+      progress: ({ goals }) => ({
+        current: Math.min((goals || []).filter(g => g.completedAt).length, 5),
+        max: 5,
+      }),
+    },
+    {
+      id:    'goal_beat_clock',
+      name:  'Beat the Clock',
+      icon:  '⚡',
+      desc:  'Complete a goal before its deadline.',
+      xp:    300,
+      check: ({ goals }) => (goals || []).some(g =>
+        g.completedAt &&
+        g.targetDate &&
+        new Date(g.targetDate + 'T23:59:59') > new Date(g.completedAt)
+      ),
+      progress: ({ goals }) => ({
+        current: (goals || []).some(g =>
+          g.completedAt && g.targetDate &&
+          new Date(g.targetDate + 'T23:59:59') > new Date(g.completedAt)
+        ) ? 1 : 0,
+        max: 1,
+      }),
+    },
   ];
 
   /* ---- XP Calculation -------------------------------- */
@@ -995,7 +1048,7 @@ const Rewards = (() => {
     return { gold, silver, bronze };
   }
 
-  function calculateTotalXP(entries, streak, dailyGoalMin, goalHistory) {
+  function calculateTotalXP(entries, streak, dailyGoalMin, goalHistory, earnedAchievements = []) {
     let total = entries.reduce((sum, e) => sum + calculateEntryXP(e), 0);
 
     // Daily goal completion bonus
@@ -1007,6 +1060,14 @@ const Rewards = (() => {
       if (streak.current >= parseInt(threshold)) { streakBonus = mult; break; }
     }
     total = Math.round(total * streakBonus);
+
+    // Achievement XP (added after streak multiplier — achievements are flat bonuses)
+    if (earnedAchievements.length > 0) {
+      const achXPMap = new Map(ACHIEVEMENTS.map(a => [a.id, a.xp || 0]));
+      for (const earned of earnedAchievements) {
+        total += achXPMap.get(earned.id) || 0;
+      }
+    }
 
     return total;
   }
@@ -1042,9 +1103,9 @@ const Rewards = (() => {
 
   /* ---- Achievement Checking -------------------------- */
 
-  async function checkAndAwardAchievements(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = []) {
+  async function checkAndAwardAchievements(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = [], goals = []) {
     const goalForDate = date => _goalForDate(date, goalHistory, dailyGoalMin);
-    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate };
+    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate, goals };
     const newlyEarned = [];
 
     for (const ach of ACHIEVEMENTS) {
@@ -1063,12 +1124,12 @@ const Rewards = (() => {
     return newlyEarned;
   }
 
-  async function revokeStaleAchievements(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = []) {
+  async function revokeStaleAchievements(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = [], goals = []) {
     const earned = await Storage.getAllAchievements();
     if (!earned.length) return;
 
     const goalForDate = date => _goalForDate(date, goalHistory, dailyGoalMin);
-    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate };
+    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate, goals };
 
     for (const record of earned) {
       const achDef = ACHIEVEMENTS.find(a => a.id === record.id);
@@ -1081,11 +1142,11 @@ const Rewards = (() => {
 
   /* ---- Build achievement display objects ------------- */
 
-  async function buildAchievementList(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = []) {
+  async function buildAchievementList(entries, streak, stats, consistency, dailyGoalMin = 60, goalHistory = [], goals = []) {
     const earned  = await Storage.getAllAchievements();
     const earnedIds = new Set(earned.map(a => a.id));
     const goalForDate = date => _goalForDate(date, goalHistory, dailyGoalMin);
-    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate };
+    const context = { entries, streak, stats, consistency, dailyGoalMin, goalForDate, goals };
 
     return ACHIEVEMENTS.map(ach => {
       const isEarned = earnedIds.has(ach.id);
