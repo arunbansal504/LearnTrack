@@ -66,6 +66,7 @@ const App = (() => {
   let _goalsSearch     = '';
   let _goalsCollapsed  = { overdue: true, open: true, completed: true, archived: true };
   let _goalsCollapsedSnapshot = null;
+  let _goalScrollTarget = null;
   let _deletedGoalsSearch = '';
   let _autoBackupTimer      = null;
   let _lastAutoBackup       = 0;
@@ -347,6 +348,10 @@ const App = (() => {
         e.preventDefault();
         const page = link.dataset.page;
         if (page === 'log') clearLogFilters();
+        if (page === 'goals' && link.dataset.expandGoals) {
+          _goalsCollapsed = { overdue: false, open: false, completed: false, archived: false };
+          _goalsCollapsedSnapshot = null;
+        }
         if (page) navigateTo(page);
       });
       if (link.getAttribute('role') === 'button') {
@@ -2321,6 +2326,7 @@ const App = (() => {
       showConfirm('Reset all data?', 'This will permanently delete ALL your entries, achievements, and settings. This cannot be undone!', async () => {
         await Storage.resetAll();
         _entries   = [];
+        _goals     = [];
         _prefs     = { ...DEFAULT_PREFS };
         _earnedAch = [];
         // Preserve the profile name from UserManager — it lives outside IndexedDB
@@ -2420,6 +2426,7 @@ const App = (() => {
     await Storage.setPref('monthlyGoalHr', monthly);
     await Storage.setPref('reminderTime', reminderTime);
 
+    await checkAchievements();
     updateSidebarUser();
     showToast('Profile saved!', 'success');
     if (profileChanged) triggerAutoBackup();
@@ -3874,7 +3881,9 @@ const App = (() => {
       const result = await Storage.importAll(backup);
       _entries   = await Storage.getAllEntries();
       _earnedAch = await Storage.getAllAchievements();
+      _goals     = await Storage.getAllGoals();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+      await checkAchievements();
 
       // Sync UserManager name with imported username
       const importedName = _prefs.username;
@@ -3903,7 +3912,9 @@ const App = (() => {
       const result = await Storage.importAll(backup);
       _entries   = await Storage.getAllEntries();
       _earnedAch = await Storage.getAllAchievements();
+      _goals     = await Storage.getAllGoals();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+      await checkAchievements();
 
       applyTheme(_prefs.theme);
       applyAccent(_prefs.accent);
@@ -3946,7 +3957,9 @@ const App = (() => {
         // Refresh in-memory state including profile prefs
         _entries   = await Storage.getAllEntries();
         _earnedAch = await Storage.getAllAchievements();
+        _goals     = await Storage.getAllGoals();
         _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+        await checkAchievements();
         applyTheme(_prefs.theme);
         applyAccent(_prefs.accent);
         applyCompact(_prefs.compact);
@@ -4396,6 +4409,7 @@ const App = (() => {
       _entries   = await Storage.getAllEntries();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
       _earnedAch = await Storage.getAllAchievements();
+      _goals     = await Storage.getAllGoals();
     } catch (err) {
       console.error('[App] Switch user error:', err);
     }
@@ -4860,6 +4874,7 @@ const App = (() => {
     closeGoalModal();
     showToast(id ? 'Goal updated!' : 'Goal created!', 'success');
     await checkAchievements();
+    updateSidebarUser();
     if (_currentPage === 'goals') renderGoals();
     if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
     triggerAutoBackup();
@@ -4870,8 +4885,10 @@ const App = (() => {
       await Storage.softDeleteGoal(goalId);
       _goals = _goals.filter(g => g.id !== goalId);
       showToast('Goal moved to Deleted Goals.', 'info');
+      await checkAchievements();
       if (_currentPage === 'goals') renderGoals();
       if (_currentPage === 'dashboard') renderGoalsDashboardWidget();
+      updateSidebarUser();
       triggerAutoBackup();
     });
   }
@@ -5036,6 +5053,7 @@ const App = (() => {
     }
 
     const today = Analytics.today();
+    let _goalStateChanged = false;
     let goals = _goals.map(g => {
       const prog = Analytics.goalProgress(g, _entries);
       if (g.type === 'time') {
@@ -5045,22 +5063,26 @@ const App = (() => {
             g.status = 'completed';
             g.completedAt = Date.now();
             Storage.saveGoal(g);
+            _goalStateChanged = true;
           } else if (g.completedAt && prog.pct < 100) {
             // Progress fell below 100% after a manual reopen — reset guard so
             // the next time it hits 100% auto-complete fires again
             g.completedAt = null;
             Storage.saveGoal(g);
+            _goalStateChanged = true;
           }
         } else if (g.status === 'completed' && prog.pct < 100) {
           // Entry edited down below target — reopen automatically
           g.status = 'active';
           g.completedAt = null;
           Storage.saveGoal(g);
+          _goalStateChanged = true;
         }
       }
       const derivedStatus = _goalStatusOf(g);
       return { ...g, derivedStatus, prog };
     });
+    if (_goalStateChanged) checkAchievements();
 
     // Filter
     if (_goalsFilter !== 'all') goals = goals.filter(g => g.derivedStatus === _goalsFilter);
@@ -5101,6 +5123,15 @@ const App = (() => {
 
     // When "All" is selected, render labelled sections for every status
     if (_goalsFilter === 'all') {
+      // If navigating from dashboard to a specific goal, ensure its section is expanded
+      if (_goalScrollTarget) {
+        const tgt = goals.find(g => g.id === _goalScrollTarget);
+        if (tgt) {
+          const secKey = tgt.derivedStatus === 'active' ? 'open' : tgt.derivedStatus;
+          _goalsCollapsed[secKey] = false;
+        }
+      }
+
       const overdue   = goals.filter(g => g.derivedStatus === 'overdue');
       const open      = goals.filter(g => g.derivedStatus === 'active');
       const completed = goals.filter(g => g.derivedStatus === 'completed');
@@ -5160,6 +5191,19 @@ const App = (() => {
     }
 
     _wireGoalCards(container);
+
+    if (_goalScrollTarget) {
+      const targetId = _goalScrollTarget;
+      _goalScrollTarget = null;
+      setTimeout(() => {
+        const card = container.querySelector(`.goal-card[data-id="${targetId}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('goal-card-highlight');
+          setTimeout(() => card.classList.remove('goal-card-highlight'), 1800);
+        }
+      }, 50);
+    }
   }
 
   function _renderGoalCard(g) {
@@ -5346,23 +5390,28 @@ const App = (() => {
 
     container.innerHTML = active.map(g => {
       const daysLeft = g.targetDate ? Analytics.daysUntil(g.targetDate) : null;
-      const deadline = daysLeft === null ? '' : daysLeft < 0 ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Today' : `📅 ${daysLeft}d`;
+      const isOverdue = daysLeft !== null && daysLeft < 0;
+      const deadline = daysLeft === null ? '' : isOverdue ? '⚠️ Overdue' : daysLeft === 0 ? '📅 Today' : `📅 ${daysLeft}d`;
       const progressBar = g.type !== 'exam'
-        ? `<div class="goal-widget-bar"><div class="goal-widget-fill" style="width:${g.prog.pct}%"></div></div>`
+        ? `<div class="goal-widget-bar"><div class="goal-widget-fill" style="width:${Math.min(g.prog.pct, 100)}%"></div></div>`
         : '';
+      const pctLabel = g.type !== 'exam' ? `${g.prog.pct}%` : g.prog.label;
       return `
-        <div class="goal-widget-item" data-id="${g.id}" role="button" tabindex="0">
+        <div class="goal-widget-item" data-id="${g.id}" data-type="${g.type}" data-status="${isOverdue ? 'overdue' : 'active'}" role="button" tabindex="0">
           <div class="goal-widget-info">
             <span class="goal-widget-title">${escapeHtml(g.title)}</span>
-            ${deadline ? `<span class="goal-widget-deadline ${daysLeft !== null && daysLeft < 0 ? 'overdue' : ''}">${deadline}</span>` : ''}
+            ${deadline ? `<span class="goal-widget-deadline${isOverdue ? ' overdue' : ''}">${deadline}</span>` : ''}
           </div>
           ${progressBar}
-          <span class="goal-widget-pct">${g.type !== 'exam' ? g.prog.pct + '%' : g.prog.label}</span>
+          <span class="goal-widget-pct">${pctLabel}</span>
         </div>`;
     }).join('');
 
     container.querySelectorAll('.goal-widget-item').forEach(el => {
-      el.addEventListener('click', () => navigateTo('goals'));
+      el.addEventListener('click', () => {
+        _goalScrollTarget = el.dataset.id || null;
+        navigateTo('goals');
+      });
     });
   }
 
@@ -5453,7 +5502,9 @@ const App = (() => {
       if (idx >= 0) _goals[idx] = restored; else _goals.unshift(restored);
     }
     showToast('Goal restored!', 'success');
+    await checkAchievements();
     await renderDeletedGoals();
+    updateSidebarUser();
     triggerAutoBackup();
   }
 
