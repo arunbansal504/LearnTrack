@@ -5532,7 +5532,7 @@ const App = (() => {
               <span class="goals-section-icon">${icon}</span>
               <span class="goals-section-label">${label}</span>
               <span class="goals-section-count">${items.length}</span>
-              <svg class="goals-sec-chevron${collapsed ? ' goals-sec-chevron-up' : ''}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="goals-sec-chevron${collapsed ? ' goals-sec-chevron-up' : ''}"></span>
             </div>
             ${body}
           </div>`;
@@ -5885,7 +5885,7 @@ const App = (() => {
         <span class="goals-section-icon">📋</span>
         <span class="goals-section-label">Open Goals</span>
         <span class="goals-section-count">${active.length}</span>
-        <svg class="goals-sec-chevron${_dashGoalsCollapsed ? ' goals-sec-chevron-up' : ''}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="goals-sec-chevron${_dashGoalsCollapsed ? ' goals-sec-chevron-up' : ''}"></span>
       </div>
       <div id="gwi-items-wrap" class="goals-section-body${_dashGoalsCollapsed ? ' goals-sec-collapsed' : ''}">
         ${itemsHtml}
