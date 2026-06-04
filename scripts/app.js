@@ -2842,28 +2842,28 @@ const App = (() => {
     const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
     const CAT_PALETTE = {
-      'Programming': { bg:'#DBEAFE', color:'#1E40AF', bar:'#3B82F6' },
-      'Mathematics': { bg:'#EDE9FE', color:'#5B21B6', bar:'#8B5CF6' },
-      'Languages':   { bg:'#D1FAE5', color:'#065F46', bar:'#10B981' },
-      'Science':     { bg:'#CFFAFE', color:'#155E75', bar:'#06B6D4' },
-      'Design':      { bg:'#FCE7F3', color:'#9D174D', bar:'#EC4899' },
-      'Business':    { bg:'#FEF3C7', color:'#92400E', bar:'#F59E0B' },
-      'Other':       { bg:'#F3F4F6', color:'#374151', bar:'#9CA3AF' },
+      'Programming': { bg:'#3B82F6', color:'#fff', bar:'#2563EB' },
+      'Mathematics': { bg:'#8B5CF6', color:'#fff', bar:'#7C3AED' },
+      'Languages':   { bg:'#10B981', color:'#fff', bar:'#059669' },
+      'Science':     { bg:'#06B6D4', color:'#fff', bar:'#0891B2' },
+      'Design':      { bg:'#EC4899', color:'#fff', bar:'#DB2777' },
+      'Business':    { bg:'#F59E0B', color:'#fff', bar:'#D97706' },
+      'Other':       { bg:'#6B7280', color:'#fff', bar:'#4B5563' },
     };
     // Extended pool for auto-assigned custom categories — hashed by name so colour is always consistent
     const CAT_COLOR_POOL = [
-      { bg:'#FFF7ED', color:'#9A3412', bar:'#EA580C' },
-      { bg:'#ECFDF5', color:'#065F46', bar:'#059669' },
-      { bg:'#FDF4FF', color:'#7E22CE', bar:'#A21CAF' },
-      { bg:'#FFF1F2', color:'#9F1239', bar:'#F43F5E' },
-      { bg:'#F0FDF4', color:'#14532D', bar:'#16A34A' },
-      { bg:'#EFF6FF', color:'#1D4ED8', bar:'#2563EB' },
-      { bg:'#FFFBEB', color:'#92400E', bar:'#D97706' },
-      { bg:'#F0F9FF', color:'#075985', bar:'#0284C7' },
-      { bg:'#FDF2F8', color:'#9D174D', bar:'#DB2777' },
-      { bg:'#F7FEE7', color:'#3F6212', bar:'#65A30D' },
-      { bg:'#FEFCE8', color:'#854D0E', bar:'#CA8A04' },
-      { bg:'#F5F3FF', color:'#4C1D95', bar:'#7C3AED' },
+      { bg:'#EA580C', color:'#fff', bar:'#C2410C' },
+      { bg:'#059669', color:'#fff', bar:'#047857' },
+      { bg:'#A21CAF', color:'#fff', bar:'#86198F' },
+      { bg:'#F43F5E', color:'#fff', bar:'#E11D48' },
+      { bg:'#16A34A', color:'#fff', bar:'#15803D' },
+      { bg:'#2563EB', color:'#fff', bar:'#1D4ED8' },
+      { bg:'#D97706', color:'#fff', bar:'#B45309' },
+      { bg:'#0284C7', color:'#fff', bar:'#0369A1' },
+      { bg:'#DB2777', color:'#fff', bar:'#BE185D' },
+      { bg:'#65A30D', color:'#fff', bar:'#4D7C0F' },
+      { bg:'#CA8A04', color:'#fff', bar:'#A16207' },
+      { bg:'#7C3AED', color:'#fff', bar:'#6D28D9' },
     ];
     const _catHash = s => Math.abs([...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0));
     const getCat = cat => CAT_PALETTE[cat] || CAT_COLOR_POOL[_catHash(cat) % CAT_COLOR_POOL.length];
@@ -3004,13 +3004,20 @@ const App = (() => {
               const pct   = prog?.pct ?? 0;
               const stLbl = st === 'completed' ? '✓ Done' : st === 'overdue' ? 'Overdue' : 'Open';
               const stClr = st === 'completed' ? '#10b981' : st === 'overdue' ? '#ef4444' : 'var(--accent)';
-              const typeT = g.type === 'time' ? 'Time' : g.type === 'count' ? 'Count' : g.type === 'checklist' ? 'Tasks' : 'Exam';
+              const _TYPE_PAL = {
+                time:      { bg:'#3B82F6', color:'#fff', label:'⏱ Time' },
+                count:     { bg:'#8B5CF6', color:'#fff', label:'# Count' },
+                checklist: { bg:'#10B981', color:'#fff', label:'✓ Tasks' },
+                exam:      { bg:'#F43F5E', color:'#fff', label:'★ Exam' },
+              };
+              const typePal = _TYPE_PAL[g.type] || _TYPE_PAL.exam;
+              const typeT   = typePal.label;
               const dueT  = g.targetDate
                 ? new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : '—';
               return `<tr>
                 <td class="rp-tc-topic">${esc(g.title || '—')}</td>
-                <td><span class="rp-badge" style="background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)">${typeT}</span></td>
+                <td><span class="rp-badge" style="background:${typePal.bg};color:${typePal.color}">${typeT}</span></td>
                 <td style="font-weight:${st !== 'active' ? '600' : '400'};color:${stClr}">${stLbl}</td>
                 <td class="rp-tc-date">${dueT}</td>
                 <td><div class="rp-ag-prog-wrap"><div class="rp-bar-wrap rp-ag-bar"><div class="rp-bar-fill" style="width:${pct}%;background:${st === 'completed' ? '#10b981' : 'var(--accent)'}"></div></div><span class="rp-ag-pct">${pct}%</span></div></td>
@@ -3133,8 +3140,8 @@ const App = (() => {
     const resHdr   = incResources ? '<th>Resources</th>' : '';
     const entryRowsHtml = monthEntries.map(e => {
       const dateStr  = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      const DIFF_BADGE = { easy:{bg:'#DCFCE7',color:'#166534'}, medium:{bg:'#FEF9C3',color:'#854D0E'}, hard:{bg:'#FFE4E6',color:'#9F1239'} };
-      const diffBadge = DIFF_BADGE[e.difficulty] || { bg:'#F3F4F6', color:'#6B7280' };
+      const DIFF_BADGE = { easy:{bg:'#10B981',color:'#fff'}, medium:{bg:'#F59E0B',color:'#fff'}, hard:{bg:'#EF4444',color:'#fff'} };
+      const diffBadge = DIFF_BADGE[e.difficulty] || { bg:'#6B7280', color:'#fff' };
       const notesRaw = (e.notes || '').trim();
       const notesCell = incNotes ? (() => {
         if (!notesRaw) return `<td class="rp-tc-notes"><span class="rp-muted">—</span></td>`;
@@ -3153,7 +3160,7 @@ const App = (() => {
         <td class="rp-tc-topic">${esc(e.topic || '—')}</td>
         <td>${e.category ? (({ bg, color }) => `<span class="rp-badge" style="background:${bg};color:${color}">${esc(e.category)}</span>`)(getCat(e.category)) : '<span class="rp-muted">—</span>'}</td>
         <td class="rp-tc-dur">${fmt(e.durationMinutes || 0)}</td>
-        <td>${e.difficulty ? `<span class="rp-badge" style="background:${diffBadge.bg};color:${diffBadge.color};border:1px solid ${diffBadge.color}30">${capitalise(e.difficulty)}</span>` : '<span class="rp-muted">—</span>'}</td>
+        <td>${e.difficulty ? `<span class="rp-badge" style="background:${diffBadge.bg};color:${diffBadge.color}">${capitalise(e.difficulty)}</span>` : '<span class="rp-muted">—</span>'}</td>
         ${notesCell}${resCell}
       </tr>`;
     }).join('');
@@ -3495,6 +3502,33 @@ const App = (() => {
       const clrD = c => pdf.setDrawColor(c[0], c[1], c[2]);
       const clrT = c => pdf.setTextColor(c[0], c[1], c[2]);
 
+      // Category pill colors for PDF session log
+      const _PDF_CAT_MAP = {
+        'Programming': [59, 130, 246],  'Mathematics': [139, 92, 246],
+        'Languages':   [16, 185, 129],  'Science':     [6, 182, 212],
+        'Design':      [236, 72, 153],  'Business':    [245, 158, 11],
+        'Other':       [107, 114, 128],
+      };
+      const _PDF_CAT_POOL = [
+        [234,88,12],[5,150,105],[162,28,175],[244,63,94],
+        [22,163,74],[37,99,235],[217,119,6],[2,132,199],
+        [219,39,119],[101,163,13],[202,138,4],[124,58,237],
+      ];
+      const _pdfCatHash  = s => Math.abs([...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0));
+      const getPdfCatClr = cat => _PDF_CAT_MAP[cat] || _PDF_CAT_POOL[_pdfCatHash(cat) % _PDF_CAT_POOL.length];
+      const _PDF_DIFF_C  = { easy: [16, 185, 129], medium: [245, 158, 11], hard: [239, 68, 68] };
+
+      const drawPill = (label, x, y, rowH, color) => {
+        const pillH = 10, pillW = Math.min(pdf.getTextWidth(label) + 8, 60);
+        const pillY = y + (rowH - pillH) / 2;
+        pdf.setFillColor(...color);
+        pdf.roundedRect(x, pillY, pillW, pillH, 2, 2, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(7); pdf.setFont(undefined, 'bold');
+        pdf.text(label, x + 4, pillY + pillH - 2.5);
+        pdf.setFont(undefined, 'normal'); pdf.setTextColor(...CBK);
+      };
+
       function needsPage(h) {
         if (y + h > PH - MB) { pdf.addPage(); y = 40; }
       }
@@ -3727,8 +3761,23 @@ const App = (() => {
 
           tx(pdf.splitTextToSize(goal.title || '—', wTitle - 14)[0] || '—', gXs[0], y + 13, 8, CBK);
 
-          const typeT = goal.type === 'time' ? 'Time' : goal.type === 'count' ? 'Count' : goal.type === 'checklist' ? 'Tasks' : 'Exam';
-          tx(typeT, gXs[1], y + 13, 7.5, CGR);
+          const _PDF_TYPE = {
+            time:      { c: [59, 130, 246],  label: 'Time' },
+            count:     { c: [139, 92, 246],  label: 'Count' },
+            checklist: { c: [16, 185, 129],  label: 'Tasks' },
+            exam:      { c: [244, 63, 94],   label: 'Exam' },
+          };
+          const typePdfDef = _PDF_TYPE[goal.type] || _PDF_TYPE.exam;
+          // Draw colored pill background behind type label
+          const typeLblW = pdf.getTextWidth(typePdfDef.label) + 8;
+          pdf.setFillColor(...typePdfDef.c);
+          pdf.roundedRect(gXs[1], y + 5, typeLblW, 10, 2, 2, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(7);
+          pdf.setFont(undefined, 'bold');
+          pdf.text(typePdfDef.label, gXs[1] + 4, y + 12.5);
+          pdf.setFont(undefined, 'normal');
+          pdf.setTextColor(...CBK);
 
           const stLabel = gSt === 'completed' ? '✓ Done' : gSt === 'overdue' ? 'Overdue' : 'Open';
           const stColor = gSt === 'completed' ? [16, 185, 129] : gSt === 'overdue' ? [239, 68, 68] : CI;
@@ -3918,9 +3967,7 @@ const App = (() => {
           [
             { ci: 0, text: dateLabel,                       rc: CGR },
             { ci: 1, text: entry.topic || '',               rc: CBK },
-            { ci: 2, text: entry.category || '—',           rc: CGR },
             { ci: 3, text: fmt(entry.durationMinutes || 0), rc: CGR },
-            { ci: 4, text: entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—', rc: CGR },
           ].forEach(({ ci, text, rc }) => {
             const lines = pdf.splitTextToSize(String(text), tCols[ci].w - pad * 2);
             const startY = y + (rowH - lines.length * lineH) / 2 + lineH;
@@ -3928,6 +3975,21 @@ const App = (() => {
               tx(line, colX[ci] + pad, startY + li * lineH, 8, rc)
             );
           });
+
+          // Category — colored pill
+          if (entry.category) {
+            drawPill(entry.category, colX[2] + pad, y, rowH, getPdfCatClr(entry.category));
+          } else {
+            tx('—', colX[2] + pad, y + (rowH - lineH) / 2 + lineH, 8, CGR);
+          }
+
+          // Difficulty — colored pill
+          const diffLabel = entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : null;
+          if (diffLabel && _PDF_DIFF_C[entry.difficulty]) {
+            drawPill(diffLabel, colX[4] + pad, y, rowH, _PDF_DIFF_C[entry.difficulty]);
+          } else {
+            tx('—', colX[4] + pad, y + (rowH - lineH) / 2 + lineH, 8, CGR);
+          }
 
           // Notes — all wrapped lines, vertically centered
           if (incNotes && notesColIdx >= 0) {
