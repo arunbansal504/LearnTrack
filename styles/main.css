@@ -1062,6 +1062,23 @@ img, svg { max-width: 100%; }
   line-height: 1.4;
 }
 .rp-res-link:hover { opacity: .75; }
+.rp-ag-chips { display: flex; gap: var(--s-3); margin-bottom: var(--s-4); }
+.rp-ag-chip {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  text-align: center;
+}
+.rp-ag-chip-count { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.rp-ag-chip-label { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.rp-ag-table th:last-child,
+.rp-ag-table td:last-child { width: 130px; }
+.rp-ag-prog-wrap { display: flex; align-items: center; gap: 6px; }
+.rp-ag-bar { flex: 1; min-width: 60px; }
+.rp-ag-pct { font-size: 11px; font-weight: 600; color: var(--text-2); white-space: nowrap; min-width: 28px; text-align: right; }
+
 .rp-muted  { color: var(--text-3); font-size: 11px; }
 .rp-notes-more { font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
 .rp-notes-more:hover { text-decoration: underline; }

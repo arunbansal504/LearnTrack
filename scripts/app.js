@@ -2963,6 +2963,63 @@ const App = (() => {
     const avgMood = moodEntries.length > 0
       ? (moodEntries.reduce((s, e) => s + e.moodScore, 0) / moodEntries.length).toFixed(1) : null;
 
+    // ── Academic Goals (month-scoped) ──
+    const todayStrRP  = Analytics.today();
+    const _rpStatus   = g => {
+      if (g.status === 'completed') return 'completed';
+      if (g.targetDate && g.targetDate < todayStrRP) return 'overdue';
+      return 'active';
+    };
+    const rpGoals = _goals.filter(g => {
+      if (g.status === 'archived') return false;
+      const startedThisMonth   = g.startDate && g.startDate.startsWith(monthStr);
+      const completedThisMonth = g.completedAt && (() => {
+        const d = new Date(g.completedAt);
+        return d.getFullYear() === year && d.getMonth() === month;
+      })();
+      return startedThisMonth || completedThisMonth;
+    });
+    const rpCntOverdue = rpGoals.filter(g => _rpStatus(g) === 'overdue').length;
+    const rpCntDone    = rpGoals.filter(g => _rpStatus(g) === 'completed').length;
+    const rpCntOpen    = rpGoals.length - rpCntOverdue - rpCntDone;
+
+    const academicGoalsHtml = rpGoals.length === 0 ? '' : `
+      <div class="rp-section">
+        <div class="rp-section-title">Academic Goals</div>
+        <div class="rp-ag-chips">
+          <div class="rp-ag-chip"><div class="rp-ag-chip-count" style="color:var(--accent)">${rpCntOpen}</div><div class="rp-ag-chip-label">Open</div></div>
+          <div class="rp-ag-chip"><div class="rp-ag-chip-count" style="color:#ef4444">${rpCntOverdue}</div><div class="rp-ag-chip-label">Overdue</div></div>
+          <div class="rp-ag-chip"><div class="rp-ag-chip-count" style="color:#10b981">${rpCntDone}</div><div class="rp-ag-chip-label">Completed</div></div>
+        </div>
+        <table class="rp-table rp-ag-table">
+          <thead><tr><th>Goal</th><th>Type</th><th>Status</th><th>Due</th><th>Progress</th></tr></thead>
+          <tbody>
+            ${[...rpGoals].sort((a, b) => {
+              const o = { overdue: 0, active: 1, completed: 2 };
+              return (o[_rpStatus(a)] ?? 1) - (o[_rpStatus(b)] ?? 1);
+            }).map(g => {
+              const st    = _rpStatus(g);
+              const prog  = g.status === 'completed' && g.progressSnapshot
+                ? g.progressSnapshot : Analytics.goalProgress(g, _entries);
+              const pct   = prog?.pct ?? 0;
+              const stLbl = st === 'completed' ? '✓ Done' : st === 'overdue' ? 'Overdue' : 'Open';
+              const stClr = st === 'completed' ? '#10b981' : st === 'overdue' ? '#ef4444' : 'var(--accent)';
+              const typeT = g.type === 'time' ? 'Time' : g.type === 'count' ? 'Count' : g.type === 'checklist' ? 'Tasks' : 'Exam';
+              const dueT  = g.targetDate
+                ? new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : '—';
+              return `<tr>
+                <td class="rp-tc-topic">${esc(g.title || '—')}</td>
+                <td><span class="rp-badge" style="background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)">${typeT}</span></td>
+                <td style="font-weight:${st !== 'active' ? '600' : '400'};color:${stClr}">${stLbl}</td>
+                <td class="rp-tc-date">${dueT}</td>
+                <td><div class="rp-ag-prog-wrap"><div class="rp-bar-wrap rp-ag-bar"><div class="rp-bar-fill" style="width:${pct}%;background:${st === 'completed' ? '#10b981' : 'var(--accent)'}"></div></div><span class="rp-ag-pct">${pct}%</span></div></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+
     const reportTitle = `${MONTHS[month]} ${year} — Learning Report`;
     const generatedOn = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
     const username    = _prefs.username || 'Learner';
@@ -3134,6 +3191,8 @@ const App = (() => {
           ${weeklyHtml}
         </div>` : ''}
 
+      ${academicGoalsHtml}
+
       ${(catSorted.length > 0 || topTopics.length > 0) ? `<div class="rp-two-col">
         ${catSorted.length > 0 ? `<div class="rp-section">
           <div class="rp-section-title">Category Breakdown</div>
@@ -3196,6 +3255,9 @@ const App = (() => {
     if (!sel) return;
     const [year, month0] = sel.value.split('-').map(Number);
     const month = month0 - 1;
+
+    // Always reload goals to ensure latest state is in the report
+    _goals = await Storage.getAllGoals();
 
     const MONTHS   = ['January','February','March','April','May','June',
                       'July','August','September','October','November','December'];
@@ -3588,6 +3650,104 @@ const App = (() => {
       fillR(ML + 60, y, 10, 10, CI);
       tx('Goal met', ML + 74, y + 9, 8, CGR);
       y += 20;
+
+      // ─── ACADEMIC GOALS ───
+      const todayStr2 = Analytics.today();
+      const rptGoals  = _goals.filter(g => {
+        if (g.status === 'archived') return false;
+        const startedThisMonth   = g.startDate && g.startDate.startsWith(monthStr);
+        const completedThisMonth = g.completedAt && (() => {
+          const d = new Date(g.completedAt);
+          return d.getFullYear() === year && d.getMonth() === month;
+        })();
+        return startedThisMonth || completedThisMonth;
+      });
+
+      if (rptGoals.length > 0) {
+        // Derive status locally — no dependency on _goalStatusOf
+        const _rptStatus = g => {
+          if (g.status === 'completed') return 'completed';
+          if (g.targetDate && g.targetDate < todayStr2) return 'overdue';
+          return 'active';
+        };
+
+        const cntOpen     = rptGoals.filter(g => _rptStatus(g) === 'active').length;
+        const cntOverdue  = rptGoals.filter(g => _rptStatus(g) === 'overdue').length;
+        const cntDone     = rptGoals.filter(g => {
+          if (g.status !== 'completed' || !g.completedAt) return false;
+          const d = new Date(g.completedAt);
+          return d.getFullYear() === year && d.getMonth() === month;
+        }).length;
+
+        needsPage(50);
+        y += 8;
+        sectionLabel('Academic Goals');
+
+        // Summary chips
+        const gChipW = (CW - 16) / 3;
+        const gChipH = 34;
+        [
+          { label: 'Open',                 count: cntOpen,    c: CI },
+          { label: 'Overdue',              count: cntOverdue, c: [239, 68, 68] },
+          { label: 'Completed this month', count: cntDone,    c: [16, 185, 129] },
+        ].forEach(({ label, count, c }, i) => {
+          const cx = ML + i * (gChipW + 8);
+          fillR(cx, y, gChipW, gChipH, CBG);
+          strokeR(cx, y, gChipW, gChipH, CBD);
+          tx(String(count), cx + 10, y + 22, 15, c, { bold: true });
+          tx(label, cx + gChipW - 8, y + 13, 7.5, CLG, { align: 'right' });
+        });
+        y += gChipH + 10;
+
+        // Sort: overdue first, then open, then completed
+        const _rptOrder = g => _rptStatus(g) === 'overdue' ? 0 : _rptStatus(g) === 'active' ? 1 : 2;
+        const sortedRptGoals = [...rptGoals].sort((a, b) => _rptOrder(a) - _rptOrder(b));
+
+        // Table
+        const gRH    = 19;
+        const wType  = 44, wStatus = 56, wDue = 52, wProg = 80;
+        const wTitle = CW - wType - wStatus - wDue - wProg;
+        const gXs    = [ML + 6, ML + wTitle, ML + wTitle + wType, ML + wTitle + wType + wStatus, ML + CW - wProg + 2];
+        fillR(ML, y, CW, gRH, CI);
+        ['Goal', 'Type', 'Status', 'Due', 'Progress'].forEach((h, i) =>
+          tx(h, gXs[i], y + 13, 8, CWH, { bold: true })
+        );
+        y += gRH;
+
+        sortedRptGoals.forEach((goal, idx) => {
+          needsPage(gRH);
+          if (idx % 2 === 0) fillR(ML, y, CW, gRH, CBG);
+          hline(ML, ML + CW, y, CBD, 0.3);
+
+          const gSt   = _rptStatus(goal);
+          const gProg = goal.status === 'completed' && goal.progressSnapshot
+            ? goal.progressSnapshot
+            : Analytics.goalProgress(goal, _entries);
+          const gPct  = (gProg && gProg.pct != null) ? gProg.pct : 0;
+
+          tx(pdf.splitTextToSize(goal.title || '—', wTitle - 14)[0] || '—', gXs[0], y + 13, 8, CBK);
+
+          const typeT = goal.type === 'time' ? 'Time' : goal.type === 'count' ? 'Count' : goal.type === 'checklist' ? 'Tasks' : 'Exam';
+          tx(typeT, gXs[1], y + 13, 7.5, CGR);
+
+          const stLabel = gSt === 'completed' ? '✓ Done' : gSt === 'overdue' ? 'Overdue' : 'Open';
+          const stColor = gSt === 'completed' ? [16, 185, 129] : gSt === 'overdue' ? [239, 68, 68] : CI;
+          tx(stLabel, gXs[2], y + 13, 7.5, stColor, { bold: gSt !== 'active' });
+
+          tx(goal.targetDate
+            ? new Date(goal.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : '—', gXs[3], y + 13, 7.5, CLG);
+
+          const pbX = gXs[4], pbW = wProg - 32, pbY = y + 6, pbH = 5;
+          fillR(pbX, pbY, pbW, pbH, CIL);
+          fillR(pbX, pbY, Math.max(2, pbW * Math.min(gPct, 100) / 100), pbH, gSt === 'completed' ? [16, 185, 129] : CI);
+          tx(`${gPct}%`, pbX + pbW + 5, y + 13, 7.5, CGR);
+
+          y += gRH;
+        });
+        hline(ML, ML + CW, y, CBD, 0.5);
+        y += 10;
+      }
 
       // ─── CATEGORY BREAKDOWN ───
       if (catSorted.length > 0) {
