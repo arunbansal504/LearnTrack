@@ -1060,7 +1060,7 @@ const App = (() => {
         <div class="entry-content-col">
           <div class="entry-header">
             <div class="entry-topic">${escapeHtml(entry.topic)}</div>
-            ${entry.category ? `<span class="entry-category">${escapeHtml(entry.category)}</span>` : ''}
+            <span class="entry-category${!entry.category ? ' entry-category--none' : ''}">${escapeHtml(entry.category || 'Uncategorized')}</span>
           </div>
           <div class="entry-meta">
             <span class="entry-meta-item">
@@ -1780,7 +1780,7 @@ const App = (() => {
         <div class="dl-card-body">
           <div class="dl-card-header">
             <span class="dl-card-topic dl-topic-link" data-dl-view="${entry.id}" title="View details">${escapeHtml(entry.topic)}</span>
-            ${entry.category ? `<span class="entry-category">${escapeHtml(entry.category)}</span>` : ''}
+            <span class="entry-category${!entry.category ? ' entry-category--none' : ''}">${escapeHtml(entry.category || 'Uncategorized')}</span>
           </div>
           <div class="dl-card-meta">
             <span class="entry-meta-item"><span class="difficulty-dot ${entry.difficulty}"></span>${capitalise(entry.difficulty || 'easy')}</span>
@@ -1982,7 +1982,7 @@ const App = (() => {
       <div class="dl-detail-meta">
         <div class="dl-detail-date">${d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
         <div class="dl-detail-chips">
-          ${e.category ? `<span class="entry-category">${escapeHtml(e.category)}</span>` : ''}
+          <span class="entry-category${!e.category ? ' entry-category--none' : ''}">${escapeHtml(e.category || 'Uncategorized')}</span>
           <span class="difficulty-pill" style="color:${difficultyColors[e.difficulty] || 'inherit'}">${capitalise(e.difficulty || 'easy')}</span>
           <span class="dl-detail-duration">${Analytics.formatDuration(e.durationMinutes || 0)}</span>
           <span title="Mood">${mood}</span>
@@ -2842,28 +2842,29 @@ const App = (() => {
     const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
     const CAT_PALETTE = {
-      'Programming': { bg:'#3B82F6', color:'#fff', bar:'#2563EB' },
-      'Mathematics': { bg:'#8B5CF6', color:'#fff', bar:'#7C3AED' },
-      'Languages':   { bg:'#10B981', color:'#fff', bar:'#059669' },
-      'Science':     { bg:'#06B6D4', color:'#fff', bar:'#0891B2' },
-      'Design':      { bg:'#EC4899', color:'#fff', bar:'#DB2777' },
-      'Business':    { bg:'#F59E0B', color:'#fff', bar:'#D97706' },
-      'Other':       { bg:'#6B7280', color:'#fff', bar:'#4B5563' },
+      'Programming':   { bg:'#BFDBFE', color:'#1E40AF', bar:'#2563EB' },
+      'Mathematics':   { bg:'#DDD6FE', color:'#5B21B6', bar:'#7C3AED' },
+      'Languages':     { bg:'#A7F3D0', color:'#065F46', bar:'#059669' },
+      'Science':       { bg:'#A5F3FC', color:'#155E75', bar:'#0891B2' },
+      'Design':        { bg:'#FBCFE8', color:'#9D174D', bar:'#DB2777' },
+      'Business':      { bg:'#FDE68A', color:'#92400E', bar:'#D97706' },
+      'Other':         { bg:'#E5E7EB', color:'#374151', bar:'#4B5563' },
+      'Uncategorized': { bg:'#F3F4F6', color:'#6B7280', bar:'#4B5563' },
     };
     // Extended pool for auto-assigned custom categories — hashed by name so colour is always consistent
     const CAT_COLOR_POOL = [
-      { bg:'#EA580C', color:'#fff', bar:'#C2410C' },
-      { bg:'#059669', color:'#fff', bar:'#047857' },
-      { bg:'#A21CAF', color:'#fff', bar:'#86198F' },
-      { bg:'#F43F5E', color:'#fff', bar:'#E11D48' },
-      { bg:'#16A34A', color:'#fff', bar:'#15803D' },
-      { bg:'#2563EB', color:'#fff', bar:'#1D4ED8' },
-      { bg:'#D97706', color:'#fff', bar:'#B45309' },
-      { bg:'#0284C7', color:'#fff', bar:'#0369A1' },
-      { bg:'#DB2777', color:'#fff', bar:'#BE185D' },
-      { bg:'#65A30D', color:'#fff', bar:'#4D7C0F' },
-      { bg:'#CA8A04', color:'#fff', bar:'#A16207' },
-      { bg:'#7C3AED', color:'#fff', bar:'#6D28D9' },
+      { bg:'#FED7AA', color:'#9A3412', bar:'#C2410C' },
+      { bg:'#A7F3D0', color:'#065F46', bar:'#047857' },
+      { bg:'#F5D0FE', color:'#7E22CE', bar:'#86198F' },
+      { bg:'#FECDD3', color:'#9F1239', bar:'#E11D48' },
+      { bg:'#BBF7D0', color:'#14532D', bar:'#15803D' },
+      { bg:'#BFDBFE', color:'#1E3A8A', bar:'#1D4ED8' },
+      { bg:'#FEF3C7', color:'#92400E', bar:'#B45309' },
+      { bg:'#BAE6FD', color:'#0C4A6E', bar:'#0369A1' },
+      { bg:'#FBCFE8', color:'#831843', bar:'#BE185D' },
+      { bg:'#D9F99D', color:'#3F6212', bar:'#4D7C0F' },
+      { bg:'#FEF9C3', color:'#713F12', bar:'#A16207' },
+      { bg:'#EDE9FE', color:'#4C1D95', bar:'#6D28D9' },
     ];
     const _catHash = s => Math.abs([...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0));
     const getCat = cat => CAT_PALETTE[cat] || CAT_COLOR_POOL[_catHash(cat) % CAT_COLOR_POOL.length];
@@ -3005,10 +3006,10 @@ const App = (() => {
               const stLbl = st === 'completed' ? '✓ Done' : st === 'overdue' ? 'Overdue' : 'Open';
               const stClr = st === 'completed' ? '#10b981' : st === 'overdue' ? '#ef4444' : 'var(--accent)';
               const _TYPE_PAL = {
-                time:      { bg:'#3B82F6', color:'#fff', label:'⏱ Time' },
-                count:     { bg:'#8B5CF6', color:'#fff', label:'# Count' },
-                checklist: { bg:'#10B981', color:'#fff', label:'✓ Tasks' },
-                exam:      { bg:'#F43F5E', color:'#fff', label:'★ Exam' },
+                time:      { bg:'#BFDBFE', color:'#1E40AF', label:'⏳ Study Hours' },
+                count:     { bg:'#DDD6FE', color:'#5B21B6', label:'🏆 Problem Count' },
+                checklist: { bg:'#A7F3D0', color:'#065F46', label:'📋 Task List' },
+                exam:      { bg:'#FECDD3', color:'#9F1239', label:'🎓 Exam Prep' },
               };
               const typePal = _TYPE_PAL[g.type] || _TYPE_PAL.exam;
               const typeT   = typePal.label;
@@ -3140,7 +3141,7 @@ const App = (() => {
     const resHdr   = incResources ? '<th>Resources</th>' : '';
     const entryRowsHtml = monthEntries.map(e => {
       const dateStr  = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      const DIFF_BADGE = { easy:{bg:'#10B981',color:'#fff'}, medium:{bg:'#F59E0B',color:'#fff'}, hard:{bg:'#EF4444',color:'#fff'} };
+      const DIFF_BADGE = { easy:{bg:'#A7F3D0',color:'#065F46'}, medium:{bg:'#FDE68A',color:'#92400E'}, hard:{bg:'#FECDD3',color:'#9F1239'} };
       const diffBadge = DIFF_BADGE[e.difficulty] || { bg:'#6B7280', color:'#fff' };
       const notesRaw = (e.notes || '').trim();
       const notesCell = incNotes ? (() => {
@@ -3158,7 +3159,7 @@ const App = (() => {
       return `<tr>
         <td class="rp-tc-date">${dateStr}</td>
         <td class="rp-tc-topic">${esc(e.topic || '—')}</td>
-        <td>${e.category ? (({ bg, color }) => `<span class="rp-badge" style="background:${bg};color:${color}">${esc(e.category)}</span>`)(getCat(e.category)) : '<span class="rp-muted">—</span>'}</td>
+        <td>${(({ bg, color }) => `<span class="rp-badge" style="background:${bg};color:${color}">${esc(e.category || 'Uncategorized')}</span>`)(getCat(e.category || 'Uncategorized'))}</td>
         <td class="rp-tc-dur">${fmt(e.durationMinutes || 0)}</td>
         <td>${e.difficulty ? `<span class="rp-badge" style="background:${diffBadge.bg};color:${diffBadge.color}">${capitalise(e.difficulty)}</span>` : '<span class="rp-muted">—</span>'}</td>
         ${notesCell}${resCell}
@@ -3455,82 +3456,74 @@ const App = (() => {
       const PH = pdf.internal.pageSize.getHeight();
       const ML = 40, MR = 40, MB = 50;
       const CW = PW - ML - MR;
-      let y = 56; // start below header band
+      let y = 70; // start below header band — overwritten by header section
 
-      // Read accent color from the live CSS custom property so the PDF
-      // matches whatever accent theme the user has selected.
-      function _accentPalette() {
-        try {
-          const hex = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-          const h   = hex.replace('#', '');
-          if (h.length !== 6) throw 0;
-          const r = parseInt(h.slice(0, 2), 16);
-          const g = parseInt(h.slice(2, 4), 16);
-          const b = parseInt(h.slice(4, 6), 16);
-          const blend = (v, a) => Math.round(v * a + 255 * (1 - a));
-          return {
-            main:    [r, g, b],
-            light:   [blend(r, 0.10), blend(g, 0.10), blend(b, 0.10)],
-            mid:     [blend(r, 0.28), blend(g, 0.28), blend(b, 0.28)],
-            onDark1: [blend(r, 0.35), blend(g, 0.35), blend(b, 0.35)],
-            onDark2: [blend(r, 0.25), blend(g, 0.25), blend(b, 0.25)],
-          };
-        } catch {
-          return {
-            main:    [79, 70, 229],
-            light:   [238, 242, 255],
-            mid:     [199, 210, 254],
-            onDark1: [200, 195, 255],
-            onDark2: [180, 175, 240],
-          };
-        }
-      }
-      const _ap = _accentPalette();
-
-      // Color palette [r, g, b]
-      const CI  = _ap.main;
-      const CIL = _ap.light;
-      const CIM = _ap.mid;
-      const CBK = [17, 24, 39];     // near-black
-      const CGR = [107, 114, 128];  // gray
-      const CLG = [156, 163, 175];  // light gray
-      const CBG = [249, 250, 251];  // bg
-      const CBD = [229, 231, 235];  // border
-      const CWH = [255, 255, 255];  // white
+      // Professional document palette — dark header anchor + teal data accent
+      const CHDR  = [30, 41, 59];    // slate-800  #1E293B — header background
+      const CI    = [13, 148, 136];  // teal-600   #0D9488 — primary data accent
+      const CIL   = [153, 230, 219]; // teal-200   #99E6DB — light tint (calendar)
+      const CIM   = [209, 213, 219]; // gray-300   #D1D5DB — neutral inactive
+      const CBK   = [15, 23, 42];    // slate-950  #0F172A — primary text
+      const CMID  = [51, 65, 85];    // slate-700  #334155 — body / table-header text
+      const CGR   = [100, 116, 139]; // slate-500  #64748B — secondary
+      const CLG   = [148, 163, 184]; // slate-400  #94A3B8 — muted
+      const CDBG  = [241, 245, 249]; // slate-100  #F1F5F9 — table header bg
+      const CBG   = [248, 250, 252]; // slate-50   #F8FAFC — page background
+      const CBD   = [226, 232, 240]; // slate-200  #E2E8F0 — borders
+      const CWH   = [255, 255, 255]; // white
+      const CGRN  = [5, 150, 105];   // emerald-600 #059669 — completed / success
+      const CRED  = [220, 38, 38];   // red-600    #DC2626 — overdue / error
 
       const clrF = c => pdf.setFillColor(c[0], c[1], c[2]);
       const clrD = c => pdf.setDrawColor(c[0], c[1], c[2]);
       const clrT = c => pdf.setTextColor(c[0], c[1], c[2]);
 
-      // Category pill colors for PDF session log
+      // Category pill colors — { bg, text } tinted pairs (light bg + dark text)
       const _PDF_CAT_MAP = {
-        'Programming': [59, 130, 246],  'Mathematics': [139, 92, 246],
-        'Languages':   [16, 185, 129],  'Science':     [6, 182, 212],
-        'Design':      [236, 72, 153],  'Business':    [245, 158, 11],
-        'Other':       [107, 114, 128],
+        'Programming':   { bg:[239,246,255], text:[30,64,175]   },
+        'Mathematics':   { bg:[245,243,255], text:[91,33,182]   },
+        'Languages':     { bg:[236,253,245], text:[6,95,70]     },
+        'Science':       { bg:[236,254,255], text:[21,94,117]   },
+        'Design':        { bg:[253,242,248], text:[157,23,77]   },
+        'Business':      { bg:[255,251,235], text:[146,64,14]   },
+        'Other':         { bg:[249,250,251], text:[55,65,81]    },
+        'Uncategorized': { bg:[243,244,246], text:[107,114,128] },
       };
       const _PDF_CAT_POOL = [
-        [234,88,12],[5,150,105],[162,28,175],[244,63,94],
-        [22,163,74],[37,99,235],[217,119,6],[2,132,199],
-        [219,39,119],[101,163,13],[202,138,4],[124,58,237],
+        { bg:[255,247,237], text:[154,52,18]  }, { bg:[236,253,245], text:[6,78,59]    },
+        { bg:[250,240,255], text:[126,34,206] }, { bg:[255,241,242], text:[159,18,57]  },
+        { bg:[240,253,244], text:[20,83,45]   }, { bg:[239,246,255], text:[30,64,175]  },
+        { bg:[254,252,232], text:[133,77,14]  }, { bg:[240,249,255], text:[12,74,110]  },
+        { bg:[253,242,248], text:[131,24,67]  }, { bg:[247,254,231], text:[63,98,18]   },
+        { bg:[254,249,195], text:[113,63,18]  }, { bg:[245,243,255], text:[76,29,149]  },
       ];
       const _pdfCatHash  = s => Math.abs([...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0));
       const getPdfCatClr = cat => _PDF_CAT_MAP[cat] || _PDF_CAT_POOL[_pdfCatHash(cat) % _PDF_CAT_POOL.length];
-      const _PDF_DIFF_C  = { easy: [16, 185, 129], medium: [245, 158, 11], hard: [239, 68, 68] };
+      const _PDF_DIFF_C  = {
+        easy:   { bg:[236,253,245], text:[6,95,70]   },
+        medium: { bg:[255,251,235], text:[146,64,14] },
+        hard:   { bg:[255,241,242], text:[159,18,57] },
+      };
 
-      const drawPill = (label, x, y, rowH, color) => {
-        const pillH = 10, pillW = Math.min(pdf.getTextWidth(label) + 8, 60);
+      const drawPill = (label, x, y, rowH, clr) => {
+        const pillH = 11, pillW = Math.min(pdf.getTextWidth(label) + 10, 76);
         const pillY = y + (rowH - pillH) / 2;
-        pdf.setFillColor(...color);
-        pdf.roundedRect(x, pillY, pillW, pillH, 2, 2, 'F');
-        pdf.setTextColor(255, 255, 255);
+        pdf.setFillColor(...clr.bg);
+        pdf.roundedRect(x, pillY, pillW, pillH, 2.5, 2.5, 'F');
+        pdf.setTextColor(...clr.text);
         pdf.setFontSize(7); pdf.setFont(undefined, 'bold');
-        pdf.text(label, x + 4, pillY + pillH - 2.5);
+        pdf.text(label, x + 5, pillY + pillH - 3);
         pdf.setFont(undefined, 'normal'); pdf.setTextColor(...CBK);
       };
 
       function needsPage(h) {
-        if (y + h > PH - MB) { pdf.addPage(); y = 40; }
+        if (y + h > PH - MB) {
+          pdf.addPage();
+          fillR(0, 0, PW, PH, CBG);
+          y = 40;
+          return true;
+        }
+        return false;
       }
 
       function tx(text, x, ty, size, clr, opts = {}) {
@@ -3556,18 +3549,28 @@ const App = (() => {
       }
       function sectionLabel(label) {
         needsPage(22);
-        tx(label.toUpperCase(), ML, y + 9, 8, CLG, { bold: true });
+        fillR(ML, y + 2, 2.5, 11, CI);
+        tx(label.toUpperCase(), ML + 8, y + 10.5, 7.5, CGR, { bold: true });
         const lw2 = pdf.getTextWidth(label.toUpperCase());
-        hline(ML + lw2 + 8, ML + CW, y + 5, CBD, 0.4);
-        y += 18;
+        hline(ML + 8 + lw2 + 8, ML + CW, y + 7, CBD, 0.4);
+        y += 20;
       }
 
+      // ─── PAGE 1 BACKGROUND ───
+      fillR(0, 0, PW, PH, CBG);
+
       // ─── HEADER BAND ───
-      fillR(0, 0, PW, 48, CI);
-      tx('LearnTrack', ML, 20, 17, CWH, { bold: true });
-      tx('Monthly Learning Report', ML, 36, 10, _ap.onDark1);
-      tx(reportTitle, PW - MR, 22, 11, CWH, { align: 'right' });
-      tx(`Generated ${generatedOn}  ·  ${username}`, PW - MR, 38, 8, _ap.onDark2, { align: 'right' });
+      // Dark slate-800 background — gives the document an authoritative anchor
+      fillR(0, 0, PW, 64, CHDR);
+      // Teal left accent strip
+      fillR(0, 0, 5, 64, CI);
+      // Left: brand identity
+      tx('LearnTrack', ML + 8, 26, 16, CWH, { bold: true });
+      tx('Personal Learning Analytics', ML + 8, 42, 8.5, CLG);
+      // Right: report metadata
+      tx(reportTitle, PW - MR, 24, 13, CWH, { align: 'right', bold: true });
+      tx(`${username}  ·  Generated ${generatedOn}`, PW - MR, 42, 8, CLG, { align: 'right' });
+      y = 80;
 
       // ─── SUMMARY CARDS ───
       needsPage(72);
@@ -3580,11 +3583,11 @@ const App = (() => {
         { label: 'Avg Mood',       value: avgMood ?? '—',        sub: avgMood ? (avgMood >= 4 ? 'Excellent' : avgMood >= 3 ? 'Good' : 'Fair') : 'No data' },
       ].forEach(({ label, value, sub }, i) => {
         const cx = ML + i * (cardW4 + 3);
-        fillR(cx, y, cardW4, cardH, CBG);
+        fillR(cx, y, cardW4, cardH, CWH);
         strokeR(cx, y, cardW4, cardH, CBD);
-        tx(label, cx + 8, y + 14, 8, CGR);
-        tx(String(value), cx + 8, y + 38, 20, CI, { bold: true });
-        tx(sub, cx + 8, y + 54, 7.5, CLG);
+        tx(label.toUpperCase(), cx + 10, y + 16, 7, CGR, { bold: true });
+        tx(String(value), cx + 10, y + 42, 20, CI, { bold: true });
+        tx(sub, cx + 10, y + 55, 7.5, CLG);
       });
       y += cardH + 16;
 
@@ -3598,12 +3601,12 @@ const App = (() => {
         { title: `Monthly Goal · ${monthlyGoalHr}h target`, pct: monthlyGoalPct, detail: `${fmt(totalMin)} of ${monthlyGoalHr}h · ${remainingMin > 0 ? fmt(remainingMin) + ' remaining' : 'Completed!'}` },
       ].forEach(({ title, pct, detail }, i) => {
         const gx = ML + i * (gW + 8);
-        fillR(gx, y, gW, gH, CBG);
+        fillR(gx, y, gW, gH, CWH);
         strokeR(gx, y, gW, gH, CBD);
         tx(title, gx + 10, y + 16, 9, CBK, { bold: true });
         tx(`${pct}%`, gx + gW - 10, y + 16, 9, CI, { bold: true, align: 'right' });
-        const bx = gx + 10, by = y + 26, bw = gW - 20, bh = 7;
-        fillR(bx, by, bw, bh, CIM);
+        const bx = gx + 10, by = y + 27, bw = gW - 20, bh = 6;
+        fillR(bx, by, bw, bh, CBD);
         fillR(bx, by, Math.max(2, bw * Math.min(pct, 100) / 100), bh, CI);
         tx(detail, gx + 10, y + 46, 8, CGR, { maxW: gW - 20 });
       });
@@ -3640,7 +3643,7 @@ const App = (() => {
         tx(`Wk ${wk}`, ML, y + 11, 8.5, CBK, { bold: true });
         tx(`${start}–${end}`, ML + 28, y + 11, 7.5, CLG);
         const bx = ML + 68, bw = CW - 108, bh = 8, by = y + 4;
-        fillR(bx, by, bw, bh, CIL);
+        fillR(bx, by, bw, bh, CBD);
         fillR(bx, by, Math.max(2, bw * pct / 100), bh, CI);
         tx(wMins > 0 ? fmt(wMins) : '—', ML + CW, y + 11, 8, CGR, { align: 'right' });
         y += 18;
@@ -3679,7 +3682,7 @@ const App = (() => {
         tx(String(d), cx + cellW / 2, cy + cellH - 7, 9, has ? (met ? CWH : CI) : CLG, { align: 'center', bold: met });
       }
       y += calRowCount * cellH + 8;
-      fillR(ML, y, 10, 10, CIL); strokeR(ML, y, 10, 10, CIM, 0.4);
+      fillR(ML, y, 10, 10, CIL); strokeR(ML, y, 10, 10, CBD, 0.4);
       tx('Active', ML + 14, y + 9, 8, CGR);
       fillR(ML + 60, y, 10, 10, CI);
       tx('Goal met', ML + 74, y + 9, 8, CGR);
@@ -3721,15 +3724,15 @@ const App = (() => {
         const gChipW = (CW - 16) / 3;
         const gChipH = 34;
         [
-          { label: 'Open',                 count: cntOpen,    c: CI },
-          { label: 'Overdue',              count: cntOverdue, c: [239, 68, 68] },
-          { label: 'Completed this month', count: cntDone,    c: [16, 185, 129] },
+          { label: 'Open',                 count: cntOpen,    c: CI   },
+          { label: 'Overdue',              count: cntOverdue, c: CRED },
+          { label: 'Completed this month', count: cntDone,    c: CGRN },
         ].forEach(({ label, count, c }, i) => {
           const cx = ML + i * (gChipW + 8);
-          fillR(cx, y, gChipW, gChipH, CBG);
+          fillR(cx, y, gChipW, gChipH, CWH);
           strokeR(cx, y, gChipW, gChipH, CBD);
-          tx(String(count), cx + 10, y + 22, 15, c, { bold: true });
-          tx(label, cx + gChipW - 8, y + 13, 7.5, CLG, { align: 'right' });
+          tx(label.toUpperCase(), cx + 10, y + 13, 6.5, CLG, { bold: true });
+          tx(String(count), cx + 10, y + 28, 15, c, { bold: true });
         });
         y += gChipH + 10;
 
@@ -3742,15 +3745,25 @@ const App = (() => {
         const wType  = 44, wStatus = 56, wDue = 52, wProg = 80;
         const wTitle = CW - wType - wStatus - wDue - wProg;
         const gXs    = [ML + 6, ML + wTitle, ML + wTitle + wType, ML + wTitle + wType + wStatus, ML + CW - wProg + 2];
-        fillR(ML, y, CW, gRH, CI);
+        fillR(ML, y, CW, gRH, CDBG);
+        hline(ML, ML + CW, y + gRH, CBD, 0.5);
         ['Goal', 'Type', 'Status', 'Due', 'Progress'].forEach((h, i) =>
-          tx(h, gXs[i], y + 13, 8, CWH, { bold: true })
+          tx(h, gXs[i], y + 13, 8, CMID, { bold: true })
         );
         y += gRH;
 
+        const drawGoalHeader = () => {
+          fillR(ML, y, CW, gRH, CDBG);
+          hline(ML, ML + CW, y + gRH, CBD, 0.5);
+          ['Goal', 'Type', 'Status', 'Due', 'Progress'].forEach((h, i) =>
+            tx(h, gXs[i], y + 13, 8, CMID, { bold: true })
+          );
+          y += gRH;
+        };
+
         sortedRptGoals.forEach((goal, idx) => {
-          needsPage(gRH);
-          if (idx % 2 === 0) fillR(ML, y, CW, gRH, CBG);
+          if (needsPage(gRH)) drawGoalHeader();
+          fillR(ML, y, CW, gRH, idx % 2 === 0 ? CWH : CDBG);
           hline(ML, ML + CW, y, CBD, 0.3);
 
           const gSt   = _rptStatus(goal);
@@ -3762,25 +3775,16 @@ const App = (() => {
           tx(pdf.splitTextToSize(goal.title || '—', wTitle - 14)[0] || '—', gXs[0], y + 13, 8, CBK);
 
           const _PDF_TYPE = {
-            time:      { c: [59, 130, 246],  label: 'Time' },
-            count:     { c: [139, 92, 246],  label: 'Count' },
-            checklist: { c: [16, 185, 129],  label: 'Tasks' },
-            exam:      { c: [244, 63, 94],   label: 'Exam' },
+            time:      { bg:[239,246,255], text:[30,64,175],  label:'Time' },
+            count:     { bg:[245,243,255], text:[91,33,182],  label:'Count' },
+            checklist: { bg:[236,253,245], text:[6,95,70],    label:'Tasks' },
+            exam:      { bg:[255,241,242], text:[159,18,57],  label:'Exam' },
           };
           const typePdfDef = _PDF_TYPE[goal.type] || _PDF_TYPE.exam;
-          // Draw colored pill background behind type label
-          const typeLblW = pdf.getTextWidth(typePdfDef.label) + 8;
-          pdf.setFillColor(...typePdfDef.c);
-          pdf.roundedRect(gXs[1], y + 5, typeLblW, 10, 2, 2, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(7);
-          pdf.setFont(undefined, 'bold');
-          pdf.text(typePdfDef.label, gXs[1] + 4, y + 12.5);
-          pdf.setFont(undefined, 'normal');
-          pdf.setTextColor(...CBK);
+          drawPill(typePdfDef.label, gXs[1], y, gRH, typePdfDef);
 
           const stLabel = gSt === 'completed' ? '✓ Done' : gSt === 'overdue' ? 'Overdue' : 'Open';
-          const stColor = gSt === 'completed' ? [16, 185, 129] : gSt === 'overdue' ? [239, 68, 68] : CI;
+          const stColor = gSt === 'completed' ? CGRN : gSt === 'overdue' ? CRED : CI;
           tx(stLabel, gXs[2], y + 13, 7.5, stColor, { bold: gSt !== 'active' });
 
           tx(goal.targetDate
@@ -3788,8 +3792,8 @@ const App = (() => {
             : '—', gXs[3], y + 13, 7.5, CLG);
 
           const pbX = gXs[4], pbW = wProg - 32, pbY = y + 6, pbH = 5;
-          fillR(pbX, pbY, pbW, pbH, CIL);
-          fillR(pbX, pbY, Math.max(2, pbW * Math.min(gPct, 100) / 100), pbH, gSt === 'completed' ? [16, 185, 129] : CI);
+          fillR(pbX, pbY, pbW, pbH, CBD);
+          fillR(pbX, pbY, Math.max(2, pbW * Math.min(gPct, 100) / 100), pbH, gSt === 'completed' ? CGRN : CI);
           tx(`${gPct}%`, pbX + pbW + 5, y + 13, 7.5, CGR);
 
           y += gRH;
@@ -3806,14 +3810,14 @@ const App = (() => {
         const colXs = [ML + 6, ML + 200, ML + 262, ML + 316];
         const colWs = [194, 62, 54, CW - 282];
         const rH = 20;
-        fillR(ML, y, CW, rH, CBG); strokeR(ML, y, CW, rH, CBD, 0.4);
+        fillR(ML, y, CW, rH, CDBG); hline(ML, ML + CW, y + rH, CBD, 0.5);
         ['Category','Time','Share','Distribution'].forEach((h, i) =>
-          tx(h, colXs[i], y + 14, 8, CGR, { bold: true })
+          tx(h, colXs[i], y + 14, 8, CMID, { bold: true })
         );
         y += rH;
         catSorted.forEach(([cat, mins], idx) => {
           needsPage(rH);
-          if (idx % 2 === 1) fillR(ML, y, CW, rH, [248, 249, 252]);
+          if (idx % 2 === 1) fillR(ML, y, CW, rH, CWH);
           hline(ML, ML + CW, y, CBD, 0.3);
           const pct2   = totalMin > 0 ? Math.round((mins / totalMin) * 100) : 0;
           const dotRGB = hexRGB(COLORS[idx % COLORS.length]);
@@ -3823,7 +3827,7 @@ const App = (() => {
           tx(fmt(mins), colXs[1], y + 14, 8.5, CGR);
           tx(`${pct2}%`, colXs[2], y + 14, 8.5, CGR);
           const bxC = colXs[3], bwC = colWs[3] - 6, byC = y + 7, bhC = 6;
-          fillR(bxC, byC, bwC, bhC, CIL);
+          fillR(bxC, byC, bwC, bhC, CBD);
           fillR(bxC, byC, Math.max(2, bwC * pct2 / 100), bhC, dotRGB);
           y += rH;
         });
@@ -3844,7 +3848,7 @@ const App = (() => {
           tx(topicTrunc, ML + 18, y + 11, 8.5, CBK);
           tx(fmt(mins), ML + CW, y + 11, 8.5, CGR, { align: 'right' });
           const bx2 = ML + 18, bw2 = CW - 100, by2 = y + 14, bh2 = 3;
-          fillR(bx2, by2, bw2, bh2, CIL);
+          fillR(bx2, by2, bw2, bh2, CBD);
           fillR(bx2, by2, Math.max(2, bw2 * pct3 / 100), bh2, i < 3 ? CI : CIM);
           y += 20;
         });
@@ -3873,7 +3877,7 @@ const App = (() => {
           new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         );
         const wDate  = colFit(dateLbls,                                          'Date',       40,  52);
-        const wCat   = colFit(monthEntries.map(e => e.category || ''),           'Category',   46, 110);
+        const wCat   = colFit(monthEntries.map(e => e.category || 'Uncategorized'), 'Category',   46, 110);
         const wDur   = colFit(monthEntries.map(e => fmt(e.durationMinutes || 0)),'Duration',   38,  58);
         const wDiff  = colFit(monthEntries.map(e => e.difficulty ? e.difficulty.charAt(0).toUpperCase() + e.difficulty.slice(1) : ''), 'Difficulty', 38, 78);
 
@@ -3917,9 +3921,13 @@ const App = (() => {
         const tRowH = 18;
 
         // Header (width = tblW, not full CW)
-        fillR(ML, y, tblW, tRowH, CI);
-        tCols.forEach((c, i) => tx(c.label, colX[i] + pad, y + 13, 8, CWH, { bold: true }));
-        y += tRowH;
+        const drawEntryHeader = () => {
+          fillR(ML, y, tblW, tRowH, CDBG);
+          hline(ML, ML + tblW, y + tRowH, CBD, 0.5);
+          tCols.forEach((c, i) => tx(c.label, colX[i] + pad, y + 13, 8, CMID, { bold: true }));
+          y += tRowH;
+        };
+        drawEntryHeader();
 
         monthEntries.forEach((entry, idx) => {
           const dateLabel = new Date(entry.date + 'T12:00:00')
@@ -3943,7 +3951,7 @@ const App = (() => {
           const stdTexts = [
             dateLabel,
             entry.topic || '',
-            entry.category || '—',
+            entry.category || 'Uncategorized',
             fmt(entry.durationMinutes || 0),
             entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : '—',
           ];
@@ -3959,8 +3967,8 @@ const App = (() => {
           );
           const rowH = Math.max(tRowH, maxLines * lineH + vpad * 2);
 
-          needsPage(rowH);
-          if (idx % 2 === 0) fillR(ML, y, tblW, rowH, CBG);
+          if (needsPage(rowH)) drawEntryHeader();
+          fillR(ML, y, tblW, rowH, idx % 2 === 0 ? CWH : CDBG);
           hline(ML, ML + tblW, y, CBD, 0.3);
 
           // Standard columns — vertically centered, full wrapping
@@ -3976,14 +3984,11 @@ const App = (() => {
             );
           });
 
-          // Category — colored pill
-          if (entry.category) {
-            drawPill(entry.category, colX[2] + pad, y, rowH, getPdfCatClr(entry.category));
-          } else {
-            tx('—', colX[2] + pad, y + (rowH - lineH) / 2 + lineH, 8, CGR);
-          }
+          // Category — tinted pill
+          const catLabel = entry.category || 'Uncategorized';
+          drawPill(catLabel, colX[2] + pad, y, rowH, getPdfCatClr(catLabel));
 
-          // Difficulty — colored pill
+          // Difficulty — tinted pill
           const diffLabel = entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : null;
           if (diffLabel && _PDF_DIFF_C[entry.difficulty]) {
             drawPill(diffLabel, colX[4] + pad, y, rowH, _PDF_DIFF_C[entry.difficulty]);
@@ -4030,12 +4035,17 @@ const App = (() => {
         y += 8;
       }
 
-      // ─── FOOTER ───
-      const footY = PH - 22;
-      hline(ML, PW - MR, footY - 10, CBD, 0.5);
-      tx('LearnTrack', ML, footY, 8, CI, { bold: true });
-      tx('· Personal Learning Analytics', ML + 60, footY, 8, CLG);
-      tx(reportTitle, PW - MR, footY, 8, CLG, { align: 'right' });
+      // ─── FOOTER — stamped on every page ───
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let pg = 1; pg <= totalPages; pg++) {
+        pdf.setPage(pg);
+        const footY = PH - 20;
+        hline(ML, PW - MR, footY - 10, CBD, 0.5);
+        tx('LearnTrack', ML, footY, 8, CI, { bold: true });
+        tx('· Personal Learning Analytics', ML + 62, footY, 8, CLG);
+        tx(`Page ${pg} of ${totalPages}`, PW / 2, footY, 8, CLG, { align: 'center' });
+        tx(reportTitle, PW - MR, footY, 8, CLG, { align: 'right' });
+      }
 
       const blob    = pdf.output('blob');
       const blobUrl = URL.createObjectURL(blob);
@@ -6075,7 +6085,7 @@ const App = (() => {
       return;
     }
 
-    const typeLabel = { time: '⏱ Study Hours', checklist: '✅ Task List', count: '🔢 Problem Count', exam: '📝 Exam Prep' };
+    const typeLabel = { time: '⏳ Study Hours', checklist: '📋 Task List', count: '🏆 Problem Count', exam: '🎓 Exam Prep' };
     const prioLabel = { high: 'High', medium: 'Med', low: 'Low' };
 
     const itemsHtml = active.map(g => {

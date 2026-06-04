@@ -98,9 +98,9 @@
 /* ---- ACCENT COLOR OVERRIDES --------------------- */
 [data-accent="blue"]   { --accent:#3b82f6; --accent-light:#60a5fa; --accent-dark:#2563eb; --accent-glow:rgba(59,130,246,0.25); --accent-faint:rgba(59,130,246,0.08); }
 [data-accent="green"]  { --accent:#10b981; --accent-light:#34d399; --accent-dark:#059669; --accent-glow:rgba(16,185,129,0.25); --accent-faint:rgba(16,185,129,0.08); }
-[data-accent="orange"] { --accent:#f59e0b; --accent-light:#fbbf24; --accent-dark:#d97706; --accent-glow:rgba(245,158,11,0.25);  --accent-faint:rgba(245,158,11,0.08); }
-[data-accent="pink"]   { --accent:#ec4899; --accent-light:#f472b6; --accent-dark:#db2777; --accent-glow:rgba(236,72,153,0.25);  --accent-faint:rgba(236,72,153,0.08); }
-[data-accent="red"]    { --accent:#ef4444; --accent-light:#f87171; --accent-dark:#dc2626; --accent-glow:rgba(239,68,68,0.25);   --accent-faint:rgba(239,68,68,0.08); }
+[data-accent="teal"]   { --accent:#14b8a6; --accent-light:#2dd4bf; --accent-dark:#0f766e; --accent-glow:rgba(20,184,166,0.25);  --accent-faint:rgba(20,184,166,0.08); }
+[data-accent="orange"] { --accent:#f97316; --accent-light:#fb923c; --accent-dark:#ea580c; --accent-glow:rgba(249,115,22,0.25);  --accent-faint:rgba(249,115,22,0.08); }
+[data-accent="rose"]   { --accent:#f43f5e; --accent-light:#fb7185; --accent-dark:#e11d48; --accent-glow:rgba(244,63,94,0.25);   --accent-faint:rgba(244,63,94,0.08); }
 
 /* ---- RESET & BASE -------------------------------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2086,6 +2086,11 @@ input:disabled {
   border-radius: var(--r-full);
   background: var(--accent-faint);
   color: var(--accent);
+}
+.entry-category--none {
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-weight: 500;
 }
 
 .entry-meta {
@@ -5780,15 +5785,15 @@ input:disabled {
   color: var(--text-2);
   white-space: nowrap;
 }
-.goal-priority-chip.goal-priority-high   { border-color: var(--danger);  color: var(--danger);  background: rgba(239,68,68,0.08); }
-.goal-priority-chip.goal-priority-medium { border-color: var(--warning); color: var(--warning); background: rgba(245,158,11,0.08); }
-.goal-priority-chip.goal-priority-low    { border-color: var(--success); color: var(--success); background: rgba(16,185,129,0.08); }
+.goal-priority-chip.goal-priority-high   { border-color: #FECDD3; color: #9F1239; background: #FEE2E2; }
+.goal-priority-chip.goal-priority-medium { border-color: #FDE68A; color: #92400E; background: #FEF3C7; }
+.goal-priority-chip.goal-priority-low    { border-color: #A7F3D0; color: #065F46; background: #D1FAE5; }
 
-/* Type chip colors — match left border accent */
-.goal-type-chip[data-type="time"]      { color: #3b82f6; border-color: rgba(59,130,246,0.35);  background: rgba(59,130,246,0.1); }
-.goal-type-chip[data-type="checklist"] { color: #22c55e; border-color: rgba(34,197,94,0.35);   background: rgba(34,197,94,0.1); }
-.goal-type-chip[data-type="count"]     { color: #8b5cf6; border-color: rgba(139,92,246,0.35);  background: rgba(139,92,246,0.1); }
-.goal-type-chip[data-type="exam"]      { color: #f59e0b; border-color: rgba(245,158,11,0.35);  background: rgba(245,158,11,0.1); }
+/* Type chip colors — solid pastels readable in both light and dark theme */
+.goal-type-chip[data-type="time"]      { color: #1E40AF; border-color: #93C5FD; background: #BFDBFE; }
+.goal-type-chip[data-type="checklist"] { color: #065F46; border-color: #6EE7B7; background: #A7F3D0; }
+.goal-type-chip[data-type="count"]     { color: #5B21B6; border-color: #C4B5FD; background: #DDD6FE; }
+.goal-type-chip[data-type="exam"]      { color: #9F1239; border-color: #FECDD3; background: #FEE2E2; }
 
 /* Countdown pill */
 .goal-countdown {
