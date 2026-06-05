@@ -94,7 +94,6 @@ const App = (() => {
   let _dailyRange    = 30;
   let _monthlyRange  = 6;
   let _categoryRange = 30;
-  let _logPage      = 1;
   const LOG_PAGE_SIZE = 20;
   let _monthCollapsedState   = {}; // key "YYYY-MM" -> true (collapsed) / false (expanded)
   let _dlMonthCollapsedState = {}; // same for Deleted Logs
@@ -458,7 +457,6 @@ const App = (() => {
     });
     const sort = document.getElementById('filter-sort');
     if (sort) sort.value = 'newest';
-    _logPage = 1;
     _logGoalContext = null;
     _logLinkedGoalFilter = null;
     updateFilterToggleState();
@@ -1109,30 +1107,37 @@ const App = (() => {
   }
 
   function renderEntryList(filter = {}) {
-    const container   = document.getElementById('entries-container');
-    const emptyState  = document.getElementById('log-empty-state');
-    const loadMoreCon = document.getElementById('load-more-container');
+    const container  = document.getElementById('entries-container');
+    const emptyState = document.getElementById('log-empty-state');
     if (!container) return;
 
     let filtered = applyFilters(_entries, filter);
+
+    const totalEl = document.getElementById('log-total-time');
+    if (totalEl) {
+      if (filtered.length > 0) {
+        const totalMin = filtered.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+        totalEl.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="log-total-label">Total Learning Hours</span><span class="log-total-sep">·</span><span class="log-total-value">${Analytics.formatDuration(totalMin)}</span>`;
+      } else {
+        totalEl.innerHTML = '';
+      }
+    }
 
     if (filtered.length === 0) {
       container.innerHTML = '';
       container.appendChild(emptyState || createEmptyState());
       emptyState && (emptyState.style.display = 'flex');
-      if (loadMoreCon) loadMoreCon.style.display = 'none';
       updateLogExpandToggle();
       return;
     }
 
     if (emptyState) emptyState.style.display = 'none';
 
-    const paginated    = filtered.slice(0, _logPage * LOG_PAGE_SIZE);
     const currentMonth = Analytics.today().slice(0, 7);
 
     // Group by month
     const groups = {};
-    paginated.forEach(e => {
+    filtered.forEach(e => {
       const key = e.date.slice(0, 7);
       if (!groups[key]) groups[key] = [];
       groups[key].push(e);
@@ -1214,10 +1219,6 @@ const App = (() => {
       });
     });
 
-    // Load more
-    if (loadMoreCon) {
-      loadMoreCon.style.display = filtered.length > paginated.length ? 'flex' : 'none';
-    }
     updateLogExpandToggle();
   }
 
@@ -1363,14 +1364,10 @@ const App = (() => {
     });
 
     ['log-search','filter-date-from','filter-date-to','filter-category','filter-difficulty','filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { _logPage = 1; updateFilterToggleState(); renderEntryList(); });
-      document.getElementById(id)?.addEventListener('input',  () => { _logPage = 1; updateFilterToggleState(); renderEntryList(); });
+      document.getElementById(id)?.addEventListener('change', () => { updateFilterToggleState(); renderEntryList(); });
+      document.getElementById(id)?.addEventListener('input',  () => { updateFilterToggleState(); renderEntryList(); });
     });
 
-    document.getElementById('load-more-btn')?.addEventListener('click', () => {
-      _logPage++;
-      renderEntryList();
-    });
 
     document.getElementById('add-entry-btn')?.addEventListener('click', () => openEntryModal());
     document.getElementById('quick-add-btn')?.addEventListener('click', () => openEntryModal());
@@ -2675,8 +2672,7 @@ const App = (() => {
         const toEl   = document.getElementById('filter-date-to');
         if (fromEl) fromEl.value = ds;
         if (toEl)   toEl.value   = ds;
-        _logPage = 1;
-        updateFilterToggleState();
+            updateFilterToggleState();
         navigateTo('log');
       },
     });
@@ -6202,7 +6198,6 @@ const App = (() => {
 
     // Clear any visible filters so only the link filter applies.
     clearLogFilters();
-    _logPage = 1;
     _logLinkedGoalFilter = goal.id;
     _logGoalContext = { id: goal.id, title: goal.title || '' };
 

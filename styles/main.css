@@ -785,6 +785,32 @@ button.nav-item, button.mobile-nav-item {
   color: var(--text-2);
   margin-top: var(--s-1);
 }
+.log-total-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px 4px 8px;
+  background: var(--accent-faint);
+  border: 1px solid rgba(108,99,255,0.2);
+  border-radius: 20px;
+  color: var(--accent-text, var(--accent));
+  font-size: 12px;
+  line-height: 1;
+}
+.log-total-time:empty { display: none; }
+.log-total-label {
+  color: var(--text-2);
+  font-weight: 400;
+}
+.log-total-sep {
+  color: var(--text-2);
+  opacity: 0.5;
+}
+.log-total-value {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
 .retention-notice {
   display: inline-flex;

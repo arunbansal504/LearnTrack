@@ -27,7 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" integrity="sha384-0esPaJH+F9evp2lsJYN36SW7XkRbaYviuyF+PpnbjDXBC9i1CWGiJyGrXCyiyGqZ" crossorigin="anonymous"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=118" />
+  <link rel="stylesheet" href="styles/main.css?v=120" />
   <link rel="stylesheet" href="styles/dashboard.css?v=28" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
@@ -549,6 +549,7 @@
         <div class="page-title-group">
           <h1 class="page-title">Daily Log</h1>
           <p class="page-subtitle">Record your learning sessions</p>
+          <p class="log-total-time" id="log-total-time"></p>
         </div>
         <div class="page-actions">
           <div class="search-bar">
@@ -622,10 +623,6 @@
         </div>
       </div>
 
-      <!-- Load More -->
-      <div class="load-more-container" id="load-more-container" style="display:none">
-        <button class="btn btn-ghost" id="load-more-btn">Load more entries</button>
-      </div>
     </section>
 
     <!-- ===== PAGE: DELETED LOGS ===== -->
