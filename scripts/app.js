@@ -221,9 +221,9 @@ const App = (() => {
     const backupSkipped  = localStorage.getItem('lt_backup_skipped') === 'true';
     if (!existingHandle && !backupSkipped) {
       const modal = document.getElementById('backup-required-modal');
-      if (modal) modal.style.display = 'flex';
+      if (modal) { modal.style.display = 'flex'; _openModal(modal); }
       await waitForBackupFolderSetup();
-      if (modal) modal.style.display = 'none';
+      if (modal) { _closeModal(modal, true); modal.style.display = 'none'; }
     }
 
     updateSidebarUser();
@@ -1570,6 +1570,7 @@ const App = (() => {
     }
 
     modal.style.display = 'flex';
+    _openModal(modal);
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
       // When topic/category are locked, jump straight to duration so the user can type hours.
@@ -1579,11 +1580,14 @@ const App = (() => {
   }
 
   function closeEntryModal() {
-    document.getElementById('entry-modal').style.display = 'none';
+    const modal = document.getElementById('entry-modal');
+    // Skip focus return when re-showing the log-prompt modal — that modal takes over focus.
+    _closeModal(modal, !!_pendingCompleteGoalId);
+    modal.style.display = 'none';
     // Drop any pending goal auto-link so a later normal "Add entry" isn't silently linked.
     _pendingEntryGoalId = null;
     // Drop any pending timer reset so cancelling never wipes the timer; the save
-    // path captures it before calling this, so a real save still resets the timer.
+    // path captures it before calling here, so a real save still resets the timer.
     _pendingTimerReset = null;
     // If the entry modal was opened from the "log before complete" prompt and the user
     // cancelled (save clears _pendingCompleteGoalId before calling here), re-show the prompt.
@@ -1656,15 +1660,29 @@ const App = (() => {
                        .split(',').map(t => t.trim()).filter(Boolean);
     const mood     = parseInt(document.getElementById('entry-mood').value, 10) || 4;
 
+    // Clear previous validation state
+    ['entry-topic', 'entry-date', 'entry-duration-hours', 'entry-duration-mins'].forEach(fid => {
+      document.getElementById(fid)?.removeAttribute('aria-invalid');
+    });
+    ['entry-topic-err', 'entry-date-err', 'entry-duration-err'].forEach(eid => {
+      const el = document.getElementById(eid); if (el) el.textContent = '';
+    });
+
     if (!topic) {
+      const fld = document.getElementById('entry-topic');
+      fld?.setAttribute('aria-invalid', 'true');
+      const err = document.getElementById('entry-topic-err'); if (err) err.textContent = 'Topic is required.';
       showToast('Please enter a topic.', 'warning');
-      document.getElementById('entry-topic')?.focus();
+      fld?.focus();
       return;
     }
 
     if (!document.getElementById('entry-date').value) {
+      const fld = document.getElementById('entry-date');
+      fld?.setAttribute('aria-invalid', 'true');
+      const err = document.getElementById('entry-date-err'); if (err) err.textContent = 'Please select a date.';
       showToast('Please select a date.', 'warning');
-      document.getElementById('entry-date')?.focus();
+      fld?.focus();
       return;
     }
 
@@ -1674,7 +1692,12 @@ const App = (() => {
     }
 
     if (!duration || duration < 1) {
+      ['entry-duration-hours', 'entry-duration-mins'].forEach(fid => {
+        document.getElementById(fid)?.setAttribute('aria-invalid', 'true');
+      });
+      const err = document.getElementById('entry-duration-err'); if (err) err.textContent = 'Please enter a valid duration (hours and/or minutes).';
       showToast('Please enter a valid duration.', 'warning');
+      document.getElementById('entry-duration-hours')?.focus();
       return;
     }
 
@@ -2331,11 +2354,14 @@ const App = (() => {
     modal.onclick = ev => { if (ev.target === modal) closeDeletedEntryDetail(); };
 
     modal.style.display = 'flex';
+    _openModal(modal);
   }
 
   function closeDeletedEntryDetail() {
     const modal = document.getElementById('dl-detail-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
   }
 
   /* ---- Topics Explored modal (unique subjects + hours each) ---- */
@@ -2444,6 +2470,7 @@ const App = (() => {
       </div>`;
 
     modal.style.display = 'flex';
+    _openModal(modal);
     document.body.style.overflow = 'hidden';
     // Focus the scrollable body so arrow keys scroll the list, not the page.
     requestAnimationFrame(() => body.focus());
@@ -2451,7 +2478,9 @@ const App = (() => {
 
   function closeTopicsModal() {
     const modal = document.getElementById('topics-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
     document.body.style.overflow = '';
   }
 
@@ -4882,6 +4911,7 @@ const App = (() => {
     setEl('badge-modal-desc', ach.desc);
     setEl('badge-modal-xp',   `+${ach.xp} XP`);
     modal.style.display = 'flex';
+    _openModal(modal);
 
     Rewards.fireConfetti('achievement');
 
@@ -4891,7 +4921,9 @@ const App = (() => {
   }
 
   function closeBadgeModal() {
-    document.getElementById('badge-modal').style.display = 'none';
+    const modal = document.getElementById('badge-modal');
+    _closeModal(modal, true);
+    modal.style.display = 'none';
     _badgeShowing = false;
     if (_badgeQueue.length > 0) {
       setTimeout(showNextBadge, 400);
@@ -5235,12 +5267,15 @@ const App = (() => {
     if (footer) footer.style.display = canCancel ? 'flex' : 'none';
 
     modal.style.display = 'flex';
+    _openModal(modal);
     setTimeout(() => nameInput?.focus(), 100);
   }
 
   function closeUserPicker() {
     const modal = document.getElementById('user-picker-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
   }
 
   async function switchUser(userId, defaultUsername = null) {
@@ -5411,7 +5446,9 @@ const App = (() => {
     _confirmCallback = onConfirm;
     setEl('confirm-modal-title', title);
     setEl('confirm-modal-message', message);
-    document.getElementById('confirm-modal').style.display = 'flex';
+    const confirmModal = document.getElementById('confirm-modal');
+    confirmModal.style.display = 'flex';
+    _openModal(confirmModal);
 
     const okBtn = document.getElementById('confirm-ok');
     okBtn.onclick = async () => {
@@ -5425,7 +5462,9 @@ const App = (() => {
   }
 
   function closeConfirmModal() {
-    document.getElementById('confirm-modal').style.display = 'none';
+    const modal = document.getElementById('confirm-modal');
+    _closeModal(modal);
+    modal.style.display = 'none';
     _confirmCallback = null;
   }
 
@@ -5473,7 +5512,9 @@ const App = (() => {
     document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
 
     _attachDupGoalKeyboard();
-    document.getElementById('dup-goal-modal').style.display = 'flex';
+    const dupModal = document.getElementById('dup-goal-modal');
+    dupModal.style.display = 'flex';
+    _openModal(dupModal);
     setTimeout(() => createBtn.focus(), 0);
   }
 
@@ -5497,7 +5538,9 @@ const App = (() => {
     document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
 
     _attachDupGoalKeyboard();
-    document.getElementById('dup-goal-modal').style.display = 'flex';
+    const dupModal2 = document.getElementById('dup-goal-modal');
+    dupModal2.style.display = 'flex';
+    _openModal(dupModal2);
     setTimeout(() => viewBtn.focus(), 0);
   }
 
@@ -5506,7 +5549,39 @@ const App = (() => {
       document.removeEventListener('keydown', _dupGoalKeyHandler);
       _dupGoalKeyHandler = null;
     }
-    document.getElementById('dup-goal-modal').style.display = 'none';
+    const modal = document.getElementById('dup-goal-modal');
+    _closeModal(modal);
+    modal.style.display = 'none';
+  }
+
+  /* ---- Accessible modal helpers -------------------- */
+  // Stores { trigger, removeTrap } per modal element so each modal independently
+  // traps Tab focus while open and returns focus to its trigger on close.
+  const _modalTriggers = new Map();
+
+  function _openModal(modal) {
+    const trigger = document.activeElement;
+    const SEL = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    function onTab(e) {
+      if (e.key !== 'Tab') return;
+      const els = [...modal.querySelectorAll(SEL)].filter(el => el.offsetParent !== null);
+      if (!els.length) { e.preventDefault(); return; }
+      const first = els[0], last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    modal.addEventListener('keydown', onTab);
+    _modalTriggers.set(modal, { trigger, removeTrap: () => modal.removeEventListener('keydown', onTab) });
+  }
+
+  function _closeModal(modal, skipReturn = false) {
+    const s = _modalTriggers.get(modal);
+    if (!s) return;
+    s.removeTrap();
+    _modalTriggers.delete(modal);
+    if (!skipReturn && s.trigger && typeof s.trigger.focus === 'function') {
+      setTimeout(() => s.trigger.focus(), 0);
+    }
   }
 
   /* ---- Toast Notifications ------------------------- */
@@ -5764,12 +5839,15 @@ const App = (() => {
 
     _updateGoalTypeFields();
     modal.style.display = 'flex';
+    _openModal(modal);
     document.getElementById('goal-title')?.focus();
   }
 
   function closeGoalModal() {
     const modal = document.getElementById('goal-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
   }
 
   function duplicateGoal(goalId) {
@@ -5994,14 +6072,18 @@ const App = (() => {
       `You've completed ${typeLabel} for "<strong>${escapeHtml(goal.title)}</strong>". Want to log a study entry to document your work?` +
       `<span class="log-prompt-warning">⚠️ Close this window or click "Already Logged" only if you have already logged.</span>`;
     _pendingCompleteGoalId = goal.id;
-    document.getElementById('log-prompt-modal').style.display = 'flex';
+    const logPromptModal = document.getElementById('log-prompt-modal');
+    logPromptModal.style.display = 'flex';
+    _openModal(logPromptModal);
     document.body.style.overflow = 'hidden';
   }
 
   // Shared handler for × button, Esc, and "Already Logged" — all complete the goal immediately.
   async function _dismissLogPromptAndComplete() {
-    if (document.getElementById('log-prompt-modal')?.style.display !== 'flex') return;
-    document.getElementById('log-prompt-modal').style.display = 'none';
+    const _lpm = document.getElementById('log-prompt-modal');
+    if (_lpm?.style.display !== 'flex') return;
+    _closeModal(_lpm);
+    _lpm.style.display = 'none';
     document.body.style.overflow = '';
     const goalId = _pendingCompleteGoalId;
     _pendingCompleteGoalId = null;
@@ -6018,7 +6100,9 @@ const App = (() => {
 
   function _setupLogPromptModal() {
     document.getElementById('log-prompt-log')?.addEventListener('click', () => {
-      document.getElementById('log-prompt-modal').style.display = 'none';
+      const _lpm2 = document.getElementById('log-prompt-modal');
+      _closeModal(_lpm2, true); // entry-modal opens immediately after; skip return
+      _lpm2.style.display = 'none';
       document.body.style.overflow = '';
       const goalId = _pendingCompleteGoalId;
       // _pendingCompleteGoalId stays set so saveEntryFromModal can complete the goal after save.
@@ -6194,12 +6278,15 @@ const App = (() => {
     renderLinkGoalList();
     const modal = document.getElementById('link-goal-modal');
     modal.style.display = 'flex';
+    _openModal(modal);
     document.body.style.overflow = 'hidden';
   }
 
   function closeLinkGoalModal() {
     const modal = document.getElementById('link-goal-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
     document.body.style.overflow = '';
     _linkGoalEntryId = null;
   }
@@ -6896,7 +6983,7 @@ const App = (() => {
       container.innerHTML = `
         <div class="empty-state-small">
           <span>🎯</span>
-          <p>No active goals. <a href="#" data-page="goals">Set one now</a></p>
+          <p>No active goals. <button type="button" data-page="goals" style="background:none;border:none;color:var(--accent-text);cursor:pointer;font:inherit;padding:0;text-decoration:underline;">Set one now</button></p>
         </div>`;
       container.querySelector('[data-page]')?.addEventListener('click', e => { e.preventDefault(); navigateTo('goals'); });
       return;
@@ -7208,12 +7295,15 @@ const App = (() => {
     modal.onclick = e => { if (e.target === modal) closeDeletedGoalDetail(); };
 
     modal.style.display = 'flex';
+    _openModal(modal);
     setTimeout(() => modal.querySelector('.modal')?.focus?.(), 0);
   }
 
   function closeDeletedGoalDetail() {
     const modal = document.getElementById('dg-detail-modal');
-    if (modal) modal.style.display = 'none';
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
   }
 
   function setupDeletedGoalsPage() {

@@ -106,8 +106,8 @@
   gap: 2px;
 }
 
-.stat-trend.up   { color: var(--success); }
-.stat-trend.down { color: var(--danger); }
+.stat-trend.up   { color: var(--success-text); }
+.stat-trend.down { color: var(--danger-text); }
 
 /* XP bar inside stat card */
 .xp-progress {
@@ -174,7 +174,7 @@
   font-size: 22px;
   font-weight: 800;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   margin-bottom: var(--s-1);
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
@@ -497,7 +497,7 @@
 
 /* Today highlights */
 .goal-day-item.is-today .goal-day-label {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 800;
 }
 .goal-day-item.is-today.empty .goal-day-circle {
@@ -505,7 +505,7 @@
   background: var(--accent-faint);
 }
 .goal-day-item.is-today.partial .goal-day-circle {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 .goal-day-item.met .goal-day-circle:hover,
 .goal-day-item.partial .goal-day-circle:hover {
@@ -637,10 +637,15 @@
 .widget-action {
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   transition: var(--transition);
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
 }
-.widget-action:hover { color: var(--accent-light); }
+.widget-action:hover { color: var(--accent-text); }
 
 /* ---- ACTIVITY FEED ------------------------------- */
 .activity-list {
@@ -664,9 +669,9 @@
 
 .activity-item:hover { background: var(--surface-2); }
 
-.activity-item[data-difficulty="easy"]   { border-left-color: var(--success); }
+.activity-item[data-difficulty="easy"]   { border-left-color: var(--success-text); }
 .activity-item[data-difficulty="medium"] { border-left-color: var(--warning); }
-.activity-item[data-difficulty="hard"]   { border-left-color: var(--danger); }
+.activity-item[data-difficulty="hard"]   { border-left-color: var(--danger-text); }
 
 .activity-info {
   flex: 1;
@@ -708,7 +713,7 @@
 .activity-duration {
   font-size: 10px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-faint);
   padding: 2px 7px;
   border-radius: var(--r-full);
@@ -920,7 +925,7 @@
   margin: 2px 0 0;
   padding: 5px 8px;
   font-size: 11px;
-  color: var(--info);
+  color: var(--info-text);
   background: rgba(59, 130, 246, 0.08);
   border-radius: var(--r-sm);
   line-height: 1.4;
