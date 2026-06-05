@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="AI-Powered Learning Tracker — track daily learning, visualize progress, stay motivated." />
   <meta name="theme-color" content="#6c63ff" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self';" />
   <title>LearnTrack — Your Learning Journey</title>
 
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
 
-  <!-- PWA manifest -->
-  <link rel="manifest" href="manifest.json" />
+  <!-- PWA manifest (only works when served over HTTP/HTTPS, not file://) -->
+  <!-- <link rel="manifest" href="manifest.json" /> -->
   <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
 
   <!-- Google Fonts -->
@@ -20,10 +21,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cormorant+Garant:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet" />
 
   <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
 
   <!-- Canvas Confetti -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" integrity="sha384-0esPaJH+F9evp2lsJYN36SW7XkRbaYviuyF+PpnbjDXBC9i1CWGiJyGrXCyiyGqZ" crossorigin="anonymous"></script>
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="styles/main.css?v=118" />
@@ -2017,15 +2018,15 @@
 </div>
 
 <!-- Scripts (module order matters) -->
-<script src="scripts/storage.js?v=16"></script>
+<script src="scripts/storage.js?v=17"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=17"></script>
-<script src="scripts/calendar.js?v=15"></script>
-<script src="scripts/insights.js?v=15"></script>
+<script src="scripts/calendar.js?v=16"></script>
+<script src="scripts/insights.js?v=16"></script>
 <script src="scripts/timer.js?v=15"></script>
-<script src="scripts/app.js?v=28"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="scripts/app.js?v=31"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 
 </body>

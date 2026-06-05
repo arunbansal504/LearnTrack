@@ -224,7 +224,7 @@ const Storage = (() => {
 
   async function getAllPrefs() {
     const records = await getAll(STORES.preferences);
-    const obj = {};
+    const obj = Object.create(null);
     records.forEach(r => { obj[r.key] = r.value; });
     return obj;
   }
@@ -507,8 +507,10 @@ const Storage = (() => {
     // Merge preferences: username and goal histories always restore from backup;
     // all other prefs only fill in if not already set.
     const ALWAYS_RESTORE = new Set(['username', 'goalHistory', 'monthlyGoalHistory']);
+    const BLOCKED_PREF_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
     let prefsRestored = 0;
     for (const [key, value] of Object.entries(preferences)) {
+      if (BLOCKED_PREF_KEYS.has(key)) continue;
       const existing = await getPref(key);
       if (ALWAYS_RESTORE.has(key)) {
         await setPref(key, value);

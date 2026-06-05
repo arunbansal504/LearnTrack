@@ -247,7 +247,7 @@ const Insights = (() => {
   function escapeHtml(str) {
     const d = document.createElement('div');
     d.textContent = String(str || '');
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;');
   }
 
   /* ---- Public API ---------------------------------- */
