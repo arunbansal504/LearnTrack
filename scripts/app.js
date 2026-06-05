@@ -1205,7 +1205,8 @@ const App = (() => {
   }
 
   function createEntryCard(entry) {
-    const linkCount = Array.isArray(entry.goalIds) ? entry.goalIds.length : 0;
+    const _activeGoalIdSet = new Set(_goals.map(g => g.id));
+    const linkCount = Array.isArray(entry.goalIds) ? entry.goalIds.filter(id => _activeGoalIdSet.has(id)).length : 0;
     const mood = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
     const diffColors = { easy:'success', medium:'warning', hard:'danger' };
     const dc = diffColors[entry.difficulty] || 'text-2';
@@ -2011,6 +2012,10 @@ const App = (() => {
   }
 
   function createDeletedEntryCard(entry) {
+    const linkTitles = Array.isArray(entry.goalIds)
+      ? entry.goalIds.map(id => { const g = _goals.find(x => x.id === id); return g ? g.title : null; }).filter(Boolean)
+      : [];
+    const linkCount = linkTitles.length;
     const mood  = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
     const d     = new Date(entry.date + 'T12:00:00');
     const diffMin = Math.floor((Date.now() - entry.deletedAt) / 60000);
@@ -2058,6 +2063,11 @@ const App = (() => {
             ${deletedAgo}
           </div>
           <div class="dl-action-row">
+            ${linkCount ? `
+            <button class="entry-link-icon-btn has-links dl-linked-goals-btn" data-id="${entry.id}" title="Linked to ${linkCount} goal${linkCount === 1 ? '' : 's'}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span class="entry-link-count">${linkCount}</span>
+            </button>` : ''}
             <button class="dl-restore-btn" data-restore="${entry.id}">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               Restore
@@ -2184,6 +2194,14 @@ const App = (() => {
       btn.addEventListener('click', e => { e.stopPropagation(); permanentDeleteEntry(btn.dataset.permDelete); });
     });
 
+    container.querySelectorAll('.dl-linked-goals-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const entry = paginated.find(en => en.id === btn.dataset.id);
+        if (entry) showLinkedGoalsPopover(btn, entry);
+      });
+    });
+
     if (loadMoreCon) loadMoreCon.style.display = filtered.length > paginated.length ? 'flex' : 'none';
     updateDlBulkBar();
     updateDlExpandToggle();
@@ -2301,6 +2319,84 @@ const App = (() => {
   function closeDeletedEntryDetail() {
     const modal = document.getElementById('dl-detail-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  function showLinkedGoalsPopover(anchor, entry) {
+    document.getElementById('dl-linked-goals-popover')?.remove();
+    const goals = (entry.goalIds || []).map(id => _goals.find(g => g.id === id)).filter(Boolean);
+    if (!goals.length) return;
+    const typeLabel = { time: '⏳ Study Hours', count: '🏆 Problem Count', checklist: '📋 Task List', exam: '🎓 Exam Prep' };
+    const pop = document.createElement('div');
+    pop.id = 'dl-linked-goals-popover';
+    pop.className = 'dl-linked-goals-popover';
+    pop.innerHTML = `
+      <div class="dl-lgp-title">Linked Goals</div>
+      ${goals.map(g => `
+        <div class="dl-lgp-item">
+          <span class="dl-lgp-item-title">${escapeHtml(g.title)}</span>
+          <span class="goal-type-chip" data-type="${g.type}">${typeLabel[g.type] || g.type}</span>
+        </div>`).join('')}
+    `;
+    document.body.appendChild(pop);
+    const rect = anchor.getBoundingClientRect();
+    const popW = 240;
+    let left = rect.left;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    pop.style.cssText = `position:fixed;z-index:1100;top:${rect.bottom + 4}px;left:${left}px`;
+    const dismiss = () => {
+      pop.remove();
+      document.removeEventListener('click', onOutsideClick, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
+    const onOutsideClick = ev => {
+      if (!pop.contains(ev.target) && ev.target !== anchor) dismiss();
+    };
+    const onKeyDown = ev => {
+      if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', onOutsideClick, true);
+      document.addEventListener('keydown', onKeyDown, true);
+    }, 0);
+  }
+
+  function showLinkedEntriesPopover(anchor, goal) {
+    document.getElementById('dg-linked-entries-popover')?.remove();
+    const entries = _entries.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(goal.id));
+    if (!entries.length) return;
+    const pop = document.createElement('div');
+    pop.id = 'dg-linked-entries-popover';
+    pop.className = 'dl-linked-goals-popover';
+    pop.innerHTML = `
+      <div class="dl-lgp-title">Logged Entries (${entries.length})</div>
+      ${entries.map(e => `
+        <div class="dl-lgp-item">
+          <span class="dl-lgp-item-title">${escapeHtml(e.topic)}</span>
+          <span class="goal-cat-chip">${e.date}</span>
+          <span class="goal-cat-chip">${Analytics.formatDuration(e.durationMinutes || 0)}</span>
+        </div>`).join('')}
+    `;
+    document.body.appendChild(pop);
+    const rect = anchor.getBoundingClientRect();
+    const popW = 280;
+    let left = rect.left;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    pop.style.cssText = `position:fixed;z-index:1100;top:${rect.bottom + 4}px;left:${left}px`;
+    const dismiss = () => {
+      pop.remove();
+      document.removeEventListener('click', onOutsideClick, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
+    const onOutsideClick = ev => {
+      if (!pop.contains(ev.target) && ev.target !== anchor) dismiss();
+    };
+    const onKeyDown = ev => {
+      if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', onOutsideClick, true);
+      document.addEventListener('keydown', onKeyDown, true);
+    }, 0);
   }
 
   /* ---- ANALYTICS (embedded in dashboard) ----------- */
@@ -5895,6 +5991,8 @@ const App = (() => {
     if (priF)   goals = goals.filter(g => g.priority === priF);
     if (search) goals = goals.filter(g => (g.title || '').toLowerCase().includes(search));
 
+    goals.sort((a, b) => (_linkGoalSelection.has(b.id) ? 1 : 0) - (_linkGoalSelection.has(a.id) ? 1 : 0));
+
     if (!goals.length) {
       listEl.innerHTML = `<div class="link-goal-empty">No matching open goals.</div>`;
       return;
@@ -6646,9 +6744,10 @@ const App = (() => {
     const typeLabels = { time: '⏳ Study Hours', checklist: '📋 Task List', count: '🏆 Problem Count', exam: '🎓 Exam Prep' };
 
     container.innerHTML = filtered.map(g => {
-      const deletedAgo = _timeAgo(g.deletedAt);
-      const checked    = _deletedGoalsSelection.has(g.id) ? 'checked' : '';
-      const selClass   = _deletedGoalsSelection.has(g.id) ? ' dl-selected' : '';
+      const deletedAgo   = _timeAgo(g.deletedAt);
+      const checked      = _deletedGoalsSelection.has(g.id) ? 'checked' : '';
+      const selClass     = _deletedGoalsSelection.has(g.id) ? ' dl-selected' : '';
+      const linkedCount  = _entries.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(g.id)).length;
       return `
         <div class="dg-goal-row${selClass}" data-id="${g.id}">
           <div class="dg-goal-checkbox">
@@ -6668,6 +6767,11 @@ const App = (() => {
               ${deletedAgo}
             </div>
             <div class="dl-action-row">
+              ${linkedCount ? `
+              <button class="entry-link-icon-btn has-links dg-linked-entries-btn" data-id="${g.id}" title="${linkedCount} logged entr${linkedCount === 1 ? 'y' : 'ies'}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span class="entry-link-count">${linkedCount}</span>
+              </button>` : ''}
               <button class="dl-restore-btn" data-dg-restore="${g.id}">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                 Restore
@@ -6691,6 +6795,13 @@ const App = (() => {
     });
     container.querySelectorAll('[data-dg-delete]').forEach(btn => {
       btn.addEventListener('click', e => { e.stopPropagation(); permanentDeleteGoal(btn.dataset.dgDelete); });
+    });
+    container.querySelectorAll('.dg-linked-entries-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const goal = filtered.find(g => g.id === btn.dataset.id);
+        if (goal) showLinkedEntriesPopover(btn, goal);
+      });
     });
 
     container.querySelectorAll('.dg-checkbox').forEach(cb => {

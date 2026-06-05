@@ -2046,6 +2046,36 @@ input:disabled {
   margin-bottom: var(--s-2);
 }
 .dl-detail-value { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.dl-linked-goals-popover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--s-3);
+  min-width: 200px;
+  max-width: 260px;
+  box-shadow: var(--shadow-lg);
+}
+.dl-lgp-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: var(--s-2);
+}
+.dl-lgp-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding: 3px 0;
+}
+.dl-lgp-item-title {
+  font-size: 0.82rem;
+  color: var(--text-1);
+  flex: 1;
+  min-width: 0;
+}
 .dl-detail-notes {
   font-size: 13px;
   color: var(--text-2);
