@@ -82,6 +82,7 @@ const App = (() => {
   const BACKUP_FAILURE_LIMIT = 3;
   const DELETED_RETENTION_DAYS = 90;  // recycle-bin entries older than this are auto-purged on load
   let _currentPage  = 'dashboard';
+  let _pendingTimerReset = null; // fired once, only after a timer-initiated entry saves
   let _deletedPage  = 1;
   let _deletedSelection = new Set();
   let _dailyRange    = 30;
@@ -1356,7 +1357,11 @@ const App = (() => {
           return;
         }
         const modal = document.getElementById('entry-modal');
-        if (modal && modal.style.display !== 'none') closeEntryModal();
+        if (modal && modal.style.display !== 'none') {
+          closeEntryModal();
+          e.stopImmediatePropagation(); // keep timer panel open behind the modal
+          return;
+        }
         const badge = document.getElementById('badge-modal');
         if (badge && badge.style.display !== 'none') closeBadgeModal();
         const confirm = document.getElementById('confirm-modal');
@@ -1467,6 +1472,9 @@ const App = (() => {
   function closeEntryModal() {
     document.getElementById('entry-modal').style.display = 'none';
     document.body.style.overflow = '';
+    // Drop any pending timer reset so cancelling never wipes the timer; the save
+    // path captures it before calling this, so a real save still resets the timer.
+    _pendingTimerReset = null;
   }
 
   /* ---- Floating Notes Panel ------------------------ */
@@ -1607,8 +1615,10 @@ const App = (() => {
       if (idx >= 0) _entries[idx] = saved;
     }
 
+    const doTimerReset = _pendingTimerReset;
     closeEntryModal();
     showToast(isNew ? 'Entry saved!' : 'Entry updated!', 'success');
+    if (doTimerReset) doTimerReset();
 
     // Show XP float only for new entries (edits adjust existing XP, not a new gain)
     if (isNew) {
@@ -4737,21 +4747,24 @@ const App = (() => {
       else { syncTimerGradient(_prefs.accent); PomodoroTimer.openPanel(); }
     });
 
-    // "Log this session" button — pre-fills the entry modal
-    document.getElementById('pomo-log-btn')?.addEventListener('click', () => {
-      const last = PomodoroTimer.getLastWork();
-      if (!last) return;
+    // "Log" buttons — open the entry modal with the tracked duration pre-filled.
+    // The timer's tracked time is reset only once the entry is actually saved.
+    function logTimeFromTimer(totalSeconds, onSavedReset) {
+      const totalMin = Math.max(1, Math.round(totalSeconds / 60));
       openEntryModal(null);
-      if (last.topic) {
-        const topicEl = document.getElementById('entry-topic');
-        if (topicEl) topicEl.value = last.topic;
-      }
-      const pomoMin = last.minutes || 0;
-      const hoursEl = document.getElementById('entry-duration-hours');
-      const minsEl  = document.getElementById('entry-duration-mins');
-      if (hoursEl) hoursEl.value = Math.floor(pomoMin / 60) || '';
-      if (minsEl)  minsEl.value  = pomoMin % 60 || '';
-      PomodoroTimer.closePanel();
+      setInputVal('entry-duration-hours', Math.floor(totalMin / 60) || '');
+      setInputVal('entry-duration-mins',  totalMin % 60 || '');
+      _pendingTimerReset = onSavedReset;
+    }
+
+    document.getElementById('pomo-log-btn')?.addEventListener('click', () => {
+      const sec = PomodoroTimer.getWorkSeconds();
+      if (sec > 0) logTimeFromTimer(sec, () => PomodoroTimer.resetWorkLog());
+    });
+
+    document.getElementById('sw-log-btn')?.addEventListener('click', () => {
+      const sec = PomodoroTimer.getStopwatchSeconds();
+      if (sec > 0) logTimeFromTimer(sec, () => PomodoroTimer.resetStopwatch());
     });
 
     // Init with callback that fires when a session ends

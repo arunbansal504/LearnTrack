@@ -6,22 +6,19 @@
 const PomodoroTimer = (() => {
 
   const MODES = {
-    work:       { label: 'Focus',       minutes: 25 },
-    shortBreak: { label: 'Short Break', minutes: 5  },
-    longBreak:  { label: 'Long Break',  minutes: 15 },
+    work:  { label: 'Focus', minutes: 25 },
+    break: { label: 'Break', minutes: 5  },
   };
 
   const MODE_LIMITS = {
-    work:       { min: 1, max: 999 },
-    shortBreak: { min: 1, max: 30 },
-    longBreak:  { min: 1, max: 60 },
+    work:  { min: 1, max: 999 },
+    break: { min: 1, max: 60  },
   };
 
-  const RING_COLORS = { work: '#ef4444', shortBreak: '#10b981', longBreak: '#3b82f6' };
+  const RING_COLORS = { work: '#ef4444', break: '#10b981' };
   const RING_FAINT  = {
-    work:       'rgba(239,68,68,0.14)',
-    shortBreak: 'rgba(16,185,129,0.14)',
-    longBreak:  'rgba(59,130,246,0.14)',
+    work:  'rgba(239,68,68,0.14)',
+    break: 'rgba(16,185,129,0.14)',
   };
   const GRAD_COUNT = 8;
 
@@ -32,7 +29,7 @@ const PomodoroTimer = (() => {
   let _running   = false;
   let _timerId   = null;
   let _sessions  = 0;
-  let _cyclePos  = 0;
+  let _workSeconds = 0; // total real focus seconds since load (excludes breaks); for "Log this session"
   let _onComplete = null;
   let _audioCtx  = null;
   let _lastWork  = null;
@@ -128,6 +125,9 @@ const PomodoroTimer = (() => {
     const resetBtn = _el('sw-reset-btn');
     if (resetBtn) resetBtn.style.display = _swSeconds > 0 ? 'inline-flex' : 'none';
 
+    const swLogBtn = _el('sw-log-btn');
+    if (swLogBtn) swLogBtn.style.display = _swSeconds > 0 ? 'inline-flex' : 'none';
+
     if (!_running) {
       document.title = _swRunning
         ? `${_fmtSw(_swSeconds)} · LearnTrack`
@@ -146,7 +146,7 @@ const PomodoroTimer = (() => {
 
     /* Mode label — shown only during break modes */
     const labelEl = _el('pomo-mode-label');
-    if (labelEl) labelEl.textContent = _mode !== 'work' ? MODES[_mode].label : '';
+    if (labelEl) labelEl.textContent = _mode === 'break' ? `${MODES.break.minutes} min break` : '';
 
     /* Progress bar */
     const fillEl = _el('pomo-progress-fill');
@@ -168,13 +168,25 @@ const PomodoroTimer = (() => {
       btn.classList.toggle('active', btn.dataset.mode === _mode);
     });
 
-    /* Idle controls (presets + adjuster) — only during work idle, not time's up */
+    /* Idle controls — work presets (work only), break presets (break modes), shared ± adjuster */
     const idleCtrl = _el('pomo-idle-controls');
     if (idleCtrl) idleCtrl.style.display = (_mode === 'work' && isIdle && !_timesUp) ? 'flex' : 'none';
+
+    const breakIdleCtrl = _el('pomo-break-idle-controls');
+    if (breakIdleCtrl) breakIdleCtrl.style.display = (_mode !== 'work' && isIdle && !_timesUp) ? 'flex' : 'none';
+
+    const durRow = _el('pomo-duration-row');
+    if (durRow) durRow.style.display = (isIdle && !_timesUp) ? 'flex' : 'none';
 
     /* Reset button — shown when not idle or during time's up */
     const resetBtn = _el('pomo-reset-btn');
     if (resetBtn) resetBtn.style.display = (isIdle && !_timesUp) ? 'none' : 'inline-flex';
+
+    /* Log / Discard buttons — shown once there's tracked focus time */
+    const logBtn = _el('pomo-log-btn');
+    if (logBtn) logBtn.style.display = _workSeconds > 0 ? 'inline-flex' : 'none';
+    const discardBtn = _el('pomo-discard-btn');
+    if (discardBtn) discardBtn.style.display = _workSeconds > 0 ? 'inline-flex' : 'none';
 
     /* Start/Pause button — hidden during time's up */
     const startBtn = _el('pomo-start-btn');
@@ -244,9 +256,8 @@ const PomodoroTimer = (() => {
     _timesUp = true;
     if (wasWork) {
       _sessions++;
-      _cyclePos++;
       _lastWork = { minutes: MODES.work.minutes };
-      _nextMode = _cyclePos >= 4 ? (_cyclePos = 0, 'longBreak') : 'shortBreak';
+      _nextMode = 'break';
     } else {
       _nextMode = 'work';
     }
@@ -256,7 +267,7 @@ const PomodoroTimer = (() => {
     if (_onComplete) _onComplete({ wasWork, sessions: _sessions, lastWork: _lastWork });
   }
 
-  function _setMode(mode, resetCycle, saveProgress = false) {
+  function _setMode(mode, saveProgress = false) {
     if (saveProgress && _timeLeft > 0 && _timeLeft < _totalTime) {
       _savedProgress[_mode] = { timeLeft: _timeLeft, wasRunning: _running };
     }
@@ -275,11 +286,9 @@ const PomodoroTimer = (() => {
       delete _savedProgress[mode];
     }
 
-    if (resetCycle) _cyclePos = 0;
-
     if (saved?.wasRunning) {
       _running = true;
-      _timerId = setInterval(() => { if (--_timeLeft <= 0) _complete(); else _updateUI(); }, 1000);
+      _timerId = setInterval(_tick, 1000);
     }
 
     _updateUI();
@@ -299,6 +308,9 @@ const PomodoroTimer = (() => {
   function _syncPresetsHighlight() {
     document.querySelectorAll('.pomo-preset').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.min) === MODES.work.minutes);
+    });
+    document.querySelectorAll('.pomo-break-preset').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.min) === MODES.break.minutes);
     });
   }
 
@@ -349,11 +361,18 @@ const PomodoroTimer = (() => {
   }
 
   /* ---- Public: Pomodoro ---- */
+  function _tick() {
+    if (_mode === 'work') _workSeconds++;
+    if (--_timeLeft <= 0) _complete();
+    else _updateUI();
+  }
+
   function start() {
     if (_running) return;
+    if (_swRunning) swToggle(); // pause stopwatch if it's running
     try { _audioCtx?.resume(); } catch (_) {}
     _running = true;
-    _timerId = setInterval(() => { if (--_timeLeft <= 0) _complete(); else _updateUI(); }, 1000);
+    _timerId = setInterval(_tick, 1000);
     _updateUI();
   }
 
@@ -378,7 +397,7 @@ const PomodoroTimer = (() => {
     const next = _nextMode || 'work';
     _timesUp  = false;
     _nextMode = null;
-    _setMode(next, false);
+    _setMode(next);
   }
 
   /* ---- Public: Stopwatch ---- */
@@ -388,6 +407,7 @@ const PomodoroTimer = (() => {
       clearInterval(_swTimerId);
       _swTimerId = null;
     } else {
+      if (_running) pause(); // pause pomodoro if it's running
       _swRunning = true;
       _swTimerId = setInterval(() => { _swSeconds++; _updateSwUI(); }, 1000);
     }
@@ -465,8 +485,67 @@ const PomodoroTimer = (() => {
       btn.addEventListener('click', () => {
         const customRow = _el('pomo-custom-row');
         if (customRow) customRow.style.display = 'none';
-        _setMode(btn.dataset.mode, false, true);
+        _setMode(btn.dataset.mode, true);
       });
+    });
+
+    /* --- Break preset buttons --- */
+    document.querySelectorAll('.pomo-break-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (_running) return;
+        const min = parseInt(btn.dataset.min);
+        if (isNaN(min)) return; // custom button handled separately
+        const row = _el('pomo-break-custom-row');
+        if (row) row.style.display = 'none';
+        const lim = MODE_LIMITS.break;
+        MODES.break.minutes = Math.min(lim.max, Math.max(lim.min, min));
+        _totalTime = MODES.break.minutes * 60;
+        _timeLeft  = _totalTime;
+        delete _savedProgress.break;
+        _syncPresetsHighlight();
+        _updateUI();
+      });
+    });
+
+    /* --- Custom break duration --- */
+    function _applyBreakCustom() {
+      const input = _el('pomo-break-custom-input');
+      if (!input) return;
+      const val = parseInt(input.value);
+      const lim = MODE_LIMITS.break;
+      if (!val || val < lim.min || val > lim.max) { input.select(); return; }
+      MODES.break.minutes = val;
+      _totalTime = val * 60;
+      _timeLeft  = _totalTime;
+      delete _savedProgress.break;
+      document.querySelectorAll('.pomo-break-preset').forEach(b => b.classList.remove('active'));
+      _el('pomo-break-preset-custom')?.classList.add('active');
+      const row = _el('pomo-break-custom-row');
+      if (row) row.style.display = 'none';
+      input.value = '';
+      _updateUI();
+    }
+
+    _el('pomo-break-preset-custom')?.addEventListener('click', () => {
+      if (_running) return;
+      const row = _el('pomo-break-custom-row');
+      if (!row) return;
+      const open = row.style.display !== 'none';
+      row.style.display = open ? 'none' : 'flex';
+      if (!open) _el('pomo-break-custom-input')?.focus();
+    });
+
+    _el('pomo-break-custom-ok')?.addEventListener('click', _applyBreakCustom);
+    _el('pomo-break-custom-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') _applyBreakCustom();
+      if (e.key === 'Escape') {
+        const row = _el('pomo-break-custom-row');
+        if (row) row.style.display = 'none';
+      }
+    });
+    _el('pomo-break-custom-input')?.addEventListener('input', e => {
+      if (e.target.value > MODE_LIMITS.break.max) e.target.value = MODE_LIMITS.break.max;
+      if (e.target.value < 0) e.target.value = '';
     });
 
     /* --- Preset buttons --- */
@@ -550,6 +629,12 @@ const PomodoroTimer = (() => {
     /* --- Pomodoro reset --- */
     _el('pomo-reset-btn')?.addEventListener('click', reset);
 
+    /* --- Discard accumulated focus time --- */
+    _el('pomo-discard-btn')?.addEventListener('click', () => {
+      _workSeconds = 0;
+      _updateUI();
+    });
+
     /* --- Stopwatch --- */
     _el('sw-start-btn')?.addEventListener('click', swToggle);
     _el('sw-reset-btn')?.addEventListener('click', swReset);
@@ -619,6 +704,12 @@ const PomodoroTimer = (() => {
     });
   }
 
-  return { init, start, pause, reset, openPanel, closePanel, isPanelOpen, getLastWork };
+  return {
+    init, start, pause, reset, openPanel, closePanel, isPanelOpen, getLastWork,
+    getWorkSeconds: () => _workSeconds,
+    getStopwatchSeconds: () => _swSeconds,
+    resetWorkLog: () => { _workSeconds = 0; _updateUI(); },
+    resetStopwatch: swReset,
+  };
 
 })();

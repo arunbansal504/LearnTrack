@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=95" />
+  <link rel="stylesheet" href="styles/main.css?v=99" />
   <link rel="stylesheet" href="styles/dashboard.css?v=26" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
@@ -1678,6 +1678,9 @@
         Reset
       </button>
     </div>
+    <div class="pomo-log-row">
+      <button class="pomo-btn pomo-btn-ghost pomo-btn-secondary" id="sw-log-btn" style="display:none">📝&nbsp; Log</button>
+    </div>
   </div>
 
   <!-- ── POMODORO SECTION ── -->
@@ -1685,11 +1688,10 @@
     <!-- Mode selector (hidden while running) -->
     <div class="pomo-modes" id="pomo-modes">
       <button class="pomo-mode-btn active" data-mode="work">Focus</button>
-      <button class="pomo-mode-btn" data-mode="shortBreak">Short Break</button>
-      <button class="pomo-mode-btn" data-mode="longBreak">Long Break</button>
+      <button class="pomo-mode-btn" data-mode="break">Break</button>
     </div>
 
-    <!-- Idle controls: presets + adjuster (work mode only, hidden while running) -->
+    <!-- Idle controls: work presets + custom (work mode only, hidden while running) -->
     <div id="pomo-idle-controls">
       <div class="pomo-presets">
         <button class="pomo-preset" data-min="15">15 min</button>
@@ -1702,11 +1704,27 @@
         <input type="number" id="pomo-custom-input" class="pomo-custom-input" min="1" max="999" placeholder="min" />
         <button class="pomo-custom-ok" id="pomo-custom-ok">Set</button>
       </div>
-      <div class="pomo-duration-row">
-        <button class="pomo-dur-btn" id="pomo-dur-minus" aria-label="Decrease">−</button>
-        <span class="pomo-dur-label" id="pomo-dur-label">25 min</span>
-        <button class="pomo-dur-btn" id="pomo-dur-plus" aria-label="Increase">+</button>
+    </div>
+
+    <!-- Idle controls: break presets (break mode only, hidden while running) -->
+    <div id="pomo-break-idle-controls" style="display:none">
+      <div class="pomo-presets">
+        <button class="pomo-break-preset active" data-min="5">5 min</button>
+        <button class="pomo-break-preset" data-min="10">10 min</button>
+        <button class="pomo-break-preset" data-min="15">15 min</button>
+        <button class="pomo-break-preset" id="pomo-break-preset-custom">Custom</button>
       </div>
+      <div class="pomo-custom-row" id="pomo-break-custom-row" style="display:none">
+        <input type="number" id="pomo-break-custom-input" class="pomo-custom-input" min="1" max="60" placeholder="min" />
+        <button class="pomo-custom-ok" id="pomo-break-custom-ok">Set</button>
+      </div>
+    </div>
+
+    <!-- Duration ± adjuster: shared by all modes when idle -->
+    <div class="pomo-duration-row" id="pomo-duration-row" style="display:none">
+      <button class="pomo-dur-btn" id="pomo-dur-minus" aria-label="Decrease">−</button>
+      <span class="pomo-dur-label" id="pomo-dur-label">25 min</span>
+      <button class="pomo-dur-btn" id="pomo-dur-plus" aria-label="Increase">+</button>
     </div>
 
     <div class="pomo-big-time" id="pomo-time">25:00</div>
@@ -1730,6 +1748,10 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         Reset
       </button>
+    </div>
+    <div class="pomo-log-row">
+      <button class="pomo-btn pomo-btn-ghost pomo-btn-secondary" id="pomo-log-btn" style="display:none">📝&nbsp; Log</button>
+      <button class="pomo-btn pomo-btn-ghost pomo-btn-secondary" id="pomo-discard-btn" style="display:none" title="Discard accumulated focus time">✕&nbsp; Discard</button>
     </div>
 
   </div>
