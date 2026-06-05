@@ -6139,7 +6139,7 @@ input:disabled {
   color: var(--accent); display: inline-flex; align-items: center; gap: 4px;
 }
 .goal-card-link:hover { text-decoration: underline; }
-.goal-card-link-muted { color: var(--text-3); font-weight: 500; }
+.goal-card-link-muted { color: var(--text-2); font-weight: 500; }
 
 /* Card dates */
 .goal-card-dates { font-size: 11px; color: var(--text-3); margin-top: 0; }
