@@ -107,6 +107,17 @@ const Charts = (() => {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
+    if (data.length) {
+      const total = data.reduce((s, d) => s + d.hours, 0);
+      const peak  = data.reduce((a, d) => d.hours > a.hours ? d : a, data[0]);
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label',
+        `Daily study time over the last ${data.length} day${data.length !== 1 ? 's' : ''}.` +
+        (peak.hours > 0 ? ` Peak: ${peak.hours.toFixed(1)}h on ${peak.label}.` : '') +
+        ` Total: ${total.toFixed(1)}h.`
+      );
+    }
+
     const accent = getAccentColor();
     const ctx    = canvas.getContext('2d');
 
@@ -175,6 +186,27 @@ const Charts = (() => {
     const canvas = document.getElementById(canvasId);
     if (!canvas || data.length === 0) return;
 
+    const _esc   = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const slices = data.slice(0, 10);
+    const totalH = slices.reduce((s, d) => s + d.hours, 0);
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label',
+      'Topic distribution. ' +
+      slices.slice(0, 5).map(d => `${d.label}: ${d.hours.toFixed(1)}h`).join(', ') +
+      (slices.length > 5 ? ` and ${slices.length - 5} more.` : '.')
+    );
+    const prev = canvas.parentElement.querySelector('.chart-sr-table');
+    if (prev) prev.remove();
+    const tbl = document.createElement('table');
+    tbl.className = 'sr-only chart-sr-table';
+    tbl.innerHTML = '<caption>Topic study time breakdown</caption>' +
+      '<thead><tr><th scope="col">Topic</th><th scope="col">Hours</th><th scope="col">Share</th></tr></thead>' +
+      '<tbody>' + slices.map(d => {
+        const pct = totalH > 0 ? Math.round(d.hours / totalH * 100) : 0;
+        return `<tr><td>${_esc(d.label)}</td><td>${d.hours.toFixed(1)}h</td><td>${pct}%</td></tr>`;
+      }).join('') + '</tbody>';
+    canvas.parentElement.insertBefore(tbl, canvas.nextSibling);
+
     const PALETTE = [
       '#6c63ff','#10b981','#f59e0b','#ef4444','#3b82f6',
       '#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316',
@@ -228,6 +260,17 @@ const Charts = (() => {
     _recreators[canvasId] = () => renderMonthlyChart(canvasId, data);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
+
+    if (data.length) {
+      const total = data.reduce((s, d) => s + d.hours, 0);
+      const best  = data.reduce((a, d) => d.hours > a.hours ? d : a, data[0]);
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label',
+        `Monthly study time over ${data.length} month${data.length !== 1 ? 's' : ''}.` +
+        ` Total: ${total.toFixed(1)}h.` +
+        (best.hours > 0 ? ` Best month: ${best.label} at ${best.hours.toFixed(1)}h.` : '')
+      );
+    }
 
     const accent = getAccentColor();
     const ctx    = canvas.getContext('2d');
