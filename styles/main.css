@@ -6142,7 +6142,7 @@ input:disabled {
 .goal-card-link-muted { color: var(--text-2); font-weight: 500; }
 
 /* Card dates */
-.goal-card-dates { font-size: 11px; color: var(--text-3); margin-top: 0; }
+.goal-card-dates { font-size: 11px; color: var(--text-2); margin-top: 0; }
 
 /* --- Modal --- */
 .goal-milestones-list { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: var(--s-2); }
