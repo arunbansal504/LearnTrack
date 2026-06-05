@@ -112,9 +112,16 @@ const App = (() => {
     reminder:      false,
     reminderTime:  '20:00',
     categories:    ['Programming','Mathematics','Languages','Science','Design','Business','Other'],
+    categoryColors:       {},   // { categoryName: '#rrggbb' } — stable, unique per category (Report screen)
     goalHistory:          [],
     monthlyGoalHistory:   [],
   };
+
+  // Distinct base palette for category colors; beyond it we generate unique golden-angle hues.
+  const CATEGORY_PALETTE = [
+    '#4F46E5','#10B981','#F59E0B','#EF4444','#3B82F6','#EC4899','#8B5CF6','#06B6D4',
+    '#84CC16','#F97316','#14B8A6','#A855F7','#EAB308','#0EA5E9','#F43F5E','#22C55E',
+  ];
 
   /* ---- Initialization ------------------------------ */
 
@@ -128,6 +135,8 @@ const App = (() => {
     setupEntryModal();
     setupGoalModal();
     setupLinkGoalModal();
+    setupTopicsModal();
+    setupModalScrollTrap();
     _setupLogPromptModal();
     setupFilterPanel();
     setupDeletedLogsPage();
@@ -182,6 +191,10 @@ const App = (() => {
       if (_prefs.monthlyGoalHistory?.length && !_prefs.monthlyGoalHistory.some(g => g.from === '0000-01')) {
         _prefs.monthlyGoalHistory = [{ from: '0000-01', goalHr: DEFAULT_PREFS.monthlyGoalHr }, ..._prefs.monthlyGoalHistory];
         await Storage.setPref('monthlyGoalHistory', _prefs.monthlyGoalHistory);
+      }
+      // Backfill a stable, unique color for every existing category (Report screen).
+      if (ensureCategoryColors(_prefs.categories || [])) {
+        await Storage.setPref('categoryColors', _prefs.categoryColors);
       }
       // Migration: time-goal progress moved from name+category matching to explicit
       // entry↔goal links. Auto-link the entries that previously matched so existing
@@ -1448,6 +1461,13 @@ const App = (() => {
         if (dlDetail && dlDetail.style.display !== 'none') closeDeletedEntryDetail();
         const dgDetail = document.getElementById('dg-detail-modal');
         if (dgDetail && dgDetail.style.display !== 'none') closeDeletedGoalDetail();
+        const topicsModal = document.getElementById('topics-modal');
+        if (topicsModal && topicsModal.style.display !== 'none') { closeTopicsModal(); return; }
+        // Esc on a goal card reached via "View" in the link modal → back to "Link to Goals" (same as the back chip)
+        if (_currentPage === 'goals' && _linkModalReturnEntryId) {
+          reopenLinkModalFromGoal();
+          return;
+        }
         // Esc on the Daily Log while a goal breadcrumb is shown → back to Goals (same as the back chip)
         if (_currentPage === 'log' && _logGoalContext) {
           const ctx = _logGoalContext;
@@ -1544,7 +1564,7 @@ const App = (() => {
         }
         // "Log Entry" from a goal card: blank, fully-editable form auto-linked to the goal on save.
         if (prefill.goalForTitle) {
-          title.textContent = `Log Entry For Goal: ${prefill.goalForTitle}`;
+          title.textContent = `Log Entry for Goal: ${prefill.goalForTitle}`;
         }
       }
     }
@@ -1605,14 +1625,10 @@ const App = (() => {
 
     document.getElementById('notes-panel-title').textContent = topic;
 
-    // Build body content — preserve all line breaks without any HTML encoding
+    // Build body content — preserve line breaks and make any URLs clickable.
+    // linkifyNotes escapes all text and routes hrefs through safeHref.
     const bodyEl = document.getElementById('notes-panel-body');
-    bodyEl.textContent = '';
-    const lines = notes.split('\n');
-    lines.forEach((line, i) => {
-      bodyEl.appendChild(document.createTextNode(line));
-      if (i < lines.length - 1) bodyEl.appendChild(document.createElement('br'));
-    });
+    bodyEl.innerHTML = linkifyNotes(notes);
 
     _notesOverlay.classList.add('visible');
   }
@@ -2278,7 +2294,7 @@ const App = (() => {
       ${e.notes ? `
       <div class="dl-detail-section">
         <div class="dl-detail-section-title">Notes</div>
-        <div class="dl-detail-notes">${escapeHtml(e.notes)}</div>
+        <div class="dl-detail-notes">${linkifyNotes(e.notes)}</div>
       </div>` : ''}
 
       ${e.resources && e.resources.length ? `
@@ -2320,6 +2336,123 @@ const App = (() => {
   function closeDeletedEntryDetail() {
     const modal = document.getElementById('dl-detail-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  /* ---- Topics Explored modal (unique subjects + hours each) ---- */
+
+  // Single global scroll-key trap for every modal in the app.
+  // Intercepts ArrowUp/Down, PageUp/Down, Space, Home, End while any .modal-overlay is
+  // visible and redirects them to that modal's .modal-body, preventing the page from
+  // scrolling. Skips interception when focus is inside a textarea/select/input so normal
+  // in-field cursor movement still works.
+  function setupModalScrollTrap() {
+    const SCROLL_KEYS = {
+      ArrowDown:  60, ArrowUp: -60,
+      PageDown:  0.8, PageUp: -0.8,
+      ' ':        0.8,
+      Home:      -Infinity, End: Infinity,
+    };
+    document.addEventListener('keydown', e => {
+      if (!(e.key in SCROLL_KEYS)) return;
+      // Let the key work normally inside text-entry elements.
+      const tag = document.activeElement?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+      // Find the topmost open modal overlay (highest z-index wins via DOM order).
+      const openModal = [...document.querySelectorAll('.modal-overlay')]
+        .reverse()
+        .find(m => m.style.display !== 'none');
+      if (!openModal) return;
+      const scrollEl = openModal.querySelector('.modal-body');
+      if (!scrollEl) return;
+      e.preventDefault();
+      const v = SCROLL_KEYS[e.key];
+      scrollEl.scrollBy({ top: Math.abs(v) <= 1 ? v * scrollEl.clientHeight : v, behavior: 'smooth' });
+    });
+  }
+
+  function setupTopicsModal() {
+    const close = closeTopicsModal;
+    document.getElementById('topics-modal-close')?.addEventListener('click', close);
+    document.getElementById('topics-modal-close-btn')?.addEventListener('click', close);
+    const modal = document.getElementById('topics-modal');
+    if (modal) modal.addEventListener('click', ev => { if (ev.target === modal) close(); });
+
+    // Delegated trigger: the "Topics Explored" insight card is rendered with
+    // data-insight-action="topics" by Insights.renderInsightsRow.
+    const row = document.getElementById('insights-row');
+    if (row) {
+      row.addEventListener('click', e => {
+        if (e.target.closest('[data-insight-action="topics"]')) showTopicsModal();
+      });
+      row.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-insight-action="topics"]')) {
+          e.preventDefault();
+          showTopicsModal();
+        }
+      });
+    }
+  }
+
+  function showTopicsModal() {
+    const modal = document.getElementById('topics-modal');
+    const body  = document.getElementById('topics-modal-body');
+    const title = document.getElementById('topics-modal-title');
+    if (!modal || !body) return;
+
+    // Match the "Topics Explored" insight grouping exactly (no knownCategories filtering).
+    const dist = Analytics.calculateTopicDistribution(_entries);
+    if (title) title.textContent = `Topics Explored`;
+
+    if (!dist.length) {
+      body.innerHTML = '<p class="topics-modal-empty">No topics logged yet.</p>';
+      modal.style.display = 'flex';
+      return;
+    }
+
+    const totalMins = dist.reduce((s, t) => s + t.minutes, 0);
+    const maxMins   = dist[0].minutes;   // already sorted desc
+
+    const rows = dist.map((t, i) => {
+      const barPct  = Math.round((t.minutes / maxMins) * 100);
+      const rawPct  = totalMins > 0 ? (t.minutes / totalMins) * 100 : 0;
+      const pct     = rawPct > 0 && rawPct < 1 ? '<1%' : `${Math.round(rawPct)}%`;
+      const color     = getCategoryColor(t.label);
+      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+      return `<li class="topics-modal-item">
+        <span class="topics-modal-rank" style="background:${color}22;color:${color}">${rankLabel}</span>
+        <span class="topics-modal-name">${escapeHtml(t.label)}</span>
+        <span class="topics-modal-bar-wrap">
+          <span class="topics-modal-bar" style="width:${barPct}%;background:${color}"></span>
+        </span>
+        <span class="topics-modal-pct">${pct}</span>
+        <span class="topics-modal-time">${escapeHtml(Analytics.formatDuration(t.minutes))}</span>
+      </li>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="topics-modal-header-row">
+        <span class="topics-modal-col-rank">#</span>
+        <span class="topics-modal-col-name">Subject</span>
+        <span class="topics-modal-col-bar"></span>
+        <span class="topics-modal-col-pct">Share</span>
+        <span class="topics-modal-col-time">Time</span>
+      </div>
+      <ul class="topics-modal-list">${rows}</ul>
+      <div class="topics-modal-footer">
+        <span>${dist.length} subject${dist.length !== 1 ? 's' : ''}</span>
+        <span>${escapeHtml(Analytics.formatDuration(totalMins))} total</span>
+      </div>`;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    // Focus the scrollable body so arrow keys scroll the list, not the page.
+    requestAnimationFrame(() => body.focus());
+  }
+
+  function closeTopicsModal() {
+    const modal = document.getElementById('topics-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
   }
 
   function showLinkedGoalsPopover(anchor, entry) {
@@ -3007,6 +3140,47 @@ const App = (() => {
   }
 
 
+  // Deterministic HSL→hex so generated category colors are valid hex (usable by both the
+  // HTML report and the jsPDF hexRGB() parser).
+  function _hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const k = n => (n + h / 30) % 12;
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+
+  // Ensures every given category has a stable, unique color in _prefs.categoryColors.
+  // Returns true if the map changed, so the caller can persist once.
+  function ensureCategoryColors(cats) {
+    if (!_prefs.categoryColors || typeof _prefs.categoryColors !== 'object') _prefs.categoryColors = {};
+    const map  = _prefs.categoryColors;
+    const used = new Set(Object.values(map));
+    let changed = false, gen = Object.keys(map).length;
+    (cats || []).forEach(cat => {
+      if (!cat || map[cat]) return;
+      let color = CATEGORY_PALETTE.find(c => !used.has(c));
+      while (!color) {                                   // palette exhausted → unique golden-angle hue
+        const candidate = _hslToHex(Math.round((gen++ * 137.508) % 360), 65, 55);
+        if (!used.has(candidate)) color = candidate;
+      }
+      map[cat] = color;
+      used.add(color);
+      changed = true;
+    });
+    return changed;
+  }
+
+  // Stable color for a single category (used by the Report screen). Lazily assigns + persists
+  // a color for any category that doesn't have one yet.
+  function getCategoryColor(cat) {
+    if (!(_prefs.categoryColors && _prefs.categoryColors[cat])) {
+      if (ensureCategoryColors([cat])) Storage.setPref('categoryColors', _prefs.categoryColors);
+    }
+    return _prefs.categoryColors[cat];
+  }
+
   async function addCategory() {
     const input = document.getElementById('new-category-input');
     const val   = input?.value.trim();
@@ -3015,7 +3189,9 @@ const App = (() => {
     if (cats.includes(val)) { showToast('Category already exists', 'warning'); return; }
     cats.push(val);
     _prefs.categories = cats;
+    ensureCategoryColors(cats);                          // assign a unique color to the new category
     await Storage.setPref('categories', cats);
+    await Storage.setPref('categoryColors', _prefs.categoryColors);
     if (input) input.value = '';
     renderCategories();
     populateCategorySelects();
@@ -3707,7 +3883,6 @@ const App = (() => {
     // Helpers
     const fmt = m => Analytics.formatDuration(m);
     const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const COLORS = ['#4F46E5','#10B981','#F59E0B','#EF4444','#3B82F6','#EC4899','#8B5CF6','#06B6D4'];
 
     // Calendar HTML — compact, no dots, fixed-height cells
     const firstDay = new Date(year, month, 1).getDay();
@@ -3744,9 +3919,14 @@ const App = (() => {
     }
     const maxWeekMin = Math.max(...weeklyData.map(w => w.wMins), 1);
 
+    // Ensure every category in this report has a stable, unique color before rendering.
+    if (ensureCategoryColors(catSorted.map(([cat]) => cat))) {
+      Storage.setPref('categoryColors', _prefs.categoryColors);
+    }
+
     // Category rows
     const catRows = catSorted.map(([cat, mins], i) => {
-      const color  = COLORS[i % COLORS.length];
+      const color  = getCategoryColor(cat);
       const pct    = totalMin > 0 ? Math.round((mins / totalMin) * 100) : 0;
       const barPct = Math.round((mins / maxCatMin) * 100);
       return `<tr>
@@ -4179,7 +4359,7 @@ const App = (() => {
           if (idx % 2 === 1) fillR(ML, y, CW, rH, CWH);
           hline(ML, ML + CW, y, CBD, 0.3);
           const pct2   = totalMin > 0 ? Math.round((mins / totalMin) * 100) : 0;
-          const dotRGB = hexRGB(COLORS[idx % COLORS.length]);
+          const dotRGB = hexRGB(getCategoryColor(cat));
           fillR(ML + 6, y + 7, 7, 7, dotRGB);
           const catTrunc = pdf.splitTextToSize(cat, 174)[0] || cat;
           tx(catTrunc, ML + 16, y + 14, 8.5, CBK);
@@ -5424,6 +5604,30 @@ const App = (() => {
     }
   }
 
+  // Converts free-text notes into safe HTML for view mode: URLs become clickable links,
+  // newlines become <br>. All text is HTML-escaped and every href is routed through
+  // safeHref(), so raw user URLs never reach the DOM unsanitised.
+  function linkifyNotes(text) {
+    const raw = String(text || '');
+    const urlRe = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+    let out = '', last = 0, m;
+    while ((m = urlRe.exec(raw)) !== null) {
+      out += escapeHtml(raw.slice(last, m.index));
+      let url = m[0], trail = '';
+      // Keep trailing punctuation (e.g. a sentence-ending period) out of the link.
+      const tm = url.match(/[.,;:!?)\]'"]+$/);
+      if (tm) { trail = tm[0]; url = url.slice(0, -trail.length); }
+      const href = safeHref(/^www\./i.test(url) ? 'https://' + url : url);
+      out += href === '#'
+        ? escapeHtml(url)
+        : `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
+      out += escapeHtml(trail);
+      last = m.index + m[0].length;
+    }
+    out += escapeHtml(raw.slice(last));
+    return out.replace(/\n/g, '<br>');
+  }
+
   function capitalise(str) {
     return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
   }
@@ -5914,6 +6118,13 @@ const App = (() => {
     _logLinkedGoalFilter = goal.id;
     _logGoalContext = { id: goal.id, title: goal.title || '' };
 
+    // Expand every month that holds a linked entry so the logs aren't hidden behind a
+    // collapsed month group when the user lands on the Daily Log.
+    linked.forEach(e => {
+      const key = (e.date || '').slice(0, 7);
+      if (key) _monthCollapsedState[key] = false;
+    });
+
     navigateTo('log');
   }
 
@@ -5923,6 +6134,18 @@ const App = (() => {
   let _linkGoalSelection      = new Set(); // live checkbox state, decoupled from filtering
   let _linkModalReturnEntryId = null;      // set when user jumps to Goals via "View"; re-opens modal on back
   let _linkModalReturnGoalId  = null;      // which goal card shows the "back to linking" chip
+
+  // Re-open the "Link to Goals" modal after the user jumped to a goal card via its "View" button.
+  // Shared by the "Back to Linking" chip and the Esc key while on the Goals page.
+  function reopenLinkModalFromGoal() {
+    const entryId = _linkModalReturnEntryId;
+    if (!entryId) return;
+    _linkModalReturnEntryId = null;
+    _linkModalReturnGoalId  = null;
+    navigateTo('log');
+    // openLinkGoalModal needs the log page rendered first so the modal overlay exists.
+    setTimeout(() => openLinkGoalModal(entryId), 50);
+  }
 
   function setupLinkGoalModal() {
     document.getElementById('link-goal-close')?.addEventListener('click', closeLinkGoalModal);
@@ -6515,7 +6738,7 @@ const App = (() => {
           </div>
         </div>
         <h3 class="goal-card-title ${derivedStatus === 'completed' ? 'goal-title-done' : ''}">${escapeHtml(g.title)}</h3>
-        ${g.description ? `<p class="goal-card-desc">${escapeHtml(g.description)}</p>` : ''}
+        ${g.description ? `<p class="goal-card-desc">${linkifyNotes(g.description)}</p>` : ''}
         ${progressSection}
         ${extraControls}
         ${milestoneRows}
@@ -6526,7 +6749,7 @@ const App = (() => {
             const label = entry ? escapeHtml(entry.topic || 'entry') : 'entry';
             return `<button type="button" class="log-goal-back-chip goal-card-link-modal-back" data-action="back-to-link-modal" data-id="${g.id}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              Back to linking: ${label}
+              Back to Linking: ${label}
             </button>`;
           })() : ''}
       </div>`;
@@ -6552,12 +6775,7 @@ const App = (() => {
       if (action === 'count-dec')  await adjustGoalCount(id, -1);
       if (action === 'toggle-ms')  await toggleMilestone(id, btn.dataset.msid);
       if (action === 'back-to-link-modal') {
-        const entryId = _linkModalReturnEntryId;
-        _linkModalReturnEntryId = null;
-        _linkModalReturnGoalId  = null;
-        navigateTo('log');
-        // openLinkGoalModal needs the log page rendered first so the modal overlay exists.
-        setTimeout(() => openLinkGoalModal(entryId), 50);
+        reopenLinkModalFromGoal();
       }
     });
 
@@ -6971,7 +7189,7 @@ const App = (() => {
         <span class="goal-priority-chip goal-priority-${g.priority}">${priorityLabels[g.priority] || ''}</span>
         <span class="goal-status-chip goal-status-chip-${g.status === 'completed' ? 'completed' : g.status === 'archived' ? 'archived' : 'open'}">${statusLabels[g.status] || g.status}</span>
       </div>
-      ${g.description ? `<p class="dg-detail-desc">${escapeHtml(g.description)}</p>` : ''}
+      ${g.description ? `<p class="dg-detail-desc">${linkifyNotes(g.description)}</p>` : ''}
       ${progressHtml}
       ${datesRows ? `<div class="dg-detail-section"><div class="dg-detail-section-title">Dates</div><div class="dg-detail-dates">${datesRows}</div></div>` : ''}
     `;

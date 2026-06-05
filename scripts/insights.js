@@ -100,10 +100,11 @@ const Insights = (() => {
     // Topics explored
     if (topicDist.length > 0) {
       insights.push({
-        label: 'Topics Explored',
-        value: `${topicDist.length}`,
-        sub:   'Unique subjects',
-        icon:  '🗂️',
+        label:  'Topics Explored',
+        value:  `${topicDist.length}`,
+        sub:    'Unique subjects',
+        icon:   '🗂️',
+        action: 'topics',   // makes the card clickable → opens the subjects breakdown modal
       });
     }
 
@@ -121,13 +122,18 @@ const Insights = (() => {
       return;
     }
 
-    container.innerHTML = insights.map(ins => `
-      <div class="insight-card hover-lift">
+    container.innerHTML = insights.map(ins => {
+      const clickable = ins.action
+        ? ` insight-card-clickable" role="button" tabindex="0" data-insight-action="${escapeHtml(ins.action)}`
+        : '';
+      return `
+      <div class="insight-card hover-lift${clickable}">
         <div class="insight-label">${ins.icon} ${ins.label}</div>
         <div class="insight-value">${escapeHtml(ins.value)}</div>
         ${ins.sub ? `<div class="insight-sub">${escapeHtml(ins.sub)}</div>` : ''}
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   /* ---- Learning Curve Chips ------------------------ */

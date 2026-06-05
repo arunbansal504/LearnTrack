@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=112" />
+  <link rel="stylesheet" href="styles/main.css?v=115" />
   <link rel="stylesheet" href="styles/dashboard.css?v=26" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
@@ -109,7 +109,7 @@
       </a>
       <a href="#" class="nav-item" data-page="goals">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-        <span class="nav-label">Goals</span>
+        <span class="nav-label">Academic Goals</span>
         <span class="nav-badge" id="nav-badge-goals" style="display:none"></span>
       </a>
       <a href="#" class="nav-item" data-page="deleted-goals">
@@ -1621,6 +1621,24 @@
           Restore
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOPICS EXPLORED MODAL ===== -->
+<div id="topics-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="topics-modal-title" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2 id="topics-modal-title" style="font-size:15px;font-weight:700">Topics Explored</h2>
+      <button class="modal-close" id="topics-modal-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="topics-modal-body" tabindex="-1" style="overflow-y:auto;max-height:62vh;padding:var(--s-3) 0 0;outline:none">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="topics-modal-close-btn">Close</button>
     </div>
   </div>
 </div>
