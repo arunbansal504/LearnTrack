@@ -67,7 +67,8 @@ const App = (() => {
   let _goalsSearch     = '';
   let _goalsCollapsed  = { overdue: false, open: false, completed: true, archived: true };
   let _goalsCollapsedSnapshot = null;
-  let _goalScrollTarget = null;
+  let _goalScrollTarget  = null;
+  let _logGoalContext    = null; // { id, title } — set when user navigates to log from a goal card
   let _goalsSelection    = new Set();
   let _deletedGoalsSelection = new Set();
   let _pendingHistoryMode = null; // 'all' | 'today' | 'fresh' | null
@@ -391,6 +392,7 @@ const App = (() => {
     const sort = document.getElementById('filter-sort');
     if (sort) sort.value = 'newest';
     _logPage = 1;
+    _logGoalContext = null;
     updateFilterToggleState();
   }
 
@@ -474,6 +476,9 @@ const App = (() => {
     document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
     const target = document.getElementById(`page-${page}`);
     if (target) target.classList.add('active');
+
+    // Clear goal-context breadcrumb when leaving the log page
+    if (page !== 'log') _logGoalContext = null;
 
     // Reset deleted logs state when navigating away
     if (page !== 'deleted-logs') {
@@ -994,7 +999,25 @@ const App = (() => {
 
   function renderLog() {
     populateCategorySelects();
+    _renderLogGoalBreadcrumb();
     renderEntryList();
+  }
+
+  function _renderLogGoalBreadcrumb() {
+    const el = document.getElementById('log-goal-breadcrumb');
+    if (!el) return;
+    if (!_logGoalContext) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+      <button type="button" class="log-goal-back-chip" id="log-goal-back-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to your Goal: ${escapeHtml(_logGoalContext.title)}
+      </button>`;
+    document.getElementById('log-goal-back-btn')?.addEventListener('click', () => {
+      const ctx = _logGoalContext;
+      _logGoalContext = null;
+      _goalScrollTarget = ctx.id;
+      navigateTo('goals');
+    });
   }
 
   function updateLogExpandToggle() {
@@ -1346,7 +1369,7 @@ const App = (() => {
     });
   }
 
-  function openEntryModal(id = null, prefillDate = null) {
+  function openEntryModal(id = null, prefillDate = null, prefill = null) {
     const modal   = document.getElementById('entry-modal');
     const form    = document.getElementById('entry-form');
     const title   = document.getElementById('modal-title');
@@ -1354,6 +1377,10 @@ const App = (() => {
 
     form.reset();
     clearResourceRows();
+
+    // Reset any lock left over from a previous "Log hours" open so normal adds/edits stay editable.
+    document.getElementById('entry-topic').readOnly = false;
+    document.getElementById('entry-category').disabled = false;
 
     const todayStr  = Analytics.today();
     const dateField = document.getElementById('entry-date');
@@ -1414,12 +1441,26 @@ const App = (() => {
       title.textContent = 'New Learning Entry';
       document.getElementById('entry-duration-hours').disabled = false;
       document.getElementById('entry-duration-mins').disabled  = false;
+
+      if (prefill) {
+        const topicEl = document.getElementById('entry-topic');
+        const catEl   = document.getElementById('entry-category');
+        if (prefill.topic != null)    topicEl.value = prefill.topic;
+        if (prefill.category != null) catEl.value   = prefill.category;
+        if (prefill.lock) {
+          topicEl.readOnly = true;
+          catEl.disabled   = true;
+          title.textContent = 'Log Study Hours';
+        }
+      }
     }
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
-      document.getElementById('entry-topic')?.focus();
+      // When topic/category are locked, jump straight to duration so the user can type hours.
+      const focusId = prefill?.lock ? 'entry-duration-hours' : 'entry-topic';
+      document.getElementById(focusId)?.focus();
     }, 100);
   }
 
@@ -5636,6 +5677,47 @@ const App = (() => {
     return 'active';
   }
 
+  // Open the Daily Log entry modal pre-filled and locked to this time goal, so the
+  // saved entry's topic+category match and count toward the goal's progress.
+  function logHoursForGoal(goalId) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    openEntryModal(null, null, { topic: goal.title || '', category: goal.category || '', lock: true });
+  }
+
+  // Navigate to the Daily Log filtered to the entries that count toward this goal
+  // (start date + name + category). Completed/archived goals also cap the end date
+  // at their closure date (completion time, else archive/updated time).
+  function viewGoalEntries(goalId) {
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const status = _goalStatusOf(goal);
+
+    let dateTo = '';
+    if (status === 'completed' || status === 'archived') {
+      const closureTs = goal.completedAt || goal.updatedAt;
+      if (closureTs) {
+        const d = new Date(closureTs);
+        dateTo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+
+    // Set filters before navigating; renderLog() -> populateCategorySelects() preserves
+    // the category value, then renderEntryList() applies all filters in one render.
+    setInputVal('log-search', goal.title || '');
+    setInputVal('filter-date-from', goal.startDate || '');
+    setInputVal('filter-date-to', dateTo);
+    setInputVal('filter-category', goal.category || '');
+    _logPage = 1;
+    _logGoalContext = { id: goal.id, title: goal.title || '' };
+
+    navigateTo('log');
+
+    updateFilterToggleState();
+    const panel = document.getElementById('filter-panel');
+    if (panel) panel.style.display = 'block'; // reveal so the applied filters are visible
+  }
+
   function updateGoalsSelectionBar() {
     const selBar   = document.getElementById('goals-selection-bar');
     const bulkActs = document.getElementById('goals-bulk-actions');
@@ -6001,6 +6083,16 @@ const App = (() => {
       `;
     }
 
+    let goalLinks = '';
+    if (g.type === 'time') {
+      const canLog = derivedStatus === 'active' || derivedStatus === 'overdue';
+      goalLinks = `
+        <div class="goal-card-links">
+          ${canLog ? `<button type="button" class="goal-card-link" data-action="log-hours" data-id="${g.id}">＋ Log hours</button>` : ''}
+          <button type="button" class="goal-card-link goal-card-link-muted" data-action="view-entries" data-id="${g.id}">View logged entries</button>
+        </div>`;
+    }
+
     const statusClass = derivedStatus === 'overdue' ? 'goal-card-overdue'
                       : derivedStatus === 'completed' ? 'goal-card-completed'
                       : derivedStatus === 'archived' ? 'goal-card-archived' : '';
@@ -6049,6 +6141,7 @@ const App = (() => {
         <h3 class="goal-card-title ${derivedStatus === 'completed' ? 'goal-title-done' : ''}">${escapeHtml(g.title)}</h3>
         ${g.description ? `<p class="goal-card-desc">${escapeHtml(g.description)}</p>` : ''}
         ${progressSection}
+        ${goalLinks}
         ${extraControls}
         ${milestoneRows}
         ${g.startDate ? `<div class="goal-card-dates">Started ${formatRelativeDate(g.startDate)}${g.targetDate ? ` · Due ${new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</div>` : ''}
@@ -6065,6 +6158,8 @@ const App = (() => {
       const action = btn.dataset.action;
       const id     = btn.dataset.id;
       if (action === 'edit')       openGoalModal(id);
+      if (action === 'log-hours')  logHoursForGoal(id);
+      if (action === 'view-entries') viewGoalEntries(id);
       if (action === 'complete')   await completeGoal(id);
       if (action === 'archive')    await archiveGoal(id);
       if (action === 'delete')     await deleteGoal(id);
