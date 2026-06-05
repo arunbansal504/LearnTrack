@@ -49,6 +49,15 @@ const PomodoroTimer = (() => {
   /* ---- Helpers ---- */
   const _el = id => document.getElementById(id);
 
+  /* Hide the inactive timer's tab while the other timer is running.
+     The hidden tab reappears once that timer is paused, reset, or done. */
+  function _updateTabsVisibility() {
+    const swTab   = _el('pomo-tab-sw');
+    const pomoTab = _el('pomo-tab-pomo');
+    if (swTab)   swTab.style.display   = _running   ? 'none' : '';
+    if (pomoTab) pomoTab.style.display = _swRunning ? 'none' : '';
+  }
+
   function _fmt(s) {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
@@ -133,6 +142,8 @@ const PomodoroTimer = (() => {
         ? `${_fmtSw(_swSeconds)} · LearnTrack`
         : 'LearnTrack — Your Learning Journey';
     }
+
+    _updateTabsVisibility();
   }
 
   /* ---- Pomodoro UI ---- */
@@ -233,6 +244,8 @@ const PomodoroTimer = (() => {
     document.title = _running
       ? `${timeStr} · LearnTrack`
       : 'LearnTrack — Your Learning Journey';
+
+    _updateTabsVisibility();
   }
 
   /* ---- Pomodoro timer logic ---- */
