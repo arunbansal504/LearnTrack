@@ -557,12 +557,12 @@ const Charts = (() => {
 
     let prevMonth = -1;
     weeks.forEach((w, wi) => {
-      const firstCell = w.find(c => c !== null);
-      if (firstCell) {
-        const m = new Date(firstCell.date).getMonth();
+      for (const cell of w) {
+        if (!cell) continue;
+        const m = new Date(cell.date + 'T12:00:00').getMonth();
         if (m !== prevMonth) {
           const label = document.createElement('div');
-          label.textContent = new Date(firstCell.date).toLocaleDateString('en-US', { month: 'short' });
+          label.textContent = new Date(cell.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' });
           label.style.cssText = `position:absolute;left:${wi * stride}px;font-size:10px;color:var(--text-3);white-space:nowrap;line-height:14px;`;
           monthRow.appendChild(label);
           prevMonth = m;
