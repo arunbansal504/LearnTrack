@@ -6033,11 +6033,15 @@ const App = (() => {
   async function saveEntryGoalLinks() {
     const entry = _entries.find(e => e.id === _linkGoalEntryId);
     if (!entry) { closeLinkGoalModal(); return; }
+    const prevCount = Array.isArray(entry.goalIds) ? entry.goalIds.length : 0;
     const n = _linkGoalSelection.size;
     entry.goalIds = Array.from(_linkGoalSelection);
     await Storage.saveEntry(entry);
     closeLinkGoalModal();
-    showToast(n ? `Linked to ${n} goal${n === 1 ? '' : 's'}.` : 'All goal links removed.', 'success');
+    const toast = n > 0 ? `Linked to ${n} goal${n === 1 ? '' : 's'}.`
+                : prevCount > 0 ? 'All goal links removed.'
+                : null;
+    if (toast) showToast(toast, 'success');
     await checkAchievements();
     renderPage(_currentPage);
     updateSidebarUser();
