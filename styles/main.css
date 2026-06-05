@@ -4907,6 +4907,9 @@ input:disabled {
 .pomo-panel.fullscreen #pomo-idle-controls,
 .pomo-panel.fullscreen #pomo-break-idle-controls,
 .pomo-panel.fullscreen #pomo-duration-row { display: none !important; }
+.pomo-panel.fullscreen #pomo-log-btn,
+.pomo-panel.fullscreen #pomo-discard-btn,
+.pomo-panel.fullscreen #sw-log-btn        { display: none !important; }
 
 /* Timer section */
 .pomo-panel.fullscreen .timer-section { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; }
