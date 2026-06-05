@@ -5466,7 +5466,7 @@ const App = (() => {
     document.getElementById('new-goal-btn')?.addEventListener('click', () => openGoalModal());
     document.getElementById('goal-modal-close')?.addEventListener('click', closeGoalModal);
     document.getElementById('goal-modal-cancel')?.addEventListener('click', closeGoalModal);
-    document.getElementById('goal-modal-save')?.addEventListener('click', saveGoalFromModal);
+    document.getElementById('goal-modal-save')?.addEventListener('click', () => saveGoalFromModal());
 
     // Custom spinner buttons for goal number inputs
     ['goal-target-hours', 'goal-target-count'].forEach(fieldId => {
@@ -5568,6 +5568,19 @@ const App = (() => {
     if (modal) modal.style.display = 'none';
   }
 
+  function duplicateGoal(goalId) {
+    const orig = _goals.find(g => g.id === goalId);
+    if (!orig) return;
+    // Pre-populate modal with the original goal's data, then patch the duplicate-specific fields
+    openGoalModal(goalId);
+    document.getElementById('goal-id').value             = '';
+    document.getElementById('goal-modal-title').textContent = 'New Goal';
+    document.getElementById('goal-title').value          = orig.title + ' (copy)';
+    document.getElementById('goal-start-date').value     = Analytics.today();
+    document.getElementById('goal-target-date').value    = '';
+    document.querySelectorAll('#goal-milestones-list .ms-done').forEach(cb => { cb.checked = false; });
+  }
+
   function _addMilestoneRow(label = '', id = null, done = false) {
     const list = document.getElementById('goal-milestones-list');
     if (!list) return;
@@ -5616,8 +5629,7 @@ const App = (() => {
       // 1. Check active goals first
       const activeDup = _goals.find(g =>
         g.title.toLowerCase() === titleLower &&
-        g.category === category &&
-        g.type === type
+        g.category === category
       );
       if (activeDup) {
         const suggested = _nextGoalTitle(title);
@@ -5641,8 +5653,7 @@ const App = (() => {
       const allDeleted = await Storage.getDeletedGoals();
       const deletedDup = allDeleted.find(g =>
         g.title.toLowerCase() === titleLower &&
-        g.category === category &&
-        g.type === type
+        g.category === category
       );
       if (deletedDup) {
         showDeletedDupWarning(
@@ -6489,6 +6500,9 @@ const App = (() => {
             <button class="btn btn-ghost btn-icon" data-action="edit" data-id="${g.id}" title="Edit">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
+            <button class="btn btn-ghost btn-icon" data-action="duplicate" data-id="${g.id}" title="Duplicate">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
             <button class="btn btn-ghost btn-icon${isReopenable ? ' goal-btn-active-complete' : ''}" data-action="complete" data-id="${g.id}" title="${isReopenable ? 'Re-open' : 'Mark complete'}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
@@ -6528,6 +6542,7 @@ const App = (() => {
       const action = btn.dataset.action;
       const id     = btn.dataset.id;
       if (action === 'edit')       openGoalModal(id);
+      if (action === 'duplicate')  duplicateGoal(id);
       if (action === 'log-entry')  logEntryForGoal(id);
       if (action === 'view-entries') viewGoalEntries(id);
       if (action === 'complete')   await completeGoal(id);
