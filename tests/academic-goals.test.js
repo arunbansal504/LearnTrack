@@ -55,8 +55,8 @@ function daysUntil(dateStr) {
  * @param {Array}  entries
  * @returns {{ pct: number, label: string, current: number, target: number }}
  *
- * IMPORTANT — time goals: the real app only filters by startDate (lower bound).
- * There is NO upper-bound filter on targetDate for time goals.
+ * IMPORTANT — time goals: progress is link-based. An entry counts only if its
+ * goalIds array explicitly includes the goal's id (topic/category/date are irrelevant).
  *
  * IMPORTANT — count goals: the real app uses `|| 0` (not `?? 0`), but the
  * observable difference only matters for `false`/`null`/`''` which never
@@ -73,15 +73,9 @@ function daysUntil(dateStr) {
  * 'Deadline passed'. The singular/plural rule is: `day${days===1?'':'s'}`.
  */
 function goalProgress(goal, entries) {
-  const startDate = goal.startDate || '0000-01-01';
-
   if (goal.type === 'time') {
-    // Real app only applies a lower-bound on startDate; no upper-bound on targetDate.
-    const relevant = entries.filter(e => {
-      if (e.date < startDate) return false;
-      if (goal.category && goal.category !== '' && e.category !== goal.category) return false;
-      return true;
-    });
+    // Link-based: only entries explicitly linked via goalIds count toward a time goal.
+    const relevant = entries.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(goal.id));
     const currentMins = relevant.reduce((s, e) => s + e.durationMinutes, 0);
     const target = goal.targetMinutes || 1;
     const pct = Math.min(100, Math.round((currentMins / target) * 100));
@@ -260,13 +254,13 @@ describe('A. Analytics.goalProgress()', () => {
 
   // ── A1 Time Goals ──────────────────────────────────────────────────────
 
-  describe('A1 – Time Goals', () => {
+  describe('A1 – Time Goals (link-based)', () => {
 
-    test('[POS] counts minutes from entries matching category and date range', () => {
-      const goal = makeGoal({ targetMinutes: 120, category: 'Math', startDate: '2026-05-01', targetDate: '2026-05-31' });
+    test('[POS] sums minutes from entries explicitly linked to the goal', () => {
+      const goal = makeGoal({ id: 'g1', targetMinutes: 120 });
       const entries = [
-        makeEntry({ date: '2026-05-10', category: 'Math', durationMinutes: 60 }),
-        makeEntry({ date: '2026-05-20', category: 'Math', durationMinutes: 60 }),
+        makeEntry({ date: '2026-05-10', goalIds: ['g1'], durationMinutes: 60 }),
+        makeEntry({ date: '2026-05-20', goalIds: ['g1'], durationMinutes: 60 }),
       ];
       const result = goalProgress(goal, entries);
       expect(result.pct).toBe(100);
@@ -274,76 +268,67 @@ describe('A. Analytics.goalProgress()', () => {
       expect(result.label).toBe('2h / 2h');
     });
 
-    test('[POS] time goal with no category matches all categories', () => {
-      const goal = makeGoal({ targetMinutes: 60, category: '', startDate: '2026-01-01', targetDate: null });
+    test('[POS] links count regardless of entry category or topic', () => {
+      const goal = makeGoal({ id: 'g1', targetMinutes: 60, category: 'Math' });
       const entries = [
-        makeEntry({ date: '2026-05-10', category: 'Math',    durationMinutes: 30 }),
-        makeEntry({ date: '2026-05-11', category: 'Science', durationMinutes: 30 }),
+        makeEntry({ topic: 'Anything', category: 'Science', goalIds: ['g1'], durationMinutes: 30 }),
+        makeEntry({ topic: 'Other',    category: 'History', goalIds: ['g1'], durationMinutes: 30 }),
       ];
-      const { pct } = goalProgress(goal, entries);
-      expect(pct).toBe(100);
+      expect(goalProgress(goal, entries).pct).toBe(100);
+    });
+
+    test('[POS] an entry linked to multiple goals counts toward each', () => {
+      const goalA = makeGoal({ id: 'gA', targetMinutes: 60 });
+      const goalB = makeGoal({ id: 'gB', targetMinutes: 120 });
+      const entries = [makeEntry({ goalIds: ['gA', 'gB'], durationMinutes: 60 })];
+      expect(goalProgress(goalA, entries).pct).toBe(100);
+      expect(goalProgress(goalB, entries).pct).toBe(50);
     });
 
     test('[POS] partial progress returns correct percentage', () => {
-      const goal = makeGoal({ targetMinutes: 120, startDate: '2026-01-01' });
-      const entries = [makeEntry({ category: 'Math', durationMinutes: 60 })];
+      const goal = makeGoal({ id: 'g1', targetMinutes: 120 });
+      const entries = [makeEntry({ goalIds: ['g1'], durationMinutes: 60 })];
       expect(goalProgress(goal, entries).pct).toBe(50);
     });
 
     test('[POS] pct is capped at 100 when current exceeds target', () => {
-      const goal = makeGoal({ targetMinutes: 30 });
-      const entries = [makeEntry({ category: 'Math', durationMinutes: 200 })];
+      const goal = makeGoal({ id: 'g1', targetMinutes: 30 });
+      const entries = [makeEntry({ goalIds: ['g1'], durationMinutes: 200 })];
       expect(goalProgress(goal, entries).pct).toBe(100);
     });
 
-    test('[POS] entry on startDate is included', () => {
-      const goal = makeGoal({ targetMinutes: 60, startDate: '2026-05-15' });
-      const entries = [makeEntry({ date: '2026-05-15', category: 'Math', durationMinutes: 60 })];
-      expect(goalProgress(goal, entries).pct).toBe(100);
-    });
-
-    test('[POS] entry on targetDate is included (no upper-bound filter in real app)', () => {
-      // Real app has no upper-bound date filter; entries on/after targetDate are counted.
-      const goal = makeGoal({ targetMinutes: 60, targetDate: '2026-05-15' });
-      const entries = [makeEntry({ date: '2026-05-15', category: 'Math', durationMinutes: 60 })];
-      expect(goalProgress(goal, entries).pct).toBe(100);
-    });
-
-    test('[NEG] entries before startDate are excluded', () => {
-      const goal = makeGoal({ targetMinutes: 60, startDate: '2026-05-10' });
-      const entries = [makeEntry({ date: '2026-05-09', category: 'Math', durationMinutes: 60 })];
+    test('[NEG] unlinked entries are excluded even if topic/category match', () => {
+      const goal = makeGoal({ id: 'g1', title: 'Finish Calculus', category: 'Math', targetMinutes: 60 });
+      const entries = [makeEntry({ topic: 'Finish Calculus', category: 'Math', durationMinutes: 60 })]; // no goalIds
       expect(goalProgress(goal, entries).pct).toBe(0);
     });
 
-    test('[NEG] entries after targetDate are NOT excluded (real app has no upper-bound filter)', () => {
-      // FIX: The real app's goalProgress() for time goals only applies a lower-bound
-      // filter on startDate. It does NOT exclude entries that fall after targetDate.
-      // Entries after the targetDate are still counted toward the goal's progress.
-      const goal = makeGoal({ targetMinutes: 60, startDate: '2026-01-01', targetDate: '2026-04-30' });
-      const entries = [makeEntry({ date: '2026-05-01', category: 'Math', durationMinutes: 60 })];
-      expect(goalProgress(goal, entries).pct).toBe(100); // entry IS counted
-    });
-
-    test('[NEG] entries in wrong category are excluded', () => {
-      const goal = makeGoal({ targetMinutes: 60, category: 'Math' });
-      const entries = [makeEntry({ category: 'Science', durationMinutes: 60 })];
+    test('[NEG] entries linked to a different goal are excluded', () => {
+      const goal = makeGoal({ id: 'g1', targetMinutes: 60 });
+      const entries = [makeEntry({ goalIds: ['other-goal'], durationMinutes: 60 })];
       expect(goalProgress(goal, entries).pct).toBe(0);
     });
 
     test('[EDGE] zero entries gives 0% progress', () => {
-      const goal = makeGoal({ targetMinutes: 60 });
+      const goal = makeGoal({ id: 'g1', targetMinutes: 60 });
       expect(goalProgress(goal, []).pct).toBe(0);
     });
 
+    test('[EDGE] entry with empty goalIds array is excluded', () => {
+      const goal = makeGoal({ id: 'g1', targetMinutes: 60 });
+      const entries = [makeEntry({ goalIds: [], durationMinutes: 60 })];
+      expect(goalProgress(goal, entries).pct).toBe(0);
+    });
+
     test('[BVA] single minute entry against 1-minute target → 100%', () => {
-      const goal = makeGoal({ targetMinutes: 1, category: '' });
-      const entries = [makeEntry({ category: 'Any', durationMinutes: 1 })];
+      const goal = makeGoal({ id: 'g1', targetMinutes: 1 });
+      const entries = [makeEntry({ goalIds: ['g1'], durationMinutes: 1 })];
       expect(goalProgress(goal, entries).pct).toBe(100);
     });
 
-    test('[BVA] 29 min logged against 30 min target → 97% (rounds down)', () => {
-      const goal = makeGoal({ targetMinutes: 30, category: '' });
-      const entries = [makeEntry({ category: 'Any', durationMinutes: 29 })];
+    test('[BVA] 29 min logged against 30 min target → 97% (mirror rounds)', () => {
+      const goal = makeGoal({ id: 'g1', targetMinutes: 30 });
+      const entries = [makeEntry({ goalIds: ['g1'], durationMinutes: 29 })];
       expect(goalProgress(goal, entries).pct).toBe(97);
     });
   });

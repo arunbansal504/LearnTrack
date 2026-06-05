@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=99" />
+  <link rel="stylesheet" href="styles/main.css?v=106" />
   <link rel="stylesheet" href="styles/dashboard.css?v=26" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
@@ -1505,6 +1505,25 @@
   </div>
 </div>
 
+<!-- ===== MODAL: LOG BEFORE COMPLETE PROMPT ===== -->
+<div id="log-prompt-modal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>🎉 Goal Complete!</h2>
+      <button class="modal-close" id="log-prompt-close" aria-label="Close modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p id="log-prompt-message"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="log-prompt-skip">Already Logged</button>
+      <button class="btn btn-primary" id="log-prompt-log">＋ Log Entry</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: CONFIRM ===== -->
 <div id="confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" style="display:none">
   <div class="modal modal-sm">
@@ -1517,6 +1536,46 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
       <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: LINK ENTRY TO GOALS ===== -->
+<div id="link-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="link-goal-title" style="display:none;z-index:1050">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="link-goal-title">Link to Goals</h2>
+      <button class="modal-close" id="link-goal-close" aria-label="Close modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lg-entry-id" />
+      <p class="link-goal-hint">Choose the open goals this entry contributes to. An entry can be linked to multiple goals.</p>
+      <div class="link-goal-filters">
+        <input type="text" id="lg-search" placeholder="Search goals…" aria-label="Search goals" />
+        <select id="lg-filter-type" aria-label="Filter by goal type">
+          <option value="">All types</option>
+          <option value="time">⏳ Study Hours</option>
+          <option value="count">🏆 Problem Count</option>
+          <option value="checklist">📋 Task List</option>
+          <option value="exam">🎓 Exam Prep</option>
+        </select>
+        <select id="lg-filter-category" aria-label="Filter by category">
+          <option value="">All categories</option>
+        </select>
+        <select id="lg-filter-priority" aria-label="Filter by priority">
+          <option value="">All priorities</option>
+          <option value="high">High priority</option>
+          <option value="medium">Medium priority</option>
+          <option value="low">Low priority</option>
+        </select>
+      </div>
+      <div id="lg-goal-list" class="link-goal-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="link-goal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="link-goal-save">Save links</button>
     </div>
   </div>
 </div>
@@ -1534,24 +1593,6 @@
       <button class="btn btn-ghost" id="dup-goal-cancel">Cancel</button>
       <button class="btn btn-secondary" id="dup-goal-view">View Existing Goal</button>
       <button class="btn btn-primary" id="dup-goal-create"></button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== MODAL: HISTORY-BASED GOAL START ===== -->
-<div id="history-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;z-index:1050">
-  <div class="modal modal-sm">
-    <div class="modal-header">
-      <h2>Previous Study History Found</h2>
-    </div>
-    <div class="modal-body">
-      <p id="history-goal-message" style="line-height:1.6"></p>
-    </div>
-    <div class="modal-footer" style="flex-wrap:wrap;gap:0.5rem">
-      <button class="btn btn-ghost" id="history-goal-cancel">Cancel</button>
-      <button class="btn btn-secondary" id="history-goal-today" style="display:none"></button>
-      <button class="btn btn-secondary" id="history-goal-fresh">Start from 0</button>
-      <button class="btn btn-primary" id="history-goal-all"></button>
     </div>
   </div>
 </div>
