@@ -168,6 +168,7 @@ const App = (() => {
       // deleted-entries store can't grow without bound. Failures here are
       // non-fatal — never block startup on housekeeping.
       Storage.purgeOldDeletedEntries(DELETED_RETENTION_DAYS).catch(() => {});
+      Storage.purgeOldDeletedGoals(DELETED_RETENTION_DAYS).catch(() => {});
       _entries   = await Storage.getAllEntries();
       _prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
       _earnedAch = await Storage.getAllAchievements();

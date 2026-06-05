@@ -729,6 +729,24 @@ img, svg { max-width: 100%; }
   margin-top: var(--s-1);
 }
 
+.retention-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  white-space: nowrap;
+}
+[data-theme="dark"] .retention-notice {
+  color: var(--warning);
+}
+
 .page-actions {
   display: flex;
   align-items: center;

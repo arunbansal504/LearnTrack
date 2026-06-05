@@ -375,6 +375,22 @@ const Storage = (() => {
     return remove(STORES.deletedGoals, id);
   }
 
+  // Mirror purgeOldDeletedEntries for the goals recycle bin: permanently drop
+  // any soft-deleted goal deleted more than maxAgeDays ago. Returns the count.
+  async function purgeOldDeletedGoals(maxAgeDays = 90) {
+    const cutoff = Date.now() - maxAgeDays * 86400000;
+    const goals = await getAll(STORES.deletedGoals);
+    let purged = 0;
+    for (const g of goals) {
+      // Skip rows missing deletedAt — never purge something we can't age.
+      if (typeof g.deletedAt === 'number' && g.deletedAt < cutoff) {
+        await remove(STORES.deletedGoals, g.id);
+        purged++;
+      }
+    }
+    return purged;
+  }
+
   /* ---- Backup Log ------------------------------------ */
 
   async function addBackupLog(entry) {
@@ -606,6 +622,7 @@ const Storage = (() => {
     getDeletedGoals,
     restoreGoal,
     permanentlyDeleteGoal,
+    purgeOldDeletedGoals,
     // Preferences
     getPref,
     setPref,
