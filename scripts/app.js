@@ -68,10 +68,13 @@ const App = (() => {
   let _goalsCollapsed  = { overdue: false, open: false, completed: true, archived: true };
   let _goalsCollapsedSnapshot = null;
   let _goalScrollTarget  = null;
+  let _goalsRenderOrder  = null; // null = re-sort on next render; array of IDs = stable order for in-place updates
   let _logGoalContext    = null; // { id, title } — set when user navigates to log from a goal card
+  let _logLinkedGoalFilter = null; // goalId — when set, the Daily Log shows only entries linked to this goal
+  let _pendingEntryGoalId   = null; // goalId — auto-link a brand-new entry to this goal on save ("Log Entry" from a goal card)
+  let _pendingCompleteGoalId = null; // goalId — complete this goal after the prompted log entry is saved
   let _goalsSelection    = new Set();
   let _deletedGoalsSelection = new Set();
-  let _pendingHistoryMode = null; // 'all' | 'today' | 'fresh' | null
   let _dashGoalsCollapsed = false; // dashboard open-goals list, default expanded
   let _autoBackupTimer      = null;
   let _lastAutoBackup       = 0;
@@ -124,6 +127,8 @@ const App = (() => {
     setupMobileNav();
     setupEntryModal();
     setupGoalModal();
+    setupLinkGoalModal();
+    _setupLogPromptModal();
     setupFilterPanel();
     setupDeletedLogsPage();
     setupSettings();
@@ -177,6 +182,10 @@ const App = (() => {
         _prefs.monthlyGoalHistory = [{ from: '0000-01', goalHr: DEFAULT_PREFS.monthlyGoalHr }, ..._prefs.monthlyGoalHistory];
         await Storage.setPref('monthlyGoalHistory', _prefs.monthlyGoalHistory);
       }
+      // Migration: time-goal progress moved from name+category matching to explicit
+      // entry↔goal links. Auto-link the entries that previously matched so existing
+      // progress is preserved. Runs once per profile.
+      await migrateGoalLinks(userId);
     } catch (err) {
       console.error('[App] Load error:', err);
       showFatalLoadError(err);
@@ -214,6 +223,46 @@ const App = (() => {
         document.getElementById('app').style.display = 'block';
       }, 400);
     }, 600);
+  }
+
+  // One-time backfill: link existing entries to time goals using the legacy
+  // name+category matching rule, so progress carries over to the link-based model.
+  async function migrateGoalLinks(userId) {
+    const flagKey = `lt_goal_link_migrated_${userId || 'default'}`;
+    if (localStorage.getItem(flagKey) === 'true') return;
+
+    const timeGoals = _goals.filter(g => g.type === 'time');
+    if (timeGoals.length) {
+      const changed = new Set();
+      timeGoals.forEach(goal => {
+        const start      = goal.startDate || '0000-01-01';
+        const titleLower = (goal.title || '').toLowerCase().trim();
+        // Completed/archived goals previously capped their counted entries at the closure date.
+        let dateTo = null;
+        if (goal.status === 'completed' || goal.status === 'archived') {
+          const closureTs = goal.completedAt || goal.updatedAt;
+          if (closureTs) {
+            const d = new Date(closureTs);
+            dateTo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+        }
+        _entries.forEach(e => {
+          const matches =
+            e.date >= start &&
+            (!dateTo || e.date <= dateTo) &&
+            (!goal.category || goal.category === '' || e.category === goal.category) &&
+            (!titleLower || (e.topic || '').toLowerCase().trim() === titleLower);
+          if (!matches) return;
+          if (!Array.isArray(e.goalIds)) e.goalIds = [];
+          if (!e.goalIds.includes(goal.id)) { e.goalIds.push(goal.id); changed.add(e); }
+        });
+      });
+      for (const e of changed) {
+        try { await Storage.saveEntry(e); } catch (err) { console.error('[App] goal-link migration save failed:', err); }
+      }
+    }
+
+    localStorage.setItem(flagKey, 'true');
   }
 
   // Storage.init rejects when IndexedDB is unavailable (private-mode, blocked by another
@@ -394,6 +443,7 @@ const App = (() => {
     if (sort) sort.value = 'newest';
     _logPage = 1;
     _logGoalContext = null;
+    _logLinkedGoalFilter = null;
     updateFilterToggleState();
   }
 
@@ -478,8 +528,10 @@ const App = (() => {
     const target = document.getElementById(`page-${page}`);
     if (target) target.classList.add('active');
 
-    // Clear goal-context breadcrumb when leaving the log page
-    if (page !== 'log') _logGoalContext = null;
+    // Clear goal-context breadcrumb and link filter when leaving the log page
+    if (page !== 'log') { _logGoalContext = null; _logLinkedGoalFilter = null; }
+    // Clear the "back to link modal" chip when leaving the goals page
+    if (page !== 'goals') { _linkModalReturnEntryId = null; _linkModalReturnGoalId = null; }
 
     // Reset deleted logs state when navigating away
     if (page !== 'deleted-logs') {
@@ -639,7 +691,7 @@ const App = (() => {
       case 'deleted-logs':   renderDeletedLogs();    break;
       case 'reports':        renderReports();        break;
       case 'calendar':       renderCalendar();       break;
-      case 'goals':          renderGoals();          break;
+      case 'goals':          _goalsRenderOrder = null; renderGoals(); break;
       case 'deleted-goals':  setupDeletedGoalsPage(); renderDeletedGoals(); break;
       case 'achievements':   renderAchievements();   break;
       case 'profiles':       renderProfiles();       break;
@@ -1008,17 +1060,26 @@ const App = (() => {
     const el = document.getElementById('log-goal-breadcrumb');
     if (!el) return;
     if (!_logGoalContext) { el.innerHTML = ''; return; }
+    const linkedHeader = _logLinkedGoalFilter
+      ? `<div class="log-goal-linked-header">
+           <svg class="log-goal-linked-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+           <span>Entries Logged To Achieve Goal: <button type="button" class="log-goal-title-link" id="log-goal-title-btn">${escapeHtml(_logGoalContext.title)}</button></span>
+         </div>`
+      : '';
     el.innerHTML = `
       <button type="button" class="log-goal-back-chip" id="log-goal-back-btn">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Back to your Goal: ${escapeHtml(_logGoalContext.title)}
-      </button>`;
-    document.getElementById('log-goal-back-btn')?.addEventListener('click', () => {
+      </button>
+      ${linkedHeader}`;
+    const goToGoal = () => {
       const ctx = _logGoalContext;
       _logGoalContext = null;
       _goalScrollTarget = ctx.id;
       navigateTo('goals');
-    });
+    };
+    document.getElementById('log-goal-back-btn')?.addEventListener('click', goToGoal);
+    document.getElementById('log-goal-title-btn')?.addEventListener('click', goToGoal);
   }
 
   function updateLogExpandToggle() {
@@ -1144,6 +1205,7 @@ const App = (() => {
   }
 
   function createEntryCard(entry) {
+    const linkCount = Array.isArray(entry.goalIds) ? entry.goalIds.length : 0;
     const mood = ['','😞','😐','🙂','😊','🚀'][entry.moodScore || 3];
     const diffColors = { easy:'success', medium:'warning', hard:'danger' };
     const dc = diffColors[entry.difficulty] || 'text-2';
@@ -1201,6 +1263,10 @@ const App = (() => {
           <span class="entry-duration-badge">${Analytics.formatDuration(entry.durationMinutes || 0)}</span>
           <span class="entry-mood-display">${mood}</span>
           <div class="entry-icon-actions">
+            <button class="entry-link-icon-btn${linkCount ? ' has-links' : ''}" data-action="link-goal" aria-label="Link to goals" title="${linkCount ? `Linked to ${linkCount} goal${linkCount === 1 ? '' : 's'}` : 'Link to a goal'}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              ${linkCount ? `<span class="entry-link-count">${linkCount}</span>` : ''}
+            </button>
             <button class="entry-edit-icon-btn" data-action="edit" aria-label="Edit entry" title="Edit">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
@@ -1218,6 +1284,11 @@ const App = (() => {
 
   function applyFilters(entries, filter = {}) {
     let list = [...entries];
+
+    // "View logged entries" from a goal: restrict to entries explicitly linked to it.
+    if (_logLinkedGoalFilter) {
+      list = list.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(_logLinkedGoalFilter));
+    }
 
     const search   = (document.getElementById('log-search')?.value || '').toLowerCase().trim();
     const dateFrom = document.getElementById('filter-date-from')?.value;
@@ -1265,6 +1336,10 @@ const App = (() => {
       });
       const sort = document.getElementById('filter-sort');
       if (sort) sort.value = 'newest';
+      // Also drop the "linked to goal" view so the user sees all entries again.
+      _logLinkedGoalFilter = null;
+      _logGoalContext = null;
+      _renderLogGoalBreadcrumb();
       updateFilterToggleState();
       renderEntryList();
     });
@@ -1298,6 +1373,7 @@ const App = (() => {
     if (action === 'edit')      openEntryModal(id);
     if (action === 'duplicate') duplicateEntry(id);
     if (action === 'delete')    confirmDeleteEntry(id);
+    if (action === 'link-goal') openLinkGoalModal(id);
   }
 
   /* ---- Entry Modal --------------------------------- */
@@ -1370,6 +1446,13 @@ const App = (() => {
         if (dlDetail && dlDetail.style.display !== 'none') closeDeletedEntryDetail();
         const dgDetail = document.getElementById('dg-detail-modal');
         if (dgDetail && dgDetail.style.display !== 'none') closeDeletedGoalDetail();
+        // Esc on the Daily Log while a goal breadcrumb is shown → back to Goals (same as the back chip)
+        if (_currentPage === 'log' && _logGoalContext) {
+          const ctx = _logGoalContext;
+          _logGoalContext = null;
+          _goalScrollTarget = ctx.id;
+          navigateTo('goals');
+        }
       }
     });
   }
@@ -1457,6 +1540,10 @@ const App = (() => {
           catEl.disabled   = true;
           title.textContent = 'Log Study Hours';
         }
+        // "Log Entry" from a goal card: blank, fully-editable form auto-linked to the goal on save.
+        if (prefill.goalForTitle) {
+          title.textContent = `Log Entry For Goal: ${prefill.goalForTitle}`;
+        }
       }
     }
 
@@ -1471,10 +1558,18 @@ const App = (() => {
 
   function closeEntryModal() {
     document.getElementById('entry-modal').style.display = 'none';
-    document.body.style.overflow = '';
+    // Drop any pending goal auto-link so a later normal "Add entry" isn't silently linked.
+    _pendingEntryGoalId = null;
     // Drop any pending timer reset so cancelling never wipes the timer; the save
     // path captures it before calling this, so a real save still resets the timer.
     _pendingTimerReset = null;
+    // If the entry modal was opened from the "log before complete" prompt and the user
+    // cancelled (save clears _pendingCompleteGoalId before calling here), re-show the prompt.
+    if (_pendingCompleteGoalId) {
+      document.getElementById('log-prompt-modal').style.display = 'flex';
+    } else {
+      document.body.style.overflow = '';
+    }
   }
 
   /* ---- Floating Notes Panel ------------------------ */
@@ -1603,6 +1698,9 @@ const App = (() => {
       tags,
       moodScore:       mood,
       ...(existing?.createdAt ? { createdAt: existing.createdAt } : {}),
+      // Preserve existing goal links on edit; auto-link a new entry created from a goal card.
+      ...(existing?.goalIds ? { goalIds: existing.goalIds }
+         : _pendingEntryGoalId ? { goalIds: [_pendingEntryGoalId] } : {}),
     };
 
     const saved = await Storage.saveEntry(entry);
@@ -1615,10 +1713,27 @@ const App = (() => {
       if (idx >= 0) _entries[idx] = saved;
     }
 
+    // If this entry was saved as part of the "log before complete" prompt, complete the goal now.
+    const completeGoalId = isNew ? _pendingCompleteGoalId : null;
+    _pendingCompleteGoalId = null;
+
     const doTimerReset = _pendingTimerReset;
     closeEntryModal();
     showToast(isNew ? 'Entry saved!' : 'Entry updated!', 'success');
     if (doTimerReset) doTimerReset();
+
+    if (completeGoalId) {
+      const goal = _goals.find(g => g.id === completeGoalId);
+      if (goal && goal.status === 'active') {
+        const prog = Analytics.goalProgress(goal, _entries);
+        goal.status = 'completed';
+        goal.completedAt = Date.now();
+        goal.progressSnapshot = prog;
+        await _persistGoalAndRefresh(goal);
+        showToast('🎉 Goal completed!', 'success');
+        await checkAchievements();
+      }
+    }
 
     // Show XP float only for new entries (edits adjust existing XP, not a new gain)
     if (isNew) {
@@ -5117,33 +5232,6 @@ const App = (() => {
     document.getElementById('dup-goal-modal').style.display = 'none';
   }
 
-  function showHistoryGoalPrompt(title, totalMinutes, todayMinutes, onAll, onToday, onFresh) {
-    const totalH = (totalMinutes / 60).toFixed(1);
-    const todayH = (todayMinutes / 60).toFixed(1);
-    document.getElementById('history-goal-message').innerHTML =
-      `You've already logged <strong>${totalH}h</strong> for <strong>"${escapeHtml(title)}"</strong>.<br><br>` +
-      `Do you want to count these hours as completed progress in this goal?`;
-
-    const allBtn   = document.getElementById('history-goal-all');
-    const todayBtn = document.getElementById('history-goal-today');
-    allBtn.textContent   = `Include All (${totalH}h)`;
-    todayBtn.textContent = `Today Only (${todayH}h)`;
-    todayBtn.style.display = todayMinutes > 0 ? '' : 'none';
-
-    allBtn.onclick   = () => { closeHistoryGoalModal(); onAll(); };
-    todayBtn.onclick = () => { closeHistoryGoalModal(); onToday(); };
-    document.getElementById('history-goal-fresh').onclick  = () => { closeHistoryGoalModal(); onFresh(); };
-    document.getElementById('history-goal-cancel').onclick = closeHistoryGoalModal;
-    document.getElementById('history-goal-modal').onclick  = e => { if (e.target.id === 'history-goal-modal') closeHistoryGoalModal(); };
-
-    document.getElementById('history-goal-modal').style.display = 'flex';
-    setTimeout(() => allBtn.focus(), 0);
-  }
-
-  function closeHistoryGoalModal() {
-    document.getElementById('history-goal-modal').style.display = 'none';
-  }
-
   /* ---- Toast Notifications ------------------------- */
 
   function showToast(message, type = 'info', duration = 3500) {
@@ -5304,7 +5392,6 @@ const App = (() => {
       if (!modal || modal.style.display === 'none') return;
       // Don't handle keys when a child modal is open on top
       if (document.getElementById('dup-goal-modal')?.style.display === 'flex') return;
-      if (document.getElementById('history-goal-modal')?.style.display === 'flex') return;
       if (e.key === 'Escape') { e.preventDefault(); closeGoalModal(); }
       if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('ms-label')) {
         e.preventDefault();
@@ -5408,7 +5495,7 @@ const App = (() => {
     if (!label) setTimeout(() => labelInput.focus(), 0);
   }
 
-  async function saveGoalFromModal(skipDupCheck = false, skipHistoryCheck = false) {
+  async function saveGoalFromModal(skipDupCheck = false) {
     const id       = document.getElementById('goal-id').value;
     const title    = document.getElementById('goal-title').value.trim();
     const type     = document.getElementById('goal-type').value;
@@ -5500,52 +5587,12 @@ const App = (() => {
     };
 
     // Type-specific fields
-    let _newGoalAlreadyAchieved = false;
     if (type === 'time') {
       const hrs = parseFloat(document.getElementById('goal-target-hours').value);
       if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); return; }
       goal.targetMinutes = Math.round(hrs * 60);
-      if (!id) {
-        const todayStr   = Analytics.today();
-        const titleLower = (goal.title || '').toLowerCase().trim();
-        const allMatching = _entries.filter(e =>
-          (!goal.category || goal.category === '' || e.category === goal.category) &&
-          (!titleLower || (e.topic || '').toLowerCase().trim() === titleLower)
-        );
-        const totalMinutes = allMatching.reduce((s, e) => s + (e.durationMinutes || 0), 0);
-        const todayMinutes = allMatching.filter(e => e.date === todayStr)
-                                        .reduce((s, e) => s + (e.durationMinutes || 0), 0);
-
-        if (totalMinutes > 0 && !skipHistoryCheck) {
-          showHistoryGoalPrompt(
-            goal.title, totalMinutes, todayMinutes,
-            () => { _pendingHistoryMode = 'all';   saveGoalFromModal(skipDupCheck, true); },
-            () => { _pendingHistoryMode = 'today'; saveGoalFromModal(skipDupCheck, true); },
-            () => { _pendingHistoryMode = 'fresh'; saveGoalFromModal(skipDupCheck, true); }
-          );
-          return;
-        }
-
-        const mode = _pendingHistoryMode;
-        _pendingHistoryMode = null;
-
-        if (mode === 'all') {
-          goal.startDate       = allMatching.reduce((min, e) => e.date < min ? e.date : min, allMatching[0]?.date || Analytics.today());
-          goal.minutesBaseline = 0;
-        } else if (mode === 'today') {
-          goal.startDate       = todayStr;
-          goal.minutesBaseline = 0;
-        } else if (mode === 'fresh') {
-          goal.startDate       = todayStr;
-          goal.minutesBaseline = todayMinutes;
-        } else {
-          // No matching history — start clean from the chosen start date
-          goal.minutesBaseline = 0;
-        }
-
-        const initProg = Analytics.goalProgress(goal, _entries);
-        if (initProg.pct >= 100) _newGoalAlreadyAchieved = true;
-      }
+      // Progress is link-based: a new time goal starts at 0 and the user links
+      // entries to it afterward (via the 🔗 icon on the Daily Log or "Log entry").
     } else if (type === 'count') {
       const cnt = parseInt(document.getElementById('goal-target-count').value, 10);
       if (!cnt || cnt <= 0) { showToast('Please enter a target count.', 'warning'); return; }
@@ -5565,13 +5612,10 @@ const App = (() => {
     const saved = await Storage.saveGoal(goal);
     const idx = _goals.findIndex(g => g.id === saved.id);
     if (idx >= 0) _goals[idx] = saved;
-    else _goals.unshift(saved);
+    else { _goals.unshift(saved); _goalsRenderOrder = null; } // new goal — re-sort so it lands in position
 
     closeGoalModal();
     showToast(id ? 'Goal updated!' : 'Goal created!', 'success');
-    if (_newGoalAlreadyAchieved) {
-      setTimeout(() => showToast("🎉 You've already hit this target with today's logged entries! Goal moved to Completed.", 'success', 6000), 500);
-    }
     await checkAchievements();
     updateSidebarUser();
     if (_currentPage === 'goals') renderGoals();
@@ -5583,6 +5627,7 @@ const App = (() => {
     showConfirm('Delete this goal?', 'It will move to Deleted Goals where you can restore it.', async () => {
       await Storage.softDeleteGoal(goalId);
       _goals = _goals.filter(g => g.id !== goalId);
+      _goalsRenderOrder = null;
       showToast('Goal moved to Deleted Goals.', 'info');
       await checkAchievements();
       if (_currentPage === 'goals') renderGoals();
@@ -5621,16 +5666,61 @@ const App = (() => {
     const prog = Analytics.goalProgress(goal, _entries);
     const done = prog.current >= prog.target;
     if (goal.status === 'active' && done) {
-      goal.status = 'completed';
-      goal.completedAt = goal.completedAt || Date.now();
-      goal.progressSnapshot = prog;
-      showToast('🎉 Goal completed!', 'success');
+      // For checklist and count goals, prompt the user to log an entry before completing.
+      _showLogBeforeCompletePrompt(goal, prog);
     } else if (goal.status === 'completed' && !done) {
       goal.status = 'active';
       goal.completedAt = null;
       goal.progressSnapshot = null;
       showToast('Goal re-opened — progress dropped below 100%.', 'info');
     }
+  }
+
+  function _showLogBeforeCompletePrompt(goal, prog) {
+    const typeLabel = goal.type === 'checklist' ? 'all tasks' : `${prog.current} / ${prog.target}${goal.unit ? ' ' + goal.unit : ''}`;
+    document.getElementById('log-prompt-message').innerHTML =
+      `You've completed ${typeLabel} for "<strong>${escapeHtml(goal.title)}</strong>". Want to log a study entry to document your work?` +
+      `<span class="log-prompt-warning">⚠️ Close this window or click "Already Logged" only if you have already logged.</span>`;
+    _pendingCompleteGoalId = goal.id;
+    document.getElementById('log-prompt-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Shared handler for × button, Esc, and "Already Logged" — all complete the goal immediately.
+  async function _dismissLogPromptAndComplete() {
+    if (document.getElementById('log-prompt-modal')?.style.display !== 'flex') return;
+    document.getElementById('log-prompt-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    const goalId = _pendingCompleteGoalId;
+    _pendingCompleteGoalId = null;
+    const goal = _goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const prog = Analytics.goalProgress(goal, _entries);
+    goal.status = 'completed';
+    goal.completedAt = Date.now();
+    goal.progressSnapshot = prog;
+    await _persistGoalAndRefresh(goal);
+    showToast('🎉 Goal completed!', 'success');
+    await checkAchievements();
+  }
+
+  function _setupLogPromptModal() {
+    document.getElementById('log-prompt-log')?.addEventListener('click', () => {
+      document.getElementById('log-prompt-modal').style.display = 'none';
+      document.body.style.overflow = '';
+      const goalId = _pendingCompleteGoalId;
+      // _pendingCompleteGoalId stays set so saveEntryFromModal can complete the goal after save.
+      _pendingEntryGoalId = goalId;
+      const goal = _goals.find(g => g.id === goalId);
+      openEntryModal(null, null, { goalForTitle: goal?.title || '' });
+    });
+
+    document.getElementById('log-prompt-skip')?.addEventListener('click', _dismissLogPromptAndComplete);
+    document.getElementById('log-prompt-close')?.addEventListener('click', _dismissLogPromptAndComplete);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') _dismissLogPromptAndComplete();
+    });
   }
 
   async function completeGoal(goalId) {
@@ -5690,45 +5780,170 @@ const App = (() => {
     return 'active';
   }
 
-  // Open the Daily Log entry modal pre-filled and locked to this time goal, so the
-  // saved entry's topic+category match and count toward the goal's progress.
-  function logHoursForGoal(goalId) {
+  // Open a blank, fully-editable Daily Log entry modal that will be auto-linked to this
+  // goal on save. The entry's topic/category can be anything — the link is what counts.
+  function logEntryForGoal(goalId) {
     const goal = _goals.find(g => g.id === goalId);
     if (!goal) return;
-    openEntryModal(null, null, { topic: goal.title || '', category: goal.category || '', lock: true });
+    _pendingEntryGoalId = goalId;
+    openEntryModal(null, null, { goalForTitle: goal.title || '' });
   }
 
-  // Navigate to the Daily Log filtered to the entries that count toward this goal
-  // (start date + name + category). Completed/archived goals also cap the end date
-  // at their closure date (completion time, else archive/updated time).
+  // Navigate to the Daily Log filtered to the entries explicitly linked to this goal.
   function viewGoalEntries(goalId) {
     const goal = _goals.find(g => g.id === goalId);
     if (!goal) return;
-    const status = _goalStatusOf(goal);
 
-    let dateTo = '';
-    if (status === 'completed' || status === 'archived') {
-      const closureTs = goal.completedAt || goal.updatedAt;
-      if (closureTs) {
-        const d = new Date(closureTs);
-        dateTo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      }
+    const linked = _entries.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(goalId));
+    if (!linked.length) {
+      showToast('No entries logged for this goal yet.', 'info');
+      return;
     }
 
-    // Set filters before navigating; renderLog() -> populateCategorySelects() preserves
-    // the category value, then renderEntryList() applies all filters in one render.
-    setInputVal('log-search', goal.title || '');
-    setInputVal('filter-date-from', goal.startDate || '');
-    setInputVal('filter-date-to', dateTo);
-    setInputVal('filter-category', goal.category || '');
+    // Clear any visible filters so only the link filter applies.
+    clearLogFilters();
     _logPage = 1;
+    _logLinkedGoalFilter = goal.id;
     _logGoalContext = { id: goal.id, title: goal.title || '' };
 
     navigateTo('log');
+  }
 
-    updateFilterToggleState();
-    const panel = document.getElementById('filter-panel');
-    if (panel) panel.style.display = 'block'; // reveal so the applied filters are visible
+  /* ---- Link Entry → Goals modal -------------------- */
+
+  let _linkGoalEntryId        = null;
+  let _linkGoalSelection      = new Set(); // live checkbox state, decoupled from filtering
+  let _linkModalReturnEntryId = null;      // set when user jumps to Goals via "View"; re-opens modal on back
+  let _linkModalReturnGoalId  = null;      // which goal card shows the "back to linking" chip
+
+  function setupLinkGoalModal() {
+    document.getElementById('link-goal-close')?.addEventListener('click', closeLinkGoalModal);
+    document.getElementById('link-goal-cancel')?.addEventListener('click', closeLinkGoalModal);
+    document.getElementById('link-goal-save')?.addEventListener('click', saveEntryGoalLinks);
+    document.getElementById('link-goal-modal')?.addEventListener('click', e => {
+      if (e.target.id === 'link-goal-modal') closeLinkGoalModal();
+    });
+    document.addEventListener('keydown', e => {
+      const modal = document.getElementById('link-goal-modal');
+      if (!modal || modal.style.display === 'none') return;
+      if (e.key === 'Escape') { e.preventDefault(); closeLinkGoalModal(); }
+      if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); saveEntryGoalLinks(); }
+    });
+    ['lg-search', 'lg-filter-type', 'lg-filter-category', 'lg-filter-priority'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input',  renderLinkGoalList);
+      document.getElementById(id)?.addEventListener('change', renderLinkGoalList);
+    });
+    // Track selection independently of which goals are currently visible after filtering.
+    document.getElementById('lg-goal-list')?.addEventListener('change', e => {
+      const cb = e.target.closest('.lg-goal-cb');
+      if (!cb) return;
+      if (cb.checked) _linkGoalSelection.add(cb.value);
+      else _linkGoalSelection.delete(cb.value);
+      cb.closest('.link-goal-item')?.classList.toggle('is-linked', cb.checked);
+    });
+  }
+
+  function openLinkGoalModal(entryId) {
+    const entry = _entries.find(e => e.id === entryId);
+    if (!entry) return;
+    _linkGoalEntryId   = entryId;
+    _linkGoalSelection = new Set(entry.goalIds || []);
+
+    // Reset filters to defaults
+    setInputVal('lg-search', '');
+    ['lg-filter-type', 'lg-filter-priority'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const catSel = document.getElementById('lg-filter-category');
+    if (catSel) {
+      const cats = _prefs.categories || DEFAULT_PREFS.categories;
+      catSel.innerHTML = '<option value="">All categories</option>' +
+        cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      catSel.value = '';
+    }
+
+    renderLinkGoalList();
+    const modal = document.getElementById('link-goal-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLinkGoalModal() {
+    const modal = document.getElementById('link-goal-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    _linkGoalEntryId = null;
+  }
+
+  function renderLinkGoalList() {
+    const listEl = document.getElementById('lg-goal-list');
+    if (!listEl) return;
+    const entry = _entries.find(e => e.id === _linkGoalEntryId);
+    const linkedOrig = new Set(entry?.goalIds || []);
+
+    const search = (document.getElementById('lg-search')?.value || '').toLowerCase().trim();
+    const typeF  = document.getElementById('lg-filter-type')?.value || '';
+    const catF   = document.getElementById('lg-filter-category')?.value || '';
+    const priF   = document.getElementById('lg-filter-priority')?.value || '';
+
+    // Open goals (active/overdue), plus any goal this entry is already linked to so it
+    // can still be unlinked even if it's since been completed or archived.
+    let goals = _goals.filter(g => {
+      const st = _goalStatusOf(g);
+      return st === 'active' || st === 'overdue' || linkedOrig.has(g.id);
+    });
+    if (typeF)  goals = goals.filter(g => g.type === typeF);
+    if (catF)   goals = goals.filter(g => g.category === catF);
+    if (priF)   goals = goals.filter(g => g.priority === priF);
+    if (search) goals = goals.filter(g => (g.title || '').toLowerCase().includes(search));
+
+    if (!goals.length) {
+      listEl.innerHTML = `<div class="link-goal-empty">No matching open goals.</div>`;
+      return;
+    }
+
+    const typeLabel = { time: '⏳ Study Hours', count: '🏆 Problem Count', checklist: '📋 Task List', exam: '🎓 Exam Prep' };
+    listEl.innerHTML = goals.map(g => {
+      const checked = _linkGoalSelection.has(g.id);
+      return `
+        <label class="link-goal-item${checked ? ' is-linked' : ''}">
+          <input type="checkbox" class="lg-goal-cb" value="${g.id}" ${checked ? 'checked' : ''} />
+          <span class="link-goal-item-main">
+            <span class="link-goal-item-title">${escapeHtml(g.title)}</span>
+            <span class="link-goal-item-meta">
+              <span class="goal-type-chip" data-type="${g.type}">${typeLabel[g.type] || g.type}</span>
+              ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
+              <span class="goal-priority-chip goal-priority-${g.priority}">${capitalise(g.priority || '')}</span>
+            </span>
+          </span>
+          <button type="button" class="lg-view-goal-btn" data-goal-id="${g.id}" title="View this goal">View</button>
+        </label>`;
+    }).join('');
+
+    // View buttons navigate to the Goals page, closing the modal first.
+    listEl.querySelectorAll('.lg-view-goal-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation(); // don't toggle the checkbox
+        _goalScrollTarget       = btn.dataset.goalId;
+        _linkModalReturnEntryId = _linkGoalEntryId;
+        _linkModalReturnGoalId  = btn.dataset.goalId;
+        closeLinkGoalModal();
+        navigateTo('goals');
+      });
+    });
+  }
+
+  async function saveEntryGoalLinks() {
+    const entry = _entries.find(e => e.id === _linkGoalEntryId);
+    if (!entry) { closeLinkGoalModal(); return; }
+    const n = _linkGoalSelection.size;
+    entry.goalIds = Array.from(_linkGoalSelection);
+    await Storage.saveEntry(entry);
+    closeLinkGoalModal();
+    showToast(n ? `Linked to ${n} goal${n === 1 ? '' : 's'}.` : 'All goal links removed.', 'success');
+    await checkAchievements();
+    renderPage(_currentPage);
+    updateSidebarUser();
+    triggerAutoBackup();
   }
 
   function updateGoalsSelectionBar() {
@@ -5766,6 +5981,7 @@ const App = (() => {
         await Promise.all(ids.map(id => Storage.softDeleteGoal(id)));
         _goals = _goals.filter(g => !ids.includes(g.id));
         _goalsSelection.clear();
+        _goalsRenderOrder = null;
         showToast(`${n} ${n === 1 ? 'goal' : 'goals'} moved to Deleted Goals.`, 'info');
         await checkAchievements();
         renderGoals();
@@ -5789,6 +6005,7 @@ const App = (() => {
           filterRow.querySelectorAll('.goals-filter-chip[data-filter]').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           _goalsFilter = btn.dataset.filter;
+          _goalsRenderOrder = null;
           renderGoals();
         });
       });
@@ -5798,6 +6015,7 @@ const App = (() => {
           filterRow.querySelectorAll('.goals-filter-chip[data-filter-type]').forEach(b => b.classList.remove('active'));
           if (!isActive) { btn.classList.add('active'); _goalsTypeFilter = btn.dataset.filterType; }
           else _goalsTypeFilter = '';
+          _goalsRenderOrder = null;
           renderGoals();
         });
       });
@@ -5806,6 +6024,7 @@ const App = (() => {
         _goalsTypeFilter = '';
         _goalsSearch     = '';
         _goalsCollapsedSnapshot = null;
+        _goalsRenderOrder = null;
         filterRow.querySelectorAll('.goals-filter-chip[data-filter]').forEach(b => b.classList.remove('active'));
         filterRow.querySelector('.goals-filter-chip[data-filter="all"]')?.classList.add('active');
         filterRow.querySelectorAll('.goals-filter-chip[data-filter-type]').forEach(b => b.classList.remove('active'));
@@ -5839,6 +6058,7 @@ const App = (() => {
       searchInput.addEventListener('input', () => {
         const prev = _goalsSearch;
         _goalsSearch = searchInput.value.trim().toLowerCase();
+        _goalsRenderOrder = null;
         if (_goalsSearch && !prev) {
           // Search just started — snapshot current state then expand all
           _goalsCollapsedSnapshot = { ..._goalsCollapsed };
@@ -5907,16 +6127,29 @@ const App = (() => {
       );
     }
 
-    // Sort: high priority first, then nearest deadline
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    goals.sort((a, b) => {
-      const pDiff = (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
-      if (pDiff !== 0) return pDiff;
-      if (a.targetDate && b.targetDate) return a.targetDate.localeCompare(b.targetDate);
-      if (a.targetDate) return -1;
-      if (b.targetDate) return 1;
-      return (b.createdAt || 0) - (a.createdAt || 0);
-    });
+    // Sort helpers — applied per-section after the section split below.
+    const _priorityRank  = { high: 0, medium: 1, low: 2 };
+    const _byUpdated     = (a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+    const _byPriorityUpdated = (a, b) => {
+      const pd = (_priorityRank[a.priority] ?? 1) - (_priorityRank[b.priority] ?? 1);
+      return pd !== 0 ? pd : _byUpdated(a, b);
+    };
+    // On in-page re-renders keep the visual order stable; on fresh load apply the sort fn.
+    const _stableSort = (arr, freshFn) => {
+      if (_goalsRenderOrder) {
+        const om = new Map(_goalsRenderOrder.map((id, i) => [id, i]));
+        arr.sort((a, b) => {
+          const ai = om.has(a.id) ? om.get(a.id) : -1;
+          const bi = om.has(b.id) ? om.get(b.id) : -1;
+          if (ai === -1 && bi === -1) return freshFn(a, b);
+          if (ai === -1) return -1; // new goal floats to top of its section
+          if (bi === -1) return 1;
+          return ai - bi;
+        });
+      } else {
+        arr.sort(freshFn);
+      }
+    };
 
     if (goals.length === 0) {
       container.innerHTML = `
@@ -5949,6 +6182,14 @@ const App = (() => {
       const open      = goals.filter(g => g.derivedStatus === 'active');
       const completed = goals.filter(g => g.derivedStatus === 'completed');
       const archived  = goals.filter(g => g.derivedStatus === 'archived');
+
+      // Open/overdue: priority first, then most recently updated.
+      // Completed/archived: most recently updated only.
+      _stableSort(overdue,   _byPriorityUpdated);
+      _stableSort(open,      _byPriorityUpdated);
+      _stableSort(completed, _byUpdated);
+      _stableSort(archived,  _byUpdated);
+      _goalsRenderOrder = [...overdue, ...open, ...completed, ...archived].map(g => g.id);
 
       const renderSection = (label, icon, items, emptyMsg, extraClass = '') => {
         const key       = label.toLowerCase();
@@ -6020,6 +6261,10 @@ const App = (() => {
         });
       });
     } else {
+      // Single-filter view: open/overdue use priority+updated; completed/archived use updated only.
+      const isOpenFilter = _goalsFilter === 'active' || _goalsFilter === 'overdue';
+      _stableSort(goals, isOpenFilter ? _byPriorityUpdated : _byUpdated);
+      _goalsRenderOrder = goals.map(g => g.id);
       container.innerHTML = `<div class="goals-grid">${goals.map(g => _renderGoalCard(g)).join('')}</div>`;
     }
 
@@ -6096,15 +6341,16 @@ const App = (() => {
       `;
     }
 
-    let goalLinks = '';
-    if (g.type === 'time') {
-      const canLog = derivedStatus === 'active' || derivedStatus === 'overdue';
-      goalLinks = `
+    // Log Entry / View Logged Entries available on every goal type. Logging links a study
+    // entry to the goal for the record; progress stays type-native (time = summed duration,
+    // count = +/-, checklist = milestones, exam = countdown). Log Entry is offered only while
+    // the goal is still in progress; View Logged Entries is always available.
+    const canLog = derivedStatus === 'active' || derivedStatus === 'overdue';
+    const goalLinks = `
         <div class="goal-card-links">
-          ${canLog ? `<button type="button" class="goal-card-link" data-action="log-hours" data-id="${g.id}">＋ Log hours</button>` : ''}
-          <button type="button" class="goal-card-link goal-card-link-muted" data-action="view-entries" data-id="${g.id}">View logged entries</button>
+          ${canLog ? `<button type="button" class="goal-card-link" data-action="log-entry" data-id="${g.id}">＋ Log Entry</button>` : ''}
+          <button type="button" class="goal-card-link goal-card-link-muted" data-action="view-entries" data-id="${g.id}">View Logged Entries</button>
         </div>`;
-    }
 
     const statusClass = derivedStatus === 'overdue' ? 'goal-card-overdue'
                       : derivedStatus === 'completed' ? 'goal-card-completed'
@@ -6154,10 +6400,18 @@ const App = (() => {
         <h3 class="goal-card-title ${derivedStatus === 'completed' ? 'goal-title-done' : ''}">${escapeHtml(g.title)}</h3>
         ${g.description ? `<p class="goal-card-desc">${escapeHtml(g.description)}</p>` : ''}
         ${progressSection}
-        ${goalLinks}
         ${extraControls}
         ${milestoneRows}
+        ${goalLinks}
         ${g.startDate ? `<div class="goal-card-dates">Started ${formatRelativeDate(g.startDate)}${g.targetDate ? ` · Due ${new Date(g.targetDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</div>` : ''}
+        ${_linkModalReturnGoalId === g.id ? (() => {
+            const entry = _entries.find(e => e.id === _linkModalReturnEntryId);
+            const label = entry ? escapeHtml(entry.topic || 'entry') : 'entry';
+            return `<button type="button" class="log-goal-back-chip goal-card-link-modal-back" data-action="back-to-link-modal" data-id="${g.id}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back to linking: ${label}
+            </button>`;
+          })() : ''}
       </div>`;
   }
 
@@ -6171,7 +6425,7 @@ const App = (() => {
       const action = btn.dataset.action;
       const id     = btn.dataset.id;
       if (action === 'edit')       openGoalModal(id);
-      if (action === 'log-hours')  logHoursForGoal(id);
+      if (action === 'log-entry')  logEntryForGoal(id);
       if (action === 'view-entries') viewGoalEntries(id);
       if (action === 'complete')   await completeGoal(id);
       if (action === 'archive')    await archiveGoal(id);
@@ -6179,6 +6433,14 @@ const App = (() => {
       if (action === 'count-inc')  await adjustGoalCount(id, 1);
       if (action === 'count-dec')  await adjustGoalCount(id, -1);
       if (action === 'toggle-ms')  await toggleMilestone(id, btn.dataset.msid);
+      if (action === 'back-to-link-modal') {
+        const entryId = _linkModalReturnEntryId;
+        _linkModalReturnEntryId = null;
+        _linkModalReturnGoalId  = null;
+        navigateTo('log');
+        // openLinkGoalModal needs the log page rendered first so the modal overlay exists.
+        setTimeout(() => openLinkGoalModal(entryId), 50);
+      }
     });
 
     container.addEventListener('change', e => {

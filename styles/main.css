@@ -1721,6 +1721,19 @@ input:disabled {
   color: var(--accent); transition: background 0.15s, border-color 0.15s;
 }
 .log-goal-back-chip:hover { background: var(--accent-ghost, color-mix(in srgb, var(--accent) 10%, transparent)); border-color: var(--accent); }
+.log-goal-title-link {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; font-weight: 700; color: var(--accent);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.log-goal-title-link:hover { opacity: 0.75; }
+.log-prompt-warning {
+  display: block; margin-top: 10px;
+  padding: 7px 10px; border-radius: var(--r-sm, 6px);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border-left: 3px solid var(--warning);
+  font-size: 12px; font-weight: 600; color: var(--warning);
+}
 
 /* ---- FILTER PANEL -------------------------------- */
 .filter-panel {
@@ -2348,6 +2361,7 @@ input:disabled {
   gap: var(--s-2);
 }
 
+.entry-link-icon-btn,
 .entry-edit-icon-btn,
 .entry-duplicate-icon-btn,
 .entry-delete-icon-btn {
@@ -2368,6 +2382,102 @@ input:disabled {
   background: var(--accent-faint, rgba(108,99,255,0.08));
   border-color: var(--accent);
   color: var(--accent);
+}
+.entry-link-icon-btn { position: relative; }
+.entry-link-icon-btn:hover {
+  background: var(--accent-faint, rgba(108,99,255,0.08));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* Linked entry: solid accent so the link is obvious at a glance */
+.entry-link-icon-btn.has-links {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-faint, rgba(108,99,255,0.08));
+}
+.entry-link-count {
+  position: absolute;
+  top: -5px; right: -5px;
+  min-width: 14px; height: 14px;
+  padding: 0 3px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 14px;
+  text-align: center;
+}
+
+/* ---- LINK ENTRY → GOALS MODAL -------------------- */
+.link-goal-hint { color: var(--text-2); font-size: 13px; margin-bottom: var(--s-3); }
+.link-goal-filters {
+  display: flex; flex-wrap: wrap; gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+.link-goal-filters > * { flex: 1 1 130px; min-width: 0; }
+.link-goal-list {
+  display: flex; flex-direction: column; gap: var(--s-2);
+  max-height: 320px; overflow-y: auto;
+}
+.link-goal-item {
+  display: flex; align-items: flex-start; gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.link-goal-item:hover { border-color: var(--accent); }
+.link-goal-item.is-linked {
+  border-color: var(--accent);
+  background: var(--accent-faint, rgba(108,99,255,0.06));
+}
+.link-goal-item input[type="checkbox"] {
+  width: 16px; height: 16px; margin-top: 2px;
+  accent-color: var(--accent); cursor: pointer; flex-shrink: 0;
+}
+.link-goal-item-main { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.link-goal-item-title { font-weight: 600; font-size: 14px; }
+.lg-view-goal-btn {
+  flex-shrink: 0;
+  background: none; border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 1px 8px; font: inherit; font-size: 11px; font-weight: 600;
+  color: var(--accent); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lg-view-goal-btn:hover { background: var(--accent-faint, rgba(108,99,255,0.08)); border-color: var(--accent); }
+.link-goal-item-meta { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.link-goal-empty { padding: var(--s-5); text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* "Back to linking" chip shown inside the goal card that was viewed from the link modal */
+.goal-card-link-modal-back {
+  display: inline-flex;
+  margin-top: var(--s-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--s-3);
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* Header shown above the Daily Log when viewing a goal's linked entries */
+.log-goal-linked-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--s-2) 0 var(--s-3);
+  padding: 10px 14px;
+  background: var(--accent-faint, rgba(108,99,255,0.07));
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+}
+.log-goal-linked-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.log-goal-linked-header strong {
+  color: var(--accent);
+  font-weight: 700;
 }
 .entry-duplicate-icon-btn:hover {
   background: rgba(16, 185, 129, 0.1);
