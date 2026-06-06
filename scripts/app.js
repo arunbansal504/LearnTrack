@@ -103,6 +103,15 @@ const App = (() => {
   const _badgeQueue = [];
   let _badgeShowing = false;
 
+  /* ---- Utility: debounce ----------------------------- */
+  function debounce(fn, ms) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
   /* ---- Default Preferences ------------------------- */
   const DEFAULT_PREFS = {
     username:      'Learner',
@@ -1366,9 +1375,15 @@ const App = (() => {
       renderEntryList();
     });
 
+    const _logRender = debounce(() => { updateFilterToggleState(); renderEntryList(); }, 150);
     ['log-search','filter-date-from','filter-date-to','filter-category','filter-difficulty','filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { updateFilterToggleState(); renderEntryList(); });
-      document.getElementById(id)?.addEventListener('input',  () => { updateFilterToggleState(); renderEntryList(); });
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => { updateFilterToggleState(); renderEntryList(); });
+      // Text inputs debounced; selects/date pickers fire change, so input is redundant for them
+      if (el.tagName === 'INPUT' && el.type !== 'date') {
+        el.addEventListener('input', _logRender);
+      }
     });
 
 
@@ -1901,9 +1916,14 @@ const App = (() => {
       renderDeletedLogs();
     });
 
+    const _dlRender = debounce(() => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); }, 150);
     ['dl-search','dl-filter-date-from','dl-filter-date-to','dl-filter-category','dl-filter-difficulty','dl-filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); });
-      document.getElementById(id)?.addEventListener('input',  () => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); });
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => { _deletedPage = 1; updateDlFilterToggleState(); renderDeletedLogs(); });
+      if (el.tagName === 'INPUT' && el.type !== 'date') {
+        el.addEventListener('input', _dlRender);
+      }
     });
 
     document.getElementById('dl-load-more-btn')?.addEventListener('click', () => {
@@ -6437,7 +6457,7 @@ const App = (() => {
     const searchInput = document.getElementById('goals-search');
     if (searchInput && !searchInput.dataset.wired) {
       searchInput.dataset.wired = '1';
-      searchInput.addEventListener('input', () => {
+      const _goalsSearchRender = debounce(() => {
         const prev = _goalsSearch;
         _goalsSearch = searchInput.value.trim().toLowerCase();
         _goalsRenderOrder = null;
@@ -6453,7 +6473,8 @@ const App = (() => {
           }
         }
         renderGoals();
-      });
+      }, 150);
+      searchInput.addEventListener('input', _goalsSearchRender);
     }
 
     const today = Analytics.today();
@@ -7292,9 +7313,14 @@ const App = (() => {
       renderDeletedGoals();
     });
 
+    const _dgRender = debounce(() => { updateDgFilterToggleState(); renderDeletedGoals(); }, 150);
     ['dg-search', 'dg-filter-category', 'dg-filter-type', 'dg-filter-sort'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', () => { updateDgFilterToggleState(); renderDeletedGoals(); });
-      document.getElementById(id)?.addEventListener('input',  () => { updateDgFilterToggleState(); renderDeletedGoals(); });
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => { updateDgFilterToggleState(); renderDeletedGoals(); });
+      if (el.tagName === 'INPUT') {
+        el.addEventListener('input', _dgRender);
+      }
     });
 
     document.getElementById('dg-select-all')?.addEventListener('change', e => {
