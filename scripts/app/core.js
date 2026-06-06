@@ -261,9 +261,10 @@ import { initSync, queueCloudPush } from './sync.js';
 
   export async function triggerAutoBackup() {
     // Cloud sync runs independently of the local backup folder — queue it first so
-    // cloud-only users (no folder configured) are still covered. queueCloudPush()
-    // no-ops unless signed in, bound, and online.
-    queueCloudPush();
+    // cloud-only users (no folder configured) are still covered. Only queue a
+    // cloud push if the user has enabled Auto Cloud Backup in preferences.
+    // queueCloudPush() no-ops unless signed in, bound, and online.
+    if (state.prefs.cloudAutoBackup) queueCloudPush();
 
     // Permission must be checked/requested during the user gesture (now), not inside
     // the timer — mobile Chrome rejects requestPermission outside a user activation.

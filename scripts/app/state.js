@@ -97,6 +97,7 @@ export const DEFAULT_PREFS = {
   categoryColors:       {},   // { categoryName: '#rrggbb' } — stable, unique per category (Report screen)
   goalHistory:          [],
   monthlyGoalHistory:   [],
+  cloudAutoBackup:      false,
 };
 
 // Distinct base palette for category colors; beyond it we generate unique golden-angle hues.

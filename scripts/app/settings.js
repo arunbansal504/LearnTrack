@@ -547,6 +547,11 @@ import * as Sync from './sync.js';
       setEl('cloud-status-label',  CLOUD_STATUS_TEXT[Sync.getStatus()] || '—');
       const last = Sync.getLastCloudSync();
       setEl('cloud-last-sync', last ? new Date(last).toLocaleString() : 'Never');
+      // Auto Cloud Backup checkbox reflects saved preference (default: false)
+      const autoEl = document.getElementById('cloud-auto-backup');
+      if (autoEl) {
+        autoEl.checked = !!state.prefs.cloudAutoBackup;
+      }
     }
   }
 
@@ -724,17 +729,32 @@ import * as Sync from './sync.js';
   async function cloudSyncNow() {
     const btn  = document.getElementById('cloud-sync-now-btn');
     const orig = btn?.textContent;
-    if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
-    try {
-      await Sync.pushSnapshot();
-      await Sync.pullSnapshot();
-      showToast('Cloud sync complete.', 'success');
-    } catch {
-      showToast('Sync failed — check your connection.', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = orig; }
-      renderCloudSyncCard();
-    }
+    let cloudInfo = null;
+    try { cloudInfo = await Sync.peekCloudSnapshot(); } catch { /* ignore */ }
+
+    showSyncConfirmModal({
+      email:       Sync.getAccountEmail(),
+      localUser:   state.prefs.username || 'your profile',
+      cloudInfo,
+      title:       'Sync with Cloud?',
+      confirmText: 'Sync',
+      onConfirm: async () => {
+        if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+        try {
+          await Sync.pushSnapshot();
+          await Sync.pullSnapshot();
+          showToast('Cloud sync complete.', 'success');
+        } catch {
+          showToast('Sync failed — check your connection.', 'error');
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = orig; }
+          renderCloudSyncCard();
+        }
+      },
+      onSkip: () => {
+        /* user cancelled, nothing to do */
+      },
+    });
   }
 
   async function cloudRestore() {
@@ -859,6 +879,19 @@ import * as Sync from './sync.js';
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
     document.getElementById('cloud-signout-btn')?.addEventListener('click', cloudSignOut);
+    const autoChk = document.getElementById('cloud-auto-backup');
+    if (autoChk) {
+      autoChk.addEventListener('change', async (e) => {
+        const enabled = !!e.target.checked;
+        state.prefs.cloudAutoBackup = enabled;
+        try { await Storage.setPref('cloudAutoBackup', enabled); } catch {}
+        if (enabled && Sync.isBound()) {
+          // Kick off an immediate queued push when enabling auto-backup
+          Sync.queueCloudPush();
+        }
+        renderCloudSyncCard();
+      });
+    }
     // Keep the card in step with background sync state changes (auto-push results, token refresh, etc.)
     document.addEventListener('lt-sync-changed', renderCloudSyncCard);
   }
