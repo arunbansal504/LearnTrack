@@ -188,25 +188,26 @@ const Insights = (() => {
 
   /* ---- Next Milestone Calculation ------------------ */
 
-  function getNextMilestone(entries, streak, stats) {
-    const candidates = [
-      { name: 'First Entry',    icon: '🌱', current: Math.min(entries.length, 1),                max: 1   },
-      { name: '5 Entries',      icon: '📝', current: Math.min(entries.length, 5),                max: 5   },
-      { name: '10 Entries',     icon: '✅', current: Math.min(entries.length, 10),               max: 10  },
-      { name: '50 Entries',     icon: '💪', current: Math.min(entries.length, 50),               max: 50  },
-      { name: '3-Day Streak',   icon: '🔥', current: Math.min(streak.current, 3),                max: 3   },
-      { name: '7-Day Streak',   icon: '⚔️', current: Math.min(streak.current, 7),                max: 7   },
-      { name: '30-Day Streak',  icon: '🏆', current: Math.min(streak.current, 30),               max: 30  },
-      { name: '10 Hours',       icon: '⏱️', current: Math.min(Math.round(stats.totalHours), 10), max: 10  },
-      { name: '50 Hours',       icon: '📚', current: Math.min(Math.round(stats.totalHours), 50), max: 50  },
-      { name: '100 Hours',      icon: '💯', current: Math.min(Math.round(stats.totalHours), 100),max: 100 },
-    ];
+  function getNextMilestone(entries, streak, stats, earnedIds, consistency, goalForDate, goals) {
+    earnedIds   = earnedIds instanceof Set ? earnedIds : new Set(earnedIds || []);
+    consistency = consistency || 0;
+    goalForDate = typeof goalForDate === 'function' ? goalForDate : () => 60;
+    goals       = goals || [];
 
-    // Find first incomplete milestone
-    const incomplete = candidates.filter(m => m.current < m.max);
-    if (incomplete.length === 0) return candidates[candidates.length - 1];
+    const context = { entries, streak, stats, consistency, goalForDate, goals };
 
-    // Pick the one with highest % completion that isn't done
+    const incomplete = Rewards.ACHIEVEMENTS
+      .filter(ach => !earnedIds.has(ach.id))
+      .map(ach => {
+        const prog = ach.progress(context);
+        return { name: ach.name, icon: ach.icon, current: prog.current, max: prog.max };
+      })
+      .filter(m => m.current < m.max);
+
+    if (incomplete.length === 0) {
+      return { name: 'All Badges Earned!', icon: '🏆', current: 1, max: 1, allDone: true };
+    }
+
     incomplete.sort((a, b) => (b.current / b.max) - (a.current / a.max));
     return incomplete[0];
   }
