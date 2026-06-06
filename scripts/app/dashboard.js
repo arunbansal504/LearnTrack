@@ -188,25 +188,26 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
     const ringWrap = document.querySelector('.goal-ring-wrap');
     if (ringWrap) {
       ringWrap.classList.toggle('goal-ring-achieved', pct >= 100);
+
+      const _fireConfetti = () => {
+        if (typeof confetti === 'undefined') return;
+        const rect = ringWrap.getBoundingClientRect();
+        const ox = (rect.left + rect.width / 2) / window.innerWidth;
+        const oy = (rect.top + rect.height / 2) / window.innerHeight;
+        confetti({
+          particleCount: 45,
+          spread: 65,
+          startVelocity: 22,
+          gravity: 0.9,
+          scalar: 0.85,
+          origin: { x: ox, y: oy },
+          colors: ['#10b981', '#6c63ff', '#f59e0b', '#ec4899', '#ffffff'],
+        });
+      };
+
       if (!state.goalRingListenerBound) {
         state.goalRingListenerBound = true;
         let _lastCelebMs = 0;
-
-        const _fireConfetti = () => {
-          if (typeof confetti === 'undefined') return;
-          const rect = ringWrap.getBoundingClientRect();
-          const ox = (rect.left + rect.width / 2) / window.innerWidth;
-          const oy = (rect.top + rect.height / 2) / window.innerHeight;
-          confetti({
-            particleCount: 45,
-            spread: 65,
-            startVelocity: 22,
-            gravity: 0.9,
-            scalar: 0.85,
-            origin: { x: ox, y: oy },
-            colors: ['#10b981', '#6c63ff', '#f59e0b', '#ec4899', '#ffffff'],
-          });
-        };
 
         // Desktop: hover triggers confetti (CSS handles glow)
         ringWrap.addEventListener('mouseenter', () => {
@@ -230,6 +231,16 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
           ringWrap.classList.add('goal-ring-tapped');
           setTimeout(() => ringWrap.classList.remove('goal-ring-tapped'), 1200);
         }, { passive: true });
+      }
+
+      // Fire confetti whenever pct crosses the 100% threshold.
+      // prevPct === -1 means first render on this page load: delay 1300ms to clear the loading
+      // overlay (overlay fades at 600ms after navigateTo, takes 400ms → gone by ~1000ms).
+      // For a live transition (entry just logged), fire quickly so the ring animation settles first.
+      const prevPct = state.goalLastPct;
+      state.goalLastPct = pct;
+      if (pct >= 100 && prevPct < 100) {
+        setTimeout(_fireConfetti, prevPct < 0 ? 1300 : 300);
       }
     }
 

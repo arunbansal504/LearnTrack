@@ -15,7 +15,8 @@ export const state = {
   goals:     [],
 
   /* ---- Goals page UI ---- */
-  goalRingListenerBound:  false,
+  goalRingListenerBound:    false,
+  goalLastPct:              -1,   // -1 = not yet rendered; tracks previous pct to detect 100% transitions
   goalsFilter:            'all',
   goalsTypeFilter:        '',
   goalsSearch:            '',
