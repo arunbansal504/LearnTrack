@@ -526,8 +526,11 @@ import * as Sync from './sync.js';
     const signedIn   = Sync.isSignedIn() && Sync.isBound();
 
     document.getElementById('cloud-disabled')?.classList.toggle('hidden', configured);
-    document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !configured || signedIn);
+    const showForm = configured && !signedIn;
+    document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !showForm);
     document.getElementById('cloud-signedin')?.classList.toggle('hidden', !configured || !signedIn);
+    // Always start on the sign-in tab when the form becomes visible
+    if (showForm) setCloudAuthMode('signin');
 
     if (configured && signedIn) {
       setEl('cloud-account-email', Sync.getAccountEmail() || '—');
@@ -556,33 +559,83 @@ import * as Sync from './sync.js';
     return err?.message || 'Something went wrong. Please try again.';
   }
 
-  async function doCloudAuth(mode) {
+  let _cloudAuthMode = 'signin'; // 'signin' | 'signup'
+
+  function setCloudAuthMode(mode) {
+    _cloudAuthMode = mode;
+    const confirmGroup = document.getElementById('cloud-confirm-group');
+    const submitBtn    = document.getElementById('cloud-submit-btn');
+    const modePrompt   = document.getElementById('cloud-mode-prompt');
+    const modeToggle   = document.getElementById('cloud-mode-toggle');
+    const passwordLabel = document.getElementById('cloud-password-label');
+    const passwordInput = document.getElementById('cloud-password');
+    const confirmInput  = document.getElementById('cloud-password-confirm');
+
+    if (mode === 'signup') {
+      confirmGroup?.classList.remove('hidden');
+      if (confirmInput)  confirmInput.required        = true;
+      if (submitBtn)     submitBtn.textContent         = 'Create Account';
+      if (modePrompt)    modePrompt.textContent        = 'Already have an account?';
+      if (modeToggle)    modeToggle.textContent        = 'Sign in';
+      if (passwordInput) { passwordInput.autocomplete  = 'new-password'; passwordInput.placeholder = 'At least 6 characters'; }
+    } else {
+      confirmGroup?.classList.add('hidden');
+      if (confirmInput)  { confirmInput.required = false; confirmInput.value = ''; }
+      if (submitBtn)     submitBtn.textContent         = 'Sign In';
+      if (modePrompt)    modePrompt.textContent        = "Don't have an account?";
+      if (modeToggle)    modeToggle.textContent        = 'Create one';
+      if (passwordInput) { passwordInput.autocomplete  = 'current-password'; passwordInput.placeholder = 'Enter your password'; }
+    }
+    // Clear status only when user manually toggles — not on background re-renders
+  }
+
+  async function doCloudAuth() {
     const email    = document.getElementById('cloud-email')?.value.trim();
     const password = document.getElementById('cloud-password')?.value || '';
     if (!email || !password) { showCloudAuthStatus('Enter your email and password.', 'error'); return; }
 
-    const btn  = document.getElementById(mode === 'signin' ? 'cloud-signin-btn' : 'cloud-signup-btn');
-    const orig = btn?.textContent;
-    if (btn) { btn.disabled = true; btn.textContent = mode === 'signin' ? 'Signing in…' : 'Creating…'; }
+    if (_cloudAuthMode === 'signup') {
+      const confirm = document.getElementById('cloud-password-confirm')?.value || '';
+      if (!confirm) { showCloudAuthStatus('Please confirm your password.', 'error'); return; }
+      if (password !== confirm) { showCloudAuthStatus('Passwords don\'t match.', 'error'); return; }
+    }
+
+    const btn = document.getElementById('cloud-submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = _cloudAuthMode === 'signin' ? 'Signing in…' : 'Creating…'; }
 
     try {
-      if (mode === 'signup') {
+      if (_cloudAuthMode === 'signup') {
         const data = await Sync.signUp(email, password);
-        showCloudAuthStatus(
-          data.session ? 'Account created and synced!'
-                       : 'If that email is valid, a confirmation link is on its way. Check your inbox (and spam folder), then sign in here.',
-          'success'
-        );
+        if (data.session) {
+          // Email confirmation disabled — signed in immediately; form is already hidden,
+          // so use a toast. Re-render to show the signed-in card state.
+          showToast('Account created — your data is now syncing.', 'success');
+          renderCloudSyncCard();
+          renderPage(state.currentPage);
+        } else {
+          // Email confirmation required — switch to sign-in mode (so the button reads
+          // "Sign In"), then show the message. Do NOT call renderCloudSyncCard() here
+          // as it would wipe the status message immediately.
+          setCloudAuthMode('signin');
+          showCloudAuthStatus(
+            'Check your email for a confirmation link, then come back here to sign in.',
+            'success'
+          );
+        }
       } else {
         await Sync.signIn(email, password);
         showToast('Signed in — your data is now syncing across devices.', 'success');
+        renderCloudSyncCard();
+        renderPage(state.currentPage);
       }
-      renderCloudSyncCard();
-      renderPage(state.currentPage); // a sign-in pull may have merged cloud data in
     } catch (err) {
       showCloudAuthStatus(friendlyAuthError(err), 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      if (btn) {
+        btn.disabled = false;
+        // Restore the label based on current mode (setCloudAuthMode may have changed it).
+        btn.textContent = _cloudAuthMode === 'signin' ? 'Sign In' : 'Create Account';
+      }
     }
   }
 
@@ -708,8 +761,12 @@ import * as Sync from './sync.js';
     });
 
     // Cloud Sync card
-    document.getElementById('cloud-signin-form')?.addEventListener('submit', e => { e.preventDefault(); doCloudAuth('signin'); });
-    document.getElementById('cloud-signup-btn')?.addEventListener('click', () => doCloudAuth('signup'));
+    document.getElementById('cloud-signin-form')?.addEventListener('submit', e => { e.preventDefault(); doCloudAuth(); });
+    document.getElementById('cloud-mode-toggle')?.addEventListener('click', () => {
+      const statusEl = document.getElementById('cloud-auth-status');
+      if (statusEl) statusEl.style.display = 'none';
+      setCloudAuthMode(_cloudAuthMode === 'signin' ? 'signup' : 'signin');
+    });
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
     document.getElementById('cloud-signout-btn')?.addEventListener('click', cloudSignOut);
