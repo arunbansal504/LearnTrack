@@ -1488,6 +1488,21 @@ input:disabled {
   #entry-modal textarea            { font-size: 13px; }
   #entry-modal .mood-btn           { font-size: 18px; }
   #entry-modal textarea#entry-notes { min-height: 64px; }
+
+  /* Compact goal modal on desktop */
+  #goal-modal .modal              { max-width: 560px; }
+  #goal-modal .modal-header       { padding: var(--s-3) var(--s-4); }
+  #goal-modal .modal-header h2    { font-size: 15px; }
+  #goal-modal .modal-body         { padding: var(--s-3) var(--s-4); }
+  #goal-modal .modal-footer       { padding: var(--s-3) var(--s-4); }
+  #goal-modal .form-row           { gap: var(--s-3); margin-bottom: var(--s-2); }
+  #goal-modal .form-group         { gap: 2px; }
+  #goal-modal .form-group label   { font-size: 11px; }
+  #goal-modal input,
+  #goal-modal select              { padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
+  #goal-modal textarea            { font-size: 13px; min-height: 52px; }
+  #goal-modal .form-hint          { font-size: 11px; margin-top: 2px; }
+  #goal-modal .goal-type-fields   { margin-top: var(--s-1); }
 }
 
 .modal-header {
@@ -1536,6 +1551,220 @@ input:disabled {
   gap: var(--s-3);
   margin-left: auto;
 }
+
+/* Linked Items Modal (deleted-log goals / deleted-goal entries) */
+.linked-items-modal-inner { overflow: hidden; }
+
+.linked-items-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-1) 0;
+}
+
+.linked-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5) var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.linked-item-row:last-child { border-bottom: none; }
+.linked-item-row:hover { background: var(--surface-2); }
+
+/* Left accent bar — colored per goal type */
+.linked-item-bar {
+  width: 3px;
+  min-height: 36px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--border);
+}
+.linked-item-row[data-type-bar="time"]      .linked-item-bar { background: #3b82f6; }
+.linked-item-row[data-type-bar="checklist"] .linked-item-bar { background: #10b981; }
+.linked-item-row[data-type-bar="count"]     .linked-item-bar { background: #8b5cf6; }
+.linked-item-row[data-type-bar="exam"]      .linked-item-bar { background: #f43f5e; }
+.linked-item-row[data-type-bar="entry"]     .linked-item-bar { background: var(--accent); }
+
+.linked-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.linked-item-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+/* Navigable goal title — styled as a button link */
+button.linked-item-title {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s;
+}
+button.linked-item-title:hover { text-decoration-color: currentColor; }
+button.linked-item-title:focus-visible { outline: 2px solid var(--accent); border-radius: 2px; outline-offset: 2px; }
+
+/* Non-navigable entry title */
+span.linked-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+/* Entries modal: difficulty-colored left bar */
+.linked-entry-row[data-difficulty="easy"]   .linked-item-bar { background: #10b981; }
+.linked-entry-row[data-difficulty="medium"] .linked-item-bar { background: #f59e0b; }
+.linked-entry-row[data-difficulty="hard"]   .linked-item-bar { background: #ef4444; }
+
+/* Entries modal: duration pill */
+.linked-entry-dur {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 8px;
+  letter-spacing: 0.01em;
+}
+
+/* Entries modal: difficulty chip */
+.linked-entry-diff-chip {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  border: 1px solid transparent;
+}
+.diff-easy   { color: #065f46; background: #a7f3d0; border-color: #6ee7b7; }
+.diff-medium { color: #78350f; background: #fde68a; border-color: #fcd34d; }
+.diff-hard   { color: #7f1d1d; background: #fecaca; border-color: #fca5a5; }
+
+/* Entries modal: total footer */
+.linked-entries-total {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.linked-entries-total strong { color: var(--text); }
+
+/* Right chevron for navigable rows */
+.linked-item-nav-icon {
+  color: var(--text-2);
+  opacity: 0.35;
+  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.linked-item-row:hover .linked-item-nav-icon {
+  opacity: 1;
+  color: var(--accent-light);
+}
+
+/* Duplicate Goal Warning Modal */
+.dup-goal-modal-inner { overflow: hidden; }
+
+.dup-goal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-6) var(--s-6) var(--s-4);
+  text-align: center;
+  background: linear-gradient(160deg, var(--accent-faint) 0%, transparent 70%);
+  border-bottom: 1px solid var(--border);
+}
+
+.dup-goal-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-faint);
+  border: 1.5px solid var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-light);
+  flex-shrink: 0;
+}
+
+.dup-goal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.dup-goal-name-pill {
+  display: inline-block;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3em 0.75em;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 var(--s-3);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-goal-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.dup-goal-message strong { color: var(--text); }
+
+.btn-warning {
+  background: var(--warning);
+  color: #1a1a1a;
+  border: none;
+  font-weight: 600;
+}
+.btn-warning:hover { background: #d97706; color: #1a1a1a; }
+.btn-warning:focus-visible { outline: 2px solid var(--warning); outline-offset: 2px; }
 
 /* Badge Modal */
 .badge-modal-overlay {
