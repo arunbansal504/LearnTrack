@@ -126,6 +126,9 @@ import { setEl } from './utils.js';
       state.goalsSelection.clear();
     }
 
+    // Reset so renderGoalProgress treats each dashboard visit as a fresh arrival
+    if (page === 'dashboard') state.goalLastPct = -1;
+
     renderPage(page);
 
     // Scroll to top

@@ -253,14 +253,17 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
         }, { passive: true });
       }
 
-      // Fire confetti whenever pct crosses the 100% threshold.
-      // prevPct === -1 means first render on this page load: delay 1300ms to clear the loading
-      // overlay (overlay fades at 600ms after navigateTo, takes 400ms → gone by ~1000ms).
-      // For a live transition (entry just logged), fire quickly so the ring animation settles first.
+      // Fire confetti whenever pct crosses (or arrives at) 100%.
+      // navigateTo resets goalLastPct to -1 so every dashboard visit re-arms the burst.
+      // renderPage (entry save, no navigation) leaves goalLastPct at its last value, so
+      // a re-render while already at 100% does NOT re-fire.
+      // Delay: if the loading overlay is still up (initial page load) wait for it to clear;
+      // otherwise a short pause lets the ring animation finish.
       const prevPct = state.goalLastPct;
       state.goalLastPct = pct;
       if (pct >= 100 && prevPct < 100) {
-        setTimeout(_fireConfetti, prevPct < 0 ? 1300 : 300);
+        const overlayUp = document.getElementById('loading-overlay')?.style.display !== 'none';
+        setTimeout(_fireConfetti, overlayUp ? 1300 : 300);
       }
     }
 
