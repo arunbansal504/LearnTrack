@@ -1,0 +1,821 @@
+/* ===================================================
+   TIMER PANEL — Gradient redesign
+   =================================================== */
+
+/* Gradient themes (cycled by palette btn) */
+.pomo-panel[data-grad="1"] { --timer-grad: linear-gradient(135deg, #4f46e5 0%, #9333ea 38%, #ec4899 70%, #f97316 100%); }
+.pomo-panel[data-grad="2"] { --timer-grad: linear-gradient(135deg, #0ea5e9 0%, #2563eb 38%, #7c3aed 70%, #ec4899 100%); }
+.pomo-panel[data-grad="3"] { --timer-grad: linear-gradient(135deg, #059669 0%, #0ea5e9 38%, #4f46e5 70%, #9333ea 100%); }
+.pomo-panel[data-grad="4"] { --timer-grad: linear-gradient(135deg, #059669 0%, #10b981 35%, #34d399 68%, #6ee7b7 100%); }
+.pomo-panel[data-grad="5"] { --timer-grad: linear-gradient(135deg, #134e4a 0%, #0f766e 30%, #0ea5e9 60%, #818cf8 100%); }
+.pomo-panel[data-grad="6"] { --timer-grad: linear-gradient(135deg, #7c2d12 0%, #c2410c 32%, #ea580c 62%, #fbbf24 100%); }
+.pomo-panel[data-grad="7"] { --timer-grad: linear-gradient(135deg, #2e1065 0%, #6b21a8 34%, #c026d3 65%, #f43f5e 100%); }
+.pomo-panel[data-grad="8"] { --timer-grad: linear-gradient(135deg, #dc2626 0%, #ef4444 32%, #f97316 64%, #fbbf24 100%); }
+
+.pomo-panel {
+  position: fixed;
+  bottom: calc(var(--mobile-nav-height) + 74px);
+  left: 10px;
+  right: 10px;
+  width: auto;
+  background: var(--timer-grad, linear-gradient(135deg, #4f46e5 0%, #9333ea 38%, #ec4899 70%, #f97316 100%));
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.2);
+  z-index: 600;
+  padding: 12px 14px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: pomoSlideUp 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: white;
+  overflow: hidden;
+  --pomo-color: #ef4444;
+  --pomo-faint: rgba(239, 68, 68, 0.14);
+}
+
+/* ── Fullscreen mode ── */
+.pomo-panel.fullscreen {
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100% !important;
+  height: 100dvh;
+  border-radius: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 2000;
+  overflow: hidden;
+}
+
+.pomo-panel.fullscreen::before,
+.pomo-panel.fullscreen::after { content: none; }
+
+/* Header pinned to top-center in fullscreen */
+.pomo-panel.fullscreen .pomo-header {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  white-space: nowrap;
+  z-index: 10;
+}
+.pomo-panel.fullscreen .pomo-tabs {
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+/* Mobile-first tab size */
+.pomo-panel.fullscreen .pomo-tab { padding: 8px 14px; font-size: 13px; }
+.pomo-panel.fullscreen .pomo-tab.active { background: rgba(255,255,255,0.92); }
+
+/* Hide mode buttons & idle controls — clean focus view */
+.pomo-panel.fullscreen .pomo-modes        { display: none !important; }
+.pomo-panel.fullscreen #pomo-idle-controls,
+.pomo-panel.fullscreen #pomo-break-idle-controls,
+.pomo-panel.fullscreen #pomo-duration-row { display: none !important; }
+.pomo-panel.fullscreen #pomo-log-btn,
+.pomo-panel.fullscreen #pomo-discard-btn,
+.pomo-panel.fullscreen #sw-log-btn        { display: none !important; }
+
+/* Timer section */
+.pomo-panel.fullscreen .timer-section { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+/* Glass card behind timer digits — mobile size */
+.pomo-panel.fullscreen .timer-section::before {
+  content: '';
+  position: absolute;
+  inset: -20px -20px;
+  background: rgba(0,0,0,0.12);
+  border-radius: 32px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.07);
+  z-index: -1;
+}
+
+/* Timer — mobile-first size */
+.pomo-panel.fullscreen .pomo-big-time {
+  font-size: 80px;
+  letter-spacing: -4px;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(255,255,255,0.3), 0 0 80px rgba(255,255,255,0.1);
+}
+
+/* Timer pulses while running */
+.pomo-panel.fullscreen.pomo-running .pomo-big-time {
+  animation: pomoGlowPulse 3.5s ease-in-out infinite;
+}
+@keyframes pomoGlowPulse {
+  0%, 100% { text-shadow: 0 0 40px rgba(255,255,255,0.28), 0 0 80px rgba(255,255,255,0.1); }
+  50%       { text-shadow: 0 0 70px rgba(255,255,255,0.6),  0 0 140px rgba(255,255,255,0.22), 0 0 24px rgba(255,255,255,0.35); }
+}
+
+/* Mode label */
+.pomo-panel.fullscreen .pomo-mode-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-top: -6px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 100px;
+  padding: 4px 16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.pomo-panel.fullscreen .pomo-mode-label:empty { display: none; }
+
+/* Progress bar — mobile width */
+.pomo-panel.fullscreen .pomo-progress-wrap {
+  width: min(80vw, 260px);
+  height: 5px;
+}
+
+/* Controls — mobile-first */
+.pomo-panel.fullscreen .pomo-controls { gap: 10px; }
+.pomo-panel.fullscreen .pomo-btn { padding: 11px 26px; font-size: 15px; }
+.pomo-panel.fullscreen .pomo-btn-timesup { width: min(280px, 88vw); font-size: 15px; padding: 13px 24px; }
+.pomo-panel.fullscreen #pomo-timesup-row { width: auto; }
+
+/* Close hidden, corners — mobile positions */
+.pomo-panel.fullscreen .pomo-close { display: none; }
+.pomo-panel.fullscreen .pomo-corner-left  { bottom: 24px; left:  20px; }
+.pomo-panel.fullscreen .pomo-corner-right { bottom: 24px; right: 20px; }
+
+/* Desktop fullscreen — larger sizes, show decorations */
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-tab { padding: 10px 28px; font-size: 15px; }
+  .pomo-panel.fullscreen .timer-section { gap: 18px; }
+  .pomo-panel.fullscreen .timer-section::before { inset: -32px -65px; border-radius: 52px; }
+  .pomo-panel.fullscreen .pomo-big-time { font-size: 160px; letter-spacing: -8px; text-shadow: 0 0 60px rgba(255,255,255,0.3), 0 0 120px rgba(255,255,255,0.1); }
+  .pomo-panel.fullscreen .pomo-progress-wrap { width: 300px; }
+  .pomo-panel.fullscreen .pomo-controls { gap: 14px; }
+  .pomo-panel.fullscreen .pomo-btn { padding: 14px 38px; font-size: 16px; }
+  .pomo-panel.fullscreen .pomo-btn-timesup { width: 320px; font-size: 17px; padding: 16px 28px; }
+  .pomo-panel.fullscreen .pomo-corner-left  { bottom: 32px; left:  32px; }
+  .pomo-panel.fullscreen .pomo-corner-right { bottom: 32px; right: 32px; }
+  .pomo-panel.fullscreen .pomo-ring-svg { display: block; }
+}
+
+@keyframes pomoSlideUp {
+  from { opacity: 0; transform: translateY(18px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* ── Fullscreen decorations ── */
+.pomo-fs-bg, .pomo-ring-svg, .pomo-fs-quote, .pomo-fs-glow { display: none; pointer-events: none; }
+
+/* Animated gradient background in fullscreen */
+.pomo-panel.fullscreen {
+  background-size: 220% 220%;
+  animation: pomoGradShift 16s ease infinite;
+}
+@keyframes pomoGradShift {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+/* Fullscreen live clock — hidden on mobile, shown on desktop only */
+.pomo-fs-clock { display: none; pointer-events: none; }
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-fs-clock {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    position: absolute;
+    top: 28px;
+    right: 32px;
+    z-index: 10;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 100px;
+    padding: 8px 16px 8px 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+}
+.pfc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent, #6c63ff);
+  box-shadow: 0 0 6px var(--accent, #6c63ff), 0 0 14px var(--accent-glow, rgba(108,99,255,0.5));
+  animation: pfcPulse 2.5s ease-in-out infinite;
+}
+@keyframes pfcPulse {
+  0%, 100% { opacity: 1;    box-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent-glow); }
+  50%       { opacity: 0.65; box-shadow: 0 0 3px var(--accent), 0 0 8px  var(--accent-glow); }
+}
+.pfc-time {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: white;
+  line-height: 1;
+}
+.pfc-ampm {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.62);
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+
+/* Ambient mode-color glow at center */
+.pomo-panel.fullscreen .pomo-fs-glow {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 68% 58% at 50% 50%, var(--pomo-mode-faint, rgba(239,68,68,0.22)) 0%, transparent 65%);
+  transition: background 0.6s ease;
+}
+
+/* Floating particle background */
+.pomo-panel.fullscreen .pomo-fs-bg {
+  display: block;
+  position: absolute; inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.pomo-fs-particles-svg { width: 100%; height: 100%; }
+.fs-p { fill: rgba(255,255,255,0.65); animation: fsPFloat 8s ease-in-out infinite; }
+.fs-p:nth-child(1)  { animation-duration:  9s; animation-delay:    0s; }
+.fs-p:nth-child(2)  { animation-duration: 11s; animation-delay:   -3s; }
+.fs-p:nth-child(3)  { animation-duration:  7s; animation-delay:   -5s; }
+.fs-p:nth-child(4)  { animation-duration: 13s; animation-delay:   -1s; }
+.fs-p:nth-child(5)  { animation-duration:  8s; animation-delay:   -7s; }
+.fs-p:nth-child(6)  { animation-duration: 10s; animation-delay:   -4s; }
+.fs-p:nth-child(7)  { animation-duration: 12s; animation-delay:   -2s; }
+.fs-p:nth-child(8)  { animation-duration:  6s; animation-delay:   -6s; }
+.fs-p:nth-child(9)  { animation-duration:  9s; animation-delay: -3.5s; }
+.fs-p:nth-child(10) { animation-duration: 14s; animation-delay:   -8s; }
+.fs-p:nth-child(11) { animation-duration:  8s; animation-delay: -1.5s; }
+.fs-p:nth-child(12) { animation-duration: 11s; animation-delay: -5.5s; }
+.fs-p:nth-child(13) { animation-duration:  7s; animation-delay: -7.5s; }
+.fs-p:nth-child(14) { animation-duration: 10s; animation-delay: -2.5s; }
+.fs-p:nth-child(15) { animation-duration:  9s; animation-delay: -4.5s; }
+@keyframes fsPFloat {
+  0%, 100% { transform: translate(0, 0) scale(1);        opacity: 0.35; }
+  33%      { transform: translate(4px, -7px) scale(1.35); opacity: 0.85; }
+  66%      { transform: translate(-3px, 5px) scale(0.75); opacity: 0.5;  }
+}
+
+/* Circular progress ring */
+.pomo-panel.fullscreen .pomo-ring-svg {
+  display: block;
+  position: absolute;
+  width: 660px; height: 660px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  overflow: visible;
+}
+
+/* Orbiting dots */
+.pomo-orbit-a, .pomo-orbit-b, .pomo-orbit-c {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+.pomo-orbit-a { animation: pomoOrbit 14s linear infinite; }
+.pomo-orbit-b { animation: pomoOrbit 23s linear infinite reverse; }
+.pomo-orbit-c { animation: pomoOrbit 19s linear infinite; animation-delay: -6s; }
+@keyframes pomoOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Rotating motivational quote — mobile-first size */
+.pomo-panel.fullscreen .pomo-fs-quote {
+  display: block;
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90vw, 360px);
+  text-align: center;
+  color: rgba(255,255,255,0.88);
+  font-family: 'Cormorant Garant', Georgia, serif;
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  z-index: 3;
+  transition: opacity 0.75s ease;
+  text-shadow: 0 1px 16px rgba(0,0,0,0.3);
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 14px;
+  padding: 24px 20px 10px;
+  height: 110px;
+  overflow: hidden;
+}
+@media (min-width: 769px) {
+  .pomo-panel.fullscreen .pomo-fs-quote {
+    bottom: 12px;
+    width: min(520px, 78vw);
+    font-size: 22px;
+    padding: 30px 24px 11px;
+    height: 136px;
+  }
+}
+.pomo-panel.fullscreen .pomo-fs-quote::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 1px;
+  background: rgba(255,255,255,0.35);
+}
+.pomo-fs-quote.fade { opacity: 0; }
+
+/* Elevate timer above ring SVG; hide linear bar (ring replaces it) */
+.pomo-panel.fullscreen .timer-section  { z-index: 2 !important; }
+.pomo-panel.fullscreen .pomo-progress-wrap { display: none !important; }
+
+/* Header row (tabs + close) */
+.pomo-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+/* Tabs */
+.pomo-tabs {
+  display: flex;
+  flex: 1;
+  background: rgba(0,0,0,0.2);
+  border-radius: 100px;
+  padding: 4px;
+  gap: 3px;
+  overflow: hidden;
+}
+
+/* Close */
+.pomo-close {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.18);
+  border: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.pomo-close:hover { background: rgba(255,255,255,0.3); color: white; }
+
+.pomo-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 100px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.pomo-tab.active {
+  background: white;
+  color: #2d2d2d;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* Timer sections */
+.timer-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Big time */
+.pomo-big-time {
+  font-size: 72px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -3px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.18);
+}
+
+/* Mode label (shown during break modes) */
+.pomo-mode-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.65);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  min-height: 14px;
+  margin-top: -6px;
+}
+
+/* Idle controls wrapper */
+#pomo-idle-controls,
+#pomo-break-idle-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Mode selector (Focus / Short Break / Long Break) */
+.pomo-modes {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pomo-mode-btn {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.28);
+  background: transparent;
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+.pomo-mode-btn:hover { border-color: rgba(255,255,255,0.6); color: white; background: rgba(255,255,255,0.08); }
+.pomo-mode-btn.active { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.7); color: white; }
+
+/* Preset buttons */
+.pomo-presets {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pomo-preset,
+.pomo-break-preset {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  background: transparent;
+  color: rgba(255,255,255,0.72);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.pomo-preset:hover,
+.pomo-break-preset:hover { border-color: rgba(255,255,255,0.65); color: white; background: rgba(255,255,255,0.1); }
+.pomo-preset.active,
+.pomo-break-preset.active { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.7); color: white; }
+
+/* Custom time input row */
+.pomo-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pomo-custom-input {
+  width: 64px;
+  padding: 5px 10px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.pomo-custom-input::-webkit-outer-spin-button,
+.pomo-custom-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.pomo-custom-input::placeholder { color: rgba(255,255,255,0.4); }
+.pomo-custom-input:focus { border-color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.16); }
+.pomo-custom-ok {
+  padding: 5px 14px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.16);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.pomo-custom-ok:hover { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.7); }
+
+/* Duration adjuster */
+.pomo-duration-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pomo-dur-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.pomo-dur-btn:hover:not(:disabled) { background: rgba(255,255,255,0.25); }
+.pomo-dur-btn:disabled { opacity: 0.3; cursor: default; }
+
+.pomo-dur-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  min-width: 56px;
+  text-align: center;
+}
+
+/* Progress bar */
+.pomo-progress-wrap {
+  width: 100%;
+  height: 3px;
+  background: rgba(255,255,255,0.22);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.pomo-progress-fill {
+  height: 100%;
+  background: white;
+  border-radius: 100px;
+  transition: width 0.9s linear;
+  width: 0%;
+}
+
+/* Control buttons */
+.pomo-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Secondary action row: Log / Discard — sits below the main controls */
+.pomo-log-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.pomo-btn-secondary {
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.82;
+}
+
+.pomo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 26px;
+  border-radius: 100px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.pomo-btn-primary {
+  background: rgba(255,255,255,0.22);
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.3);
+}
+.pomo-btn-primary:hover { background: rgba(255,255,255,0.34); }
+
+.pomo-btn-ghost {
+  background: rgba(0,0,0,0.15);
+  color: rgba(255,255,255,0.85);
+  border: 1.5px solid rgba(255,255,255,0.15);
+}
+.pomo-btn-ghost:hover { background: rgba(0,0,0,0.28); color: white; }
+
+.pomo-btn-timesup {
+  width: 100%;
+  justify-content: center;
+  background: rgba(255,255,255,0.9);
+  color: #2a2a2a;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 26px;
+  border: none;
+  letter-spacing: 0.01em;
+  transition: background 0.18s ease, transform 0.15s ease;
+}
+.pomo-btn-timesup:hover { background: white; transform: scale(1.02); }
+
+#pomo-timesup-row { width: 100%; display: flex; justify-content: center; }
+
+.pomo-btn-log {
+  background: rgba(255,255,255,0.14);
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.28);
+  padding: 9px 20px;
+  font-size: 13px;
+  width: 100%;
+  justify-content: center;
+}
+.pomo-btn-log:hover { background: rgba(255,255,255,0.24); }
+
+/* Session dots */
+.pomo-session-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: -2px;
+}
+
+.pomo-dot {
+  width: 28px;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.25);
+  transition: background 0.3s ease, transform 0.25s ease;
+}
+.pomo-dot.filled { background: white; transform: scaleY(1.5); }
+
+.pomo-sessions-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.58);
+  text-align: center;
+  min-height: 13px;
+  margin-top: -4px;
+}
+
+/* Topic input */
+.pomo-topic-row { width: 100%; }
+
+.pomo-topic-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.14);
+  border: 1.5px solid rgba(255,255,255,0.22);
+  border-radius: 12px;
+  padding: 9px 14px;
+  color: white;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s;
+}
+.pomo-topic-input::placeholder { color: rgba(255,255,255,0.42); }
+.pomo-topic-input:focus { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.5); }
+
+/* Log row */
+.pomo-log-row { width: 100%; }
+
+/* Corner buttons */
+.pomo-corner-btn {
+  position: absolute;
+  bottom: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.2);
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+.pomo-corner-btn:hover { background: rgba(0,0,0,0.35); color: white; }
+.pomo-corner-left  { left: 18px; }
+.pomo-corner-right { right: 18px; }
+
+/* Pomodoro FAB — mobile-first: sits above the mobile nav bar */
+.pomo-fab {
+  position: fixed;
+  bottom: calc(var(--mobile-nav-height) + 10px);
+  right: 16px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--accent-btn);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12);
+  z-index: 598;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  line-height: 1;
+}
+.pomo-fab::before {
+  content: 'Timer';
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pomo-fab:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.pomo-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.28);
+}
+.pomo-fab:active { transform: scale(0.96); }
+
+.pomo-fab.running {
+  background: var(--pomo-color, #ef4444);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  animation: pomoFabPulse 2s ease-in-out infinite;
+}
+.pomo-fab.open {
+  transform: scale(0.9);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+}
+
+@keyframes pomoFabPulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.2), 0 0 0 0 var(--pomo-faint, rgba(239,68,68,0.3)); }
+  50%       { box-shadow: 0 4px 18px rgba(0,0,0,0.2), 0 0 0 10px rgba(0,0,0,0); }
+}
+
+/* Desktop: fixed-width panel, lifted off all edges */
+@media (min-width: 769px) {
+  .pomo-fab { bottom: 24px; right: 24px; }
+  .pomo-panel {
+    bottom: 20px;
+    left: auto;
+    right: 20px;
+    width: 340px;
+    padding: 18px 20px 72px;
+    gap: 12px;
+    border-radius: 24px;
+  }
+  .pomo-drag-handle { display: flex; justify-content: center; width: 100%; padding: 4px 0 2px; cursor: grab; }
+  .pomo-drag-handle:active { cursor: grabbing; }
+  .pomo-drag-pill { display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.35); }
+  .pomo-panel.dragging { transition: none !important; user-select: none; }
+}
+

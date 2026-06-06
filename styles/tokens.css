@@ -1,0 +1,126 @@
+/* ===================================================
+   LEARNTRACK — MAIN STYLESHEET
+   CSS Variables · Layout · Sidebar · Nav · Utilities
+   =================================================== */
+
+/* ---- FONT IMPORT --------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ---- CSS CUSTOM PROPERTIES ---------------------- */
+:root {
+  /* Accent palette — default purple */
+  --accent:            #6c63ff;
+  --accent-light:      #8b85ff;
+  --accent-dark:       #5a52d5;
+  --accent-glow:       rgba(108, 99, 255, 0.25);
+  --accent-faint:      rgba(108, 99, 255, 0.08);
+  /* Safe fill for white text on buttons (4.5:1+ on all accents) */
+  --accent-btn:        #5a52d5;
+  /* Safe text color for light theme (set per-accent below) */
+  --accent-text-light: #5a52d5;
+
+  /* Semantic colors */
+  --success:    #10b981;
+  --warning:    #f59e0b;
+  --danger:     #ef4444;
+  --info:       #3b82f6;
+  /* Safe btn fill for white text */
+  --danger-btn: #dc2626;
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing scale */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* Border radius */
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-full: 9999px;
+
+  /* Layout */
+  --sidebar-width:          240px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height:          64px;
+  --mobile-nav-height:      64px;
+
+  /* Transitions */
+  --transition:       all 0.2s ease;
+  --transition-slow:  all 0.4s ease;
+  --transition-fast:  all 0.1s ease;
+}
+
+/* ---- DARK THEME ---------------------------------- */
+[data-theme="dark"] {
+  --bg:        #0f0f13;
+  --bg-2:      #16161e;
+  --bg-3:      #1e1e2a;
+  --bg-4:      #252534;
+  --surface:   #1e1e2a;
+  --surface-2: #252534;
+  --surface-3: #2e2e40;
+  --border:    rgba(255,255,255,0.07);
+  --border-2:  rgba(255,255,255,0.12);
+  --text:      #e8e8f0;
+  --text-2:    #a0a0b8;
+  --text-3:    #9090b0;
+  --text-inv:  #0f0f13;
+  --shadow:    0 4px 24px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.5);
+  /* Accessible text colors (4.5:1+ on all dark surfaces) */
+  --accent-text:  var(--accent-light);
+  --success-text: #10b981;
+  --warning-text: #f59e0b;
+  --danger-text:  #f87171;
+  --info-text:    #60a5fa;
+  /* Form control border — meets 3:1 non-text contrast */
+  --input-border: #6a6a88;
+}
+
+/* ---- LIGHT THEME --------------------------------- */
+[data-theme="light"] {
+  --bg:        #e6e8f0;
+  --bg-2:      #eef0f6;
+  --bg-3:      #dcdee8;
+  --bg-4:      #d2d4e0;
+  --surface:   #f4f5fb;
+  --surface-2: #ecedf5;
+  --surface-3: #e4e6ee;
+  --border:    rgba(0,0,0,0.11);
+  --border-2:  rgba(0,0,0,0.18);
+  --text:      #0d1117;
+  --text-2:    #3a3d52;
+  --text-3:    #5a5d78;
+  --text-inv:  #ffffff;
+  --shadow:    0 4px 24px rgba(0,0,0,0.11);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.16);
+  /* Accessible text colors (4.5:1+ on all light surfaces) */
+  --accent-text:  var(--accent-text-light);
+  --success-text: #065f46;
+  --warning-text: #92400e;
+  --danger-text:  #991b1b;
+  --info-text:    #1d4ed8;
+  /* Form control border — meets 3:1 non-text contrast */
+  --input-border: #888ba0;
+}
+
+/* ---- ACCENT COLOR OVERRIDES --------------------- */
+[data-accent="blue"]   { --accent:#3b82f6; --accent-light:#60a5fa; --accent-dark:#2563eb; --accent-glow:rgba(59,130,246,0.25);  --accent-faint:rgba(59,130,246,0.08);  --accent-btn:#2563eb; --accent-text-light:#1d4ed8; }
+[data-accent="green"]  { --accent:#10b981; --accent-light:#34d399; --accent-dark:#059669; --accent-glow:rgba(16,185,129,0.25);  --accent-faint:rgba(16,185,129,0.08);  --accent-btn:#047857; --accent-text-light:#065f46; }
+[data-accent="teal"]   { --accent:#14b8a6; --accent-light:#2dd4bf; --accent-dark:#0f766e; --accent-glow:rgba(20,184,166,0.25);  --accent-faint:rgba(20,184,166,0.08);  --accent-btn:#0f766e; --accent-text-light:#0d6b63; }
+[data-accent="orange"] { --accent:#f97316; --accent-light:#fb923c; --accent-dark:#ea580c; --accent-glow:rgba(249,115,22,0.25);  --accent-faint:rgba(249,115,22,0.08);  --accent-btn:#c2410c; --accent-text-light:#9a3412; }
+[data-accent="rose"]   { --accent:#f43f5e; --accent-light:#fb7185; --accent-dark:#e11d48; --accent-glow:rgba(244,63,94,0.25);   --accent-faint:rgba(244,63,94,0.08);   --accent-btn:#e11d48; --accent-text-light:#be123c; }
+

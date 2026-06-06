@@ -27,7 +27,27 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" integrity="sha384-0esPaJH+F9evp2lsJYN36SW7XkRbaYviuyF+PpnbjDXBC9i1CWGiJyGrXCyiyGqZ" crossorigin="anonymous"></script>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles/main.css?v=127" />
+  <!-- main.css was split into the ordered files below. They MUST load in this order
+       (and before dashboard.css / animations.css) so the cascade is unchanged. -->
+  <link rel="stylesheet" href="styles/tokens.css?v=1" />
+  <link rel="stylesheet" href="styles/base.css?v=1" />
+  <link rel="stylesheet" href="styles/layout.css?v=1" />
+  <link rel="stylesheet" href="styles/buttons.css?v=1" />
+  <link rel="stylesheet" href="styles/report-preview.css?v=1" />
+  <link rel="stylesheet" href="styles/forms.css?v=1" />
+  <link rel="stylesheet" href="styles/modals.css?v=1" />
+  <link rel="stylesheet" href="styles/feedback.css?v=1" />
+  <link rel="stylesheet" href="styles/log.css?v=1" />
+  <link rel="stylesheet" href="styles/settings-backup.css?v=1" />
+  <link rel="stylesheet" href="styles/calendar.css?v=1" />
+  <link rel="stylesheet" href="styles/achievements.css?v=1" />
+  <link rel="stylesheet" href="styles/chrome.css?v=1" />
+  <link rel="stylesheet" href="styles/responsive.css?v=1" />
+  <link rel="stylesheet" href="styles/profiles-users.css?v=1" />
+  <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
+  <link rel="stylesheet" href="styles/timer.css?v=1" />
+  <link rel="stylesheet" href="styles/goals.css?v=1" />
+  <link rel="stylesheet" href="styles/deleted-goals.css?v=1" />
   <link rel="stylesheet" href="styles/dashboard.css?v=28" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
@@ -2039,7 +2059,10 @@
   </div>
 </div>
 
-<!-- Scripts (module order matters) -->
+<!-- Shared libraries (classic global IIFEs) — must load before the app module.
+     Classic scripts run before deferred ES modules, so these globals
+     (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
+     are available to the app/* modules by the time main.js runs. -->
 <script src="scripts/storage.js?v=17"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
@@ -2047,7 +2070,9 @@
 <script src="scripts/calendar.js?v=16"></script>
 <script src="scripts/insights.js?v=16"></script>
 <script src="scripts/timer.js?v=15"></script>
-<script src="scripts/app.js?v=31"></script>
+<!-- App entry point. app.js was split into ES modules under scripts/app/;
+     main.js imports them. Requires serving over http(s)/localhost (not file://). -->
+<script type="module" src="scripts/main.js?v=1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

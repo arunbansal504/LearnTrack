@@ -1,0 +1,267 @@
+/* ---- RESPONSIVE: TABLET -------------------------- */
+@media (max-width: 1024px) {
+  .page { padding: var(--s-6); }
+  .calendar-layout { grid-template-columns: 1fr; }
+  .calendar-sidebar { position: static; }
+  .backup-layout { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- RESPONSIVE: MOBILE -------------------------- */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+
+  /* --- Sidebar as drawer --- */
+  .sidebar {
+    transform: translateX(-100%);
+    width: 260px !important;
+    height: 100vh;                  /* fallback */
+    height: -webkit-fill-available; /* older iOS Safari */
+    height: 100dvh;                 /* dynamic — excludes browser chrome (address bar, tab bar) */
+    padding-bottom: var(--mobile-nav-height); /* keep footer above the fixed bottom nav */
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-toggle { display: none; }
+
+  .app-shell { grid-template-columns: 1fr; }
+  .main-content { margin-left: 0 !important; }
+  .mobile-bottom-nav { display: flex; }
+
+  /* --- Page layout --- */
+  .page { padding: var(--s-4) var(--s-4) calc(var(--mobile-nav-height) + var(--s-6)); }
+  .page-title { font-size: 22px; }
+  .page-subtitle { font-size: 13px; }
+
+  /* Page header: title on top, actions below */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .page-actions {
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  /* Dashboard header: single row — title left, button right */
+  .dashboard-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .dashboard-header-center { display: none; }
+  .dashboard-header .page-title-group { flex: 1; min-width: 0; }
+  .dashboard-header .page-subtitle { display: none; }
+  .dashboard-header .page-actions { flex-shrink: 0; flex-wrap: nowrap; }
+
+  /* Quote chip: hidden on mobile */
+  .daily-quote-chip { display: none; }
+
+  /* --- Forms --- */
+  .form-row { grid-template-columns: 1fr; }
+
+  /* Search bar: own full-width row so buttons don't crowd it */
+  .search-bar { flex: 1 1 100%; min-width: 0; }
+  .search-bar input { min-width: 0; width: 100%; }
+
+  /* --- Grids --- */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .summary-row { grid-template-columns: 1fr; }
+
+  /* --- Achievements --- */
+  .level-hero { flex-direction: column; align-items: flex-start; }
+  .level-hero-right { flex-wrap: wrap; }
+
+  /* --- Resource row --- */
+  .resource-row { grid-template-columns: 1fr auto; }
+  .resource-row > :first-child { grid-column: 1; }
+  .resource-row > :nth-child(2) { grid-column: 1 / -1; }
+
+  /* --- Backup --- */
+  .backup-layout { grid-template-columns: 1fr; }
+  .backup-card { flex-direction: column; }
+
+  /* --- Entry cards --- */
+  .entry-card { grid-template-columns: auto 1fr; }
+  .dl-card    { grid-template-columns: auto auto 1fr; }
+  .entry-actions-col { grid-column: 2; flex-direction: row; }
+  .dl-card .entry-actions-col { grid-column: 3; }
+
+  /* --- Modals: compact interior on mobile --- */
+  .modal-header { padding: var(--s-4); }
+  .modal-body   { padding: var(--s-4); }
+  .modal-footer { padding: var(--s-3) var(--s-4); flex-direction: column; gap: var(--s-2); }
+  .modal-footer-left  { order: 2; }
+  .modal-footer-right { width: 100%; order: 1; flex-wrap: nowrap; }
+  .modal-footer-right .btn { flex: 1; justify-content: center; }
+  /* Touch-friendly form inputs */
+  .modal .form-group input,
+  .modal .form-group select { min-height: 44px; }
+  /* Resource row: title+remove on row 1, url full-width on row 2 */
+  .resource-row {
+    grid-template-columns: 1fr auto;
+  }
+  .resource-row > :nth-child(2)  { grid-column: 1; grid-row: 1; }
+  .resource-row > :nth-child(3)  { grid-column: 1 / -1; grid-row: 2; }
+  .resource-row > :nth-child(4)  { grid-column: 2; grid-row: 1; align-self: center; }
+
+  /* --- Pomo panel: mobile sizes --- */
+  .pomo-big-time { font-size: 56px; letter-spacing: -3px; }
+  .pomo-tab { padding: 7px 14px; font-size: 12px; }
+  .pomo-mode-btn { padding: 5px 11px; font-size: 11px; }
+  .pomo-preset, .pomo-break-preset { padding: 5px 11px; font-size: 11px; }
+  .pomo-btn { padding: 9px 20px; font-size: 13px; }
+  .pomo-controls { gap: 8px; }
+  .pomo-corner-btn { width: 32px; height: 32px; font-size: 14px; bottom: 13px; }
+  .pomo-corner-left  { left: 12px; }
+  .pomo-corner-right { right: 12px; }
+  .timer-section { gap: 8px; }
+
+  /* Pomo fullscreen: overrides now handled mobile-first in base rules */
+
+  /* --- Filter panel --- */
+  .filter-group { min-width: calc(50% - var(--s-2)); flex: 1; }
+
+  /* --- Calendar --- */
+  .cal-day { min-height: 56px; padding: var(--s-1); }
+  .cal-day-num { font-size: 12px; }
+  .cal-header-cell { padding: var(--s-2); font-size: 10px; }
+
+  /* --- Charts --- */
+  .chart-container, .chart-container-sm { height: 180px; }
+  .charts-grid { gap: var(--s-3); }
+  .chart-card { padding: var(--s-4); }
+
+  /* Chart header: allow title + tabs to wrap if tight */
+  .chart-header { flex-wrap: wrap; gap: var(--s-2); }
+  .chart-header h2 { flex: 1 0 auto; }
+
+  /* Heatmap: smooth touch scrolling (fallback if content still wider than screen) */
+  .heatmap-container { -webkit-overflow-scrolling: touch; }
+
+  /* --- Settings & Profiles --- */
+  .settings-layout { gap: var(--s-5); }
+  .settings-row { flex-direction: column; }
+  .settings-card { padding: var(--s-4); gap: var(--s-4); }
+
+  /* Stack label above its control */
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+  }
+  .setting-label { flex: none; }
+
+  /* Inline rows stay horizontal on mobile */
+  .setting-row.setting-row--inline,
+  .setting-row:has(.toggle-switch),
+  .setting-row:has(input[type="time"]) {
+    flex-direction: row;
+    align-items: center;
+  }
+  .setting-row.setting-row--inline .setting-input,
+  .setting-row:has(input[type="time"]) .setting-input { width: auto; }
+
+  /* Controls stretch full width when stacked */
+  .setting-input { width: 100%; box-sizing: border-box; }
+  .theme-options { width: 100%; }
+  .theme-option { flex: 1; text-align: center; }
+
+  /* Accent swatches: larger touch target */
+  .accent-swatch { width: 32px; height: 32px; }
+
+  /* Category add row: input grows */
+  .add-category-row .setting-input { flex: 1; }
+
+  /* Danger zone: stack label+hint above button */
+  .danger-zone .setting-row { align-items: stretch; }
+  .danger-zone .setting-row .btn { width: 100%; justify-content: center; }
+
+  /* Profiles — allow action buttons to wrap below name on small screens */
+  .user-manage-row { flex-wrap: wrap; gap: 8px; }
+  .user-manage-actions { width: 100%; justify-content: flex-start; }
+  .user-manage-rename-input { width: 100%; box-sizing: border-box; }
+
+  /* Profile cards — single column on small screens */
+  .profile-cards-grid { grid-template-columns: 1fr; }
+
+  /* Achievements XP bar --- */
+  .level-xp-bar { width: 100%; }
+
+  /* --- Achievements grid --- */
+  .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* --- Insights row: 2-column grid (no scroll) --- */
+  .insights-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  .insight-card { padding: var(--s-2) var(--s-3); min-width: 0; overflow: hidden; }
+  .insight-value { font-size: 15px; }
+
+  /* --- Heatmap cells: slightly smaller --- */
+  .heatmap-cell { width: 10px; height: 10px; }
+}
+
+/* ---- RESPONSIVE: SMALL PHONE (≤480px) ----------- */
+@media (max-width: 480px) {
+  .page { padding: var(--s-3) var(--s-3) calc(var(--mobile-nav-height) + var(--s-6)); }
+  .page-title { font-size: 20px; }
+
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Quote chip: very compact */
+  .daily-quote-chip { font-size: 11px; padding: 6px 10px; }
+
+  /* Pomo panel: even more compact on tiny phones */
+  .pomo-panel { padding: 10px 12px 50px; gap: 6px; }
+  .pomo-big-time { font-size: 48px; letter-spacing: -2px; }
+  .pomo-tab { padding: 6px 10px; font-size: 11px; }
+
+  /* Pomo fullscreen: even smaller on tiny phones */
+  .pomo-panel.fullscreen .pomo-big-time { font-size: 64px; letter-spacing: -3px; }
+  .pomo-panel.fullscreen .pomo-fs-quote { font-size: 16px; height: 100px; bottom: 52px; }
+  .pomo-panel.fullscreen .pomo-btn { padding: 10px 20px; font-size: 14px; }
+
+  /* Modal: allow it to use more height on tiny phones */
+  .modal { max-height: 96vh; }
+
+  /* Entry meta text smaller */
+  .entry-meta { font-size: 11px; }
+
+  /* Filter groups full width */
+  .filter-group { min-width: 100%; flex: 1 1 100%; }
+
+  /* Calendar cells smaller */
+  .cal-day { min-height: 44px; }
+  .cal-day-num { font-size: 11px; }
+
+  /* Charts: keep readable height */
+  .chart-container, .chart-container-sm { height: 160px; }
+
+  /* Achievements grid: 2 cols on small phone */
+  .achievements-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---- RESPONSIVE: TINY PHONE (≤380px) ------------ */
+@media (max-width: 380px) {
+  :root { --s-4: 14px; }
+  .page-title { font-size: 18px; }
+  .stat-value { font-size: 18px; }
+  .mobile-bottom-nav { padding: 0; }
+  .mobile-nav-item { font-size: 9px; padding: var(--s-1); }
+  .mobile-nav-item svg { width: 20px; height: 20px; }
+}
+

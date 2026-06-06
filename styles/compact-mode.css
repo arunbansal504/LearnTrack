@@ -1,0 +1,73 @@
+/* ---- COMPACT MODE -------------------------------- */
+.compact-mode .page                { padding: var(--s-4) var(--s-5); }
+.compact-mode .page-header         { margin-bottom: var(--s-4); }
+.compact-mode .page-title          { font-size: 22px; }
+
+/* Stat cards */
+.compact-mode .stats-grid          { gap: var(--s-2); margin-bottom: var(--s-3); }
+.compact-mode .stat-card           { padding: var(--s-3); gap: var(--s-1); }
+.compact-mode .stat-icon           { font-size: 16px; }
+.compact-mode .stat-value          { font-size: 16px; }
+.compact-mode .stat-label          { font-size: 10px; }
+.compact-mode .stat-sub            { font-size: 10px; }
+
+/* Summary row */
+.compact-mode .summary-row         { gap: var(--s-2); margin-bottom: var(--s-3); }
+.compact-mode .summary-card        { padding: var(--s-3) var(--s-4); }
+.compact-mode .summary-header      { margin-bottom: var(--s-2); }
+.compact-mode .summary-big         { font-size: 20px; }
+
+/* Dashboard bottom widgets */
+.compact-mode .dashboard-bottom    { gap: var(--s-2); }
+.compact-mode .widget              { padding: var(--s-3) var(--s-4); }
+.compact-mode .widget-header       { margin-bottom: var(--s-2); }
+.compact-mode .activity-list       { gap: var(--s-1); max-height: 240px; }
+.compact-mode .activity-item       { padding: var(--s-2); }
+
+/* Entry log */
+.compact-mode .entries-container   { gap: var(--s-1); }
+.compact-mode .entry-card          { padding: var(--s-1) var(--s-3); gap: var(--s-2); }
+.compact-mode .entry-date-col      { padding: 3px var(--s-1); min-width: 38px; }
+.compact-mode .entry-date-day      { font-size: 16px; }
+.compact-mode .entry-topic         { font-size: 12px; }
+.compact-mode .entry-meta          { gap: var(--s-2); font-size: 11px; }
+.compact-mode .entry-notes-preview  { font-size: 11px; margin-top: 2px; }
+.compact-mode .entry-notes-link     { font-size: 11px; margin-top: 2px; }
+.compact-mode .entry-resource-links { margin-top: 2px; gap: var(--s-1); }
+.compact-mode .entry-resource-link  { font-size: 11px; padding: 1px 6px; }
+.compact-mode .entry-tags           { margin-top: 2px; }
+
+/* Analytics */
+.compact-mode .insights-row        { gap: var(--s-2); margin-bottom: var(--s-3); }
+.compact-mode .insight-card        { padding: var(--s-3) var(--s-3); }
+.compact-mode .charts-grid         { gap: var(--s-3); }
+.compact-mode .chart-card          { padding: var(--s-3); }
+.compact-mode .chart-header        { margin-bottom: var(--s-2); }
+.compact-mode .chart-container     { height: 180px; }
+.compact-mode .chart-container-sm  { height: 180px; }
+
+/* Settings */
+.compact-mode .settings-layout     { gap: var(--s-3); }
+.compact-mode .settings-card       { padding: var(--s-2) var(--s-3); gap: var(--s-2); }
+
+/* Backup */
+.compact-mode .backup-layout       { gap: var(--s-3); }
+.compact-mode .backup-card         { padding: var(--s-4); }
+
+/* Achievements */
+.compact-mode .level-hero          { padding: var(--s-5); margin-bottom: var(--s-4); }
+.compact-mode .achievements-grid   { gap: var(--s-3); }
+.compact-mode .achievement-card    { padding: var(--s-3); }
+.compact-mode .achievement-icon    { font-size: 28px; margin-bottom: var(--s-2); }
+
+/* Sidebar */
+.compact-mode .sidebar-header      { padding: var(--s-2) var(--s-4); min-height: 52px; }
+.compact-mode .user-strip          { padding: var(--s-2) var(--s-3); }
+.compact-mode .streak-chip         { padding: 4px var(--s-4); }
+.compact-mode .sidebar-nav         { padding: var(--s-2) var(--s-1); gap: 1px; }
+.compact-mode .nav-item            { padding: 3px var(--s-3); font-size: 13px; }
+.compact-mode .sidebar-toggle-row  { padding: 4px var(--s-1); }
+.compact-mode .sidebar-accent-row  { padding-top: 4px; }
+.compact-mode .sidebar-footer      { padding: var(--s-2) var(--s-3); gap: 4px; }
+.compact-mode .sbs-chip            { padding: 5px var(--s-3); }
+
