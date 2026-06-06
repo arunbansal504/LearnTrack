@@ -259,6 +259,30 @@ function hasStoredSession() {
   try { return !!localStorage.getItem(SB_AUTH_STORAGE_KEY); } catch { return false; }
 }
 
+// Detect Supabase auth tokens arriving in the URL after an email confirmation or
+// magic-link click. Implicit flow puts them in the hash; PKCE puts a code in query params.
+function hasAuthParamsInUrl() {
+  try {
+    const hash   = window.location.hash;
+    const search = window.location.search;
+    return (
+      hash.includes('access_token=') ||
+      hash.includes('error=') ||
+      new URLSearchParams(search).has('code') ||
+      new URLSearchParams(search).has('error')
+    );
+  } catch { return false; }
+}
+
+// After handling an auth callback, remove the tokens from the URL so they
+// aren't re-processed on refresh or shared accidentally.
+function cleanCallbackUrl() {
+  try {
+    const clean = window.location.pathname.replace(/\/auth\/callback\/?$/, '') || '/';
+    history.replaceState(null, '', clean || '/');
+  } catch { /* non-fatal */ }
+}
+
 let _connectivityWired = false;
 function wireConnectivity() {
   if (_connectivityWired) return;
@@ -270,14 +294,31 @@ function wireConnectivity() {
 
 export async function initSync() {
   wireConnectivity();
-  if (!isConfigured())     { setStatus('disabled'); return; }
-  if (!hasStoredSession()) { setStatus('signed-out'); return; }
-  if (!navigator.onLine)   { setStatus('offline'); return; }
+  if (!isConfigured()) { setStatus('disabled'); return; }
+
+  const isCallback = hasAuthParamsInUrl();
+
+  // Skip loading the Supabase client entirely for users who are neither signed in
+  // nor arriving from an email confirmation link — the common cold-start case.
+  if (!hasStoredSession() && !isCallback) { setStatus('signed-out'); return; }
+  if (!navigator.onLine && !isCallback)   { setStatus('offline');    return; }
 
   try {
     const sb = await getClient();
+
+    // getSession() handles both implicit-flow (hash tokens) and PKCE (code exchange)
+    // automatically when detectSessionInUrl is true (the default).
     const { data: { session } } = await sb.auth.getSession();
     state.syncSession = session || null;
+
+    if (isCallback) {
+      cleanCallbackUrl();
+      // Navigate to the dashboard regardless of whether sign-in succeeded, so the
+      // user lands in the app rather than staring at a blank /auth/callback URL.
+      // Import is lazy to avoid a circular dep at module parse time.
+      import('./nav.js').then(({ navigateTo }) => navigateTo('dashboard')).catch(() => {});
+    }
+
     sb.auth.onAuthStateChange((_event, s) => {
       state.syncSession = s || null;
       if (!s) setStatus(isConfigured() ? 'signed-out' : 'disabled');
@@ -290,7 +331,6 @@ export async function initSync() {
       await pushSnapshot();
       setStatus('synced');
     } else {
-      // Signed in but the active profile isn't bound to this account (or vice-versa).
       setStatus('signed-out');
     }
   } catch (err) {
