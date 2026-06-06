@@ -545,8 +545,11 @@ const App = (() => {
 
     // Clear goal-context breadcrumb and link filter when leaving the log page
     if (page !== 'log') { _logGoalContext = null; _logLinkedGoalFilter = null; }
-    // Clear the "back to link modal" chip when leaving the goals page
-    if (page !== 'goals') { _linkModalReturnEntryId = null; _linkModalReturnGoalId = null; }
+    // Clear the "back to link modal" chips when leaving the goals page
+    if (page !== 'goals') {
+      _linkModalReturnEntryId = null; _linkModalReturnGoalId = null;
+      _dlReturnEntry = null; _dlReturnGoalId = null;
+    }
 
     // Reset deleted logs state when navigating away
     if (page !== 'deleted-logs') {
@@ -1466,6 +1469,11 @@ const App = (() => {
         // Esc on a goal card reached via "View" in the link modal → back to "Link to Goals" (same as the back chip)
         if (_currentPage === 'goals' && _linkModalReturnEntryId) {
           reopenLinkModalFromGoal();
+          return;
+        }
+        // Esc on a goal card reached via "View" in the deleted-log linked-goals modal → back to deleted logs + reopen modal
+        if (_currentPage === 'goals' && _dlReturnEntry) {
+          reopenLinkedGoalsModal();
           return;
         }
         // Esc on the Daily Log while a goal breadcrumb is shown → back to Goals (same as the back chip)
@@ -2484,82 +2492,95 @@ const App = (() => {
     document.body.style.overflow = '';
   }
 
-  function showLinkedGoalsPopover(anchor, entry) {
-    document.getElementById('dl-linked-goals-popover')?.remove();
+  const _chevronRight = `<svg class="linked-item-nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+  function _openLinkedItemsModal(titleText, bodyHtml, onBodyClick, wideModal = false) {
+    document.getElementById('linked-items-title').textContent = titleText;
+    const body = document.getElementById('linked-items-body');
+    body.innerHTML = bodyHtml;
+    const modal = document.getElementById('linked-items-modal');
+    const inner = modal.querySelector('.linked-items-modal-inner');
+    if (wideModal) inner.classList.remove('modal-sm');
+    else           inner.classList.add('modal-sm');
+    const closeBtn  = document.getElementById('linked-items-close');
+    const closeBtnF = document.getElementById('linked-items-close-btn');
+    const close = () => {
+      document.removeEventListener('keydown', onKey);
+      _closeModal(modal);
+      modal.style.display = 'none';
+    };
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+    closeBtn.onclick  = close;
+    closeBtnF.onclick = close;
+    modal.onclick = e => { if (e.target === modal) close(); };
+    body.onclick = onBodyClick ? e => onBodyClick(e, close) : null;
+    modal.style.display = 'flex';
+    _openModal(modal);
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => closeBtnF.focus(), 0);
+  }
+
+  function showLinkedGoalsPopover(_anchor, entry) {
     const goals = (entry.goalIds || []).map(id => _goals.find(g => g.id === id)).filter(Boolean);
     if (!goals.length) return;
     const typeLabel = { time: '⏳ Study Hours', count: '🏆 Problem Count', checklist: '📋 Task List', exam: '🎓 Exam Prep' };
-    const pop = document.createElement('div');
-    pop.id = 'dl-linked-goals-popover';
-    pop.className = 'dl-linked-goals-popover';
-    pop.innerHTML = `
-      <div class="dl-lgp-title">Linked Goals</div>
-      ${goals.map(g => `
-        <div class="dl-lgp-item">
-          <span class="dl-lgp-item-title">${escapeHtml(g.title)}</span>
-          <span class="goal-type-chip" data-type="${g.type}">${typeLabel[g.type] || g.type}</span>
-        </div>`).join('')}
-    `;
-    document.body.appendChild(pop);
-    const rect = anchor.getBoundingClientRect();
-    const popW = 240;
-    let left = rect.left;
-    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
-    pop.style.cssText = `position:fixed;z-index:1100;top:${rect.bottom + 4}px;left:${left}px`;
-    const dismiss = () => {
-      pop.remove();
-      document.removeEventListener('click', onOutsideClick, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-    };
-    const onOutsideClick = ev => {
-      if (!pop.contains(ev.target) && ev.target !== anchor) dismiss();
-    };
-    const onKeyDown = ev => {
-      if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
-    };
-    setTimeout(() => {
-      document.addEventListener('click', onOutsideClick, true);
-      document.addEventListener('keydown', onKeyDown, true);
-    }, 0);
+    const items = goals.map(g => `
+      <label class="link-goal-item is-linked" style="cursor:default">
+        <input type="checkbox" checked disabled style="display:none" />
+        <span class="link-goal-item-main">
+          <span class="link-goal-item-title">${escapeHtml(g.title)}</span>
+          <span class="link-goal-item-meta">
+            <span class="goal-type-chip" data-type="${g.type}">${typeLabel[g.type] || g.type}</span>
+            ${g.category ? `<span class="goal-cat-chip">${escapeHtml(g.category)}</span>` : ''}
+            ${g.priority ? `<span class="goal-priority-chip goal-priority-${g.priority}">${capitalise(g.priority)}</span>` : ''}
+          </span>
+        </span>
+        <button type="button" class="lg-view-goal-btn linked-item-navigate" data-goal-id="${g.id}">View</button>
+      </label>`).join('');
+    const bodyHtml = `<div style="padding:var(--s-4) var(--s-6)">
+      <p class="link-goal-hint">Goals this deleted entry was linked to.</p>
+      <div class="link-goal-list">${items}</div>
+    </div>`;
+    _openLinkedItemsModal(`Linked Goals (${goals.length})`, bodyHtml, (e, close) => {
+      const btn = e.target.closest('.linked-item-navigate');
+      if (btn) {
+        _dlReturnEntry  = entry;
+        _dlReturnGoalId = btn.dataset.goalId;
+        close();
+        _goalScrollTarget = btn.dataset.goalId;
+        navigateTo('goals');
+      }
+    }, true);
   }
 
-  function showLinkedEntriesPopover(anchor, goal) {
-    document.getElementById('dg-linked-entries-popover')?.remove();
+  function showLinkedEntriesPopover(_anchor, goal) {
     const entries = _entries.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(goal.id));
     if (!entries.length) return;
-    const pop = document.createElement('div');
-    pop.id = 'dg-linked-entries-popover';
-    pop.className = 'dl-linked-goals-popover';
-    pop.innerHTML = `
-      <div class="dl-lgp-title">Logged Entries (${entries.length})</div>
-      ${entries.map(e => `
-        <div class="dl-lgp-item">
-          <span class="dl-lgp-item-title">${escapeHtml(e.topic)}</span>
-          <span class="goal-cat-chip">${e.date}</span>
-          <span class="goal-cat-chip">${Analytics.formatDuration(e.durationMinutes || 0)}</span>
-        </div>`).join('')}
-    `;
-    document.body.appendChild(pop);
-    const rect = anchor.getBoundingClientRect();
-    const popW = 280;
-    let left = rect.left;
-    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
-    pop.style.cssText = `position:fixed;z-index:1100;top:${rect.bottom + 4}px;left:${left}px`;
-    const dismiss = () => {
-      pop.remove();
-      document.removeEventListener('click', onOutsideClick, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-    };
-    const onOutsideClick = ev => {
-      if (!pop.contains(ev.target) && ev.target !== anchor) dismiss();
-    };
-    const onKeyDown = ev => {
-      if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
-    };
-    setTimeout(() => {
-      document.addEventListener('click', onOutsideClick, true);
-      document.addEventListener('keydown', onKeyDown, true);
-    }, 0);
+    const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+    const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const totalMin = entries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+    const rows = entries.map(e => `
+      <li class="linked-item-row linked-entry-row" data-difficulty="${e.difficulty || ''}">
+        <div class="linked-item-bar"></div>
+        <div class="linked-item-content">
+          <div class="linked-item-main">
+            <span class="linked-item-title">${escapeHtml(e.topic)}</span>
+            <span class="linked-entry-dur">${Analytics.formatDuration(e.durationMinutes || 0)}</span>
+          </div>
+          <div class="linked-item-meta">
+            <span class="goal-cat-chip">${fmtDate(e.date)}</span>
+            ${e.category ? `<span class="goal-cat-chip">${escapeHtml(e.category)}</span>` : ''}
+            ${e.difficulty ? `<span class="linked-entry-diff-chip diff-${e.difficulty}">${diffLabel[e.difficulty]}</span>` : ''}
+          </div>
+        </div>
+      </li>`).join('');
+    const bodyHtml = `
+      <ul class="linked-items-list">${rows}</ul>
+      <div class="linked-entries-total">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Total time logged: <strong>${Analytics.formatDuration(totalMin)}</strong>
+      </div>`;
+    _openLinkedItemsModal(`Logged Entries (${entries.length})`, bodyHtml);
   }
 
   /* ---- ANALYTICS (embedded in dashboard) ----------- */
@@ -5470,12 +5491,6 @@ const App = (() => {
 
   /* ---- Duplicate Goal Warning ---------------------- */
 
-  function _nextGoalTitle(title) {
-    let n = 1;
-    while (_goals.some(g => g.title.toLowerCase() === `${title}_${n}`.toLowerCase())) n++;
-    return `${title}_${n}`;
-  }
-
   let _dupGoalKeyHandler = null;
 
   function _attachDupGoalKeyboard() {
@@ -5490,25 +5505,27 @@ const App = (() => {
     document.addEventListener('keydown', _dupGoalKeyHandler);
   }
 
-  function showDupGoalWarning(existing, suggestedTitle, onCreateAnyway, onView) {
-    const statusLabels = { active: 'Open', completed: 'Completed', archived: 'Archived' };
-    const status = statusLabels[existing.status] || existing.status;
-    const catText = existing.category ? ` in category <strong>${escapeHtml(existing.category)}</strong>` : '';
+  function showDupGoalWarning(count, title, onCreateAnyway) {
+    const noun = count === 1 ? 'goal' : 'goals';
+    const verb = count === 1 ? 'exists'  : 'exist';
+
+    const namePill = document.getElementById('dup-goal-name-display');
+    namePill.textContent = `"${title}"`;
+    namePill.style.display = 'inline-block';
+
     document.getElementById('dup-goal-message').innerHTML =
-      `A goal named <strong>"${escapeHtml(existing.title)}"</strong>${catText} already exists with status <strong>${status}</strong>.<br><br>` +
-      `If you proceed, your new goal will be created as <strong>"${escapeHtml(suggestedTitle)}"</strong>.`;
+      `<strong>${count}</strong> ${noun} with <strong>Open</strong> status and same name already ${verb}. ` +
+      `Do you still want to create another goal with the same name?`;
 
     const createBtn = document.getElementById('dup-goal-create');
-    const viewBtn   = document.getElementById('dup-goal-view');
+    const cancelBtn = document.getElementById('dup-goal-cancel');
 
-    createBtn.textContent = `Create as "${suggestedTitle}"`;
+    createBtn.textContent = 'Yes, create anyway';
     createBtn.className   = 'btn btn-primary';
-    viewBtn.textContent   = 'View Existing Goal';
-    viewBtn.className     = 'btn btn-secondary';
+    cancelBtn.textContent = 'No, go back';
 
     createBtn.onclick = () => { closeDupGoalModal(); onCreateAnyway(); };
-    viewBtn.onclick   = () => { closeDupGoalModal(); onView(); };
-    document.getElementById('dup-goal-cancel').onclick = closeDupGoalModal;
+    cancelBtn.onclick = closeDupGoalModal;
     document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
 
     _attachDupGoalKeyboard();
@@ -5516,32 +5533,6 @@ const App = (() => {
     dupModal.style.display = 'flex';
     _openModal(dupModal);
     setTimeout(() => createBtn.focus(), 0);
-  }
-
-  function showDeletedDupWarning(deletedGoal, onRestore, onCreateNew) {
-    const catText = deletedGoal.category ? ` in category <strong>${escapeHtml(deletedGoal.category)}</strong>` : '';
-    document.getElementById('dup-goal-message').innerHTML =
-      `A deleted goal named <strong>"${escapeHtml(deletedGoal.title)}"</strong>${catText} already exists in your recycle bin.<br><br>` +
-      `Would you like to restore it, or create a new goal?`;
-
-    const createBtn = document.getElementById('dup-goal-create');
-    const viewBtn   = document.getElementById('dup-goal-view');
-
-    createBtn.textContent  = 'Create New Goal';
-    createBtn.className    = 'btn btn-secondary';
-    viewBtn.textContent    = 'Restore Deleted Goal';
-    viewBtn.className      = 'btn btn-primary';
-
-    viewBtn.onclick   = () => { closeDupGoalModal(); onRestore(); };
-    createBtn.onclick = () => { closeDupGoalModal(); onCreateNew(); };
-    document.getElementById('dup-goal-cancel').onclick = closeDupGoalModal;
-    document.getElementById('dup-goal-modal').onclick = e => { if (e.target.id === 'dup-goal-modal') closeDupGoalModal(); };
-
-    _attachDupGoalKeyboard();
-    const dupModal2 = document.getElementById('dup-goal-modal');
-    dupModal2.style.display = 'flex';
-    _openModal(dupModal2);
-    setTimeout(() => viewBtn.focus(), 0);
   }
 
   function closeDupGoalModal() {
@@ -5897,68 +5888,11 @@ const App = (() => {
     const targetDate = document.getElementById('goal-target-date').value;
     const description = document.getElementById('goal-description').value.trim();
 
-    if (!title) { showToast('Please enter a goal title.', 'warning'); return; }
+    if (!title) { showToast('Please enter a goal title.', 'warning'); document.getElementById('goal-title').focus(); return; }
     if (targetDate && targetDate < Analytics.today()) {
       showToast('Deadline / Exam date cannot be in the past.', 'warning');
       document.getElementById('goal-target-date').focus();
       return;
-    }
-
-    // Duplicate check — only for new goals (skipped when user explicitly chose "Create New" after deleted-dup warning)
-    if (!id && !skipDupCheck) {
-      const titleLower = title.toLowerCase();
-
-      // 1. Check active goals first
-      const activeDup = _goals.find(g =>
-        g.title.toLowerCase() === titleLower &&
-        g.category === category
-      );
-      if (activeDup) {
-        const suggested = _nextGoalTitle(title);
-        showDupGoalWarning(
-          activeDup,
-          suggested,
-          async () => {
-            document.getElementById('goal-title').value = suggested;
-            await saveGoalFromModal();
-          },
-          () => {
-            closeGoalModal();
-            _goalScrollTarget = activeDup.id;
-            navigateTo('goals');
-          }
-        );
-        return;
-      }
-
-      // 2. Check deleted goals
-      const allDeleted = await Storage.getDeletedGoals();
-      const deletedDup = allDeleted.find(g =>
-        g.title.toLowerCase() === titleLower &&
-        g.category === category
-      );
-      if (deletedDup) {
-        showDeletedDupWarning(
-          deletedDup,
-          async () => {
-            await restoreDeletedGoal(deletedDup.id);
-            // Force Open status — user is starting fresh with this goal
-            const g = _goals.find(g => g.id === deletedDup.id);
-            if (g && g.status !== 'active') {
-              g.status = 'active';
-              g.completedAt = null;
-              g.progressSnapshot = null;
-              await Storage.saveGoal(g);
-            }
-            // Set scroll target after status is corrected so renderGoals places it in Open
-            _goalScrollTarget = deletedDup.id;
-            renderGoals();
-            closeGoalModal();
-          },
-          () => saveGoalFromModal(true)
-        );
-        return;
-      }
     }
 
     const existing = id ? _goals.find(g => g.id === id) : null;
@@ -5979,24 +5913,37 @@ const App = (() => {
     // Type-specific fields
     if (type === 'time') {
       const hrs = parseFloat(document.getElementById('goal-target-hours').value);
-      if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); return; }
+      if (!hrs || hrs <= 0) { showToast('Please enter a target number of hours.', 'warning'); document.getElementById('goal-target-hours').focus(); return; }
       goal.targetMinutes = Math.round(hrs * 60);
       // Progress is link-based: a new time goal starts at 0 and the user links
       // entries to it afterward (via the 🔗 icon on the Daily Log or "Log entry").
     } else if (type === 'count') {
       const cnt = parseInt(document.getElementById('goal-target-count').value, 10);
-      if (!cnt || cnt <= 0) { showToast('Please enter a target count.', 'warning'); return; }
+      if (!cnt || cnt <= 0) { showToast('Please enter a target count.', 'warning'); document.getElementById('goal-target-count').focus(); return; }
       goal.targetCount  = cnt;
       goal.currentCount = existing?.currentCount || 0;
       goal.unit         = document.getElementById('goal-count-unit').value.trim();
     } else if (type === 'checklist') {
       const rows = document.querySelectorAll('#goal-milestones-list .milestone-row');
-      if (rows.length === 0) { showToast('Please add at least one milestone.', 'warning'); return; }
+      if (rows.length === 0) { showToast('Please add at least one milestone.', 'warning'); document.getElementById('add-milestone-btn').focus(); return; }
       goal.milestones = Array.from(rows).map(row => ({
         id:    row.dataset.msId,
         label: row.querySelector('.ms-label')?.value.trim() || '',
         done:  row.querySelector('.ms-done')?.checked || false,
       })).filter(m => m.label);
+    }
+
+    // Duplicate check — all fields valid; warn if other open goals share this name.
+    // Skipped for edits and when the user already confirmed.
+    if (!id && !skipDupCheck) {
+      const titleLower = title.toLowerCase();
+      const openDupCount = _goals.filter(
+        g => g.status === 'active' && g.title.toLowerCase() === titleLower
+      ).length;
+      if (openDupCount > 0) {
+        showDupGoalWarning(openDupCount, title, () => saveGoalFromModal(true));
+        return;
+      }
     }
 
     const saved = await Storage.saveGoal(goal);
@@ -6228,6 +6175,18 @@ const App = (() => {
     navigateTo('log');
     // openLinkGoalModal needs the log page rendered first so the modal overlay exists.
     setTimeout(() => openLinkGoalModal(entryId), 50);
+  }
+
+  let _dlReturnEntry  = null;   // deleted entry whose linked-goals modal should reopen on back
+  let _dlReturnGoalId = null;   // which goal card shows the "back to deleted log" chip
+
+  function reopenLinkedGoalsModal() {
+    const entry = _dlReturnEntry;
+    if (!entry) return;
+    _dlReturnEntry  = null;
+    _dlReturnGoalId = null;
+    navigateTo('deleted-logs');
+    setTimeout(() => showLinkedGoalsPopover(null, entry), 50);
   }
 
   function setupLinkGoalModal() {
@@ -6838,6 +6797,13 @@ const App = (() => {
               Back to Linking: ${label}
             </button>`;
           })() : ''}
+        ${_dlReturnGoalId === g.id ? (() => {
+            const label = escapeHtml(_dlReturnEntry?.topic || 'deleted entry');
+            return `<button type="button" class="log-goal-back-chip" data-action="back-to-dl-link-modal" data-id="${g.id}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back to Deleted Log: ${label}
+            </button>`;
+          })() : ''}
       </div>`;
   }
 
@@ -6860,9 +6826,8 @@ const App = (() => {
       if (action === 'count-inc')  await adjustGoalCount(id, 1);
       if (action === 'count-dec')  await adjustGoalCount(id, -1);
       if (action === 'toggle-ms')  await toggleMilestone(id, btn.dataset.msid);
-      if (action === 'back-to-link-modal') {
-        reopenLinkModalFromGoal();
-      }
+      if (action === 'back-to-link-modal')    reopenLinkModalFromGoal();
+      if (action === 'back-to-dl-link-modal') reopenLinkedGoalsModal();
     });
 
     container.addEventListener('change', e => {
