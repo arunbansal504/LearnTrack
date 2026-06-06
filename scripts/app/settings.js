@@ -529,8 +529,18 @@ import * as Sync from './sync.js';
     const showForm = configured && !signedIn;
     document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !showForm);
     document.getElementById('cloud-signedin')?.classList.toggle('hidden', !configured || !signedIn);
-    // Always start on the sign-in tab when the form becomes visible
-    if (showForm) setCloudAuthMode('signin');
+    // Always start on the sign-in tab when the form becomes visible, with a clean slate
+    if (showForm) {
+      setCloudAuthMode('signin');
+      const emailEl = document.getElementById('cloud-email');
+      const passEl  = document.getElementById('cloud-password');
+      const confEl  = document.getElementById('cloud-password-confirm');
+      if (emailEl) emailEl.value = '';
+      if (passEl)  passEl.value  = '';
+      if (confEl)  confEl.value  = '';
+      const statusEl = document.getElementById('cloud-auth-status');
+      if (statusEl) statusEl.style.display = 'none';
+    }
 
     if (configured && signedIn) {
       setEl('cloud-account-email', Sync.getAccountEmail() || '—');
