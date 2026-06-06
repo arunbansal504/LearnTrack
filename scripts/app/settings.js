@@ -570,7 +570,7 @@ import * as Sync from './sync.js';
         const data = await Sync.signUp(email, password);
         showCloudAuthStatus(
           data.session ? 'Account created and synced!'
-                       : 'Account created — check your email to confirm, then sign in.',
+                       : 'If that email is valid, a confirmation link is on its way. Check your inbox (and spam folder), then sign in here.',
           'success'
         );
       } else {
