@@ -6,6 +6,7 @@ import { navigateTo, renderPage, updateSidebarUser } from './nav.js';
 import { UserManager, openUserPicker, renderUsersManagement, switchUser } from './users.js';
 import { escapeHtml, setCheckbox, setEl, setInputVal, showConfirm, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
+import * as Sync from './sync.js';
 
   /* ---- SETTINGS PAGE ------------------------------- */
 
@@ -502,7 +503,186 @@ import { applyAccent, applyCompact, applyTheme } from './widgets.js';
       setEl('last-backup-date', d ? new Date(d).toLocaleDateString() : 'Never');
     });
 
+    renderCloudSyncCard();
     renderBackupLog();
+  }
+
+  /* ---- CLOUD SYNC CARD ----------------------------- */
+
+  const CLOUD_STATUS_TEXT = {
+    disabled:    'Not configured',
+    'signed-out':'Signed out',
+    syncing:     'Syncing…',
+    synced:      'Up to date',
+    offline:     'Offline — will sync when back online',
+    error:       'Sync error — will retry',
+  };
+
+  export function renderCloudSyncCard() {
+    const card = document.getElementById('cloud-sync-card');
+    if (!card) return;
+
+    const configured = Sync.isConfigured();
+    const signedIn   = Sync.isSignedIn() && Sync.isBound();
+
+    document.getElementById('cloud-disabled')?.classList.toggle('hidden', configured);
+    const showForm = configured && !signedIn;
+    document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !showForm);
+    document.getElementById('cloud-signedin')?.classList.toggle('hidden', !configured || !signedIn);
+    // Always start on the sign-in tab when the form becomes visible
+    if (showForm) setCloudAuthMode('signin');
+
+    if (configured && signedIn) {
+      setEl('cloud-account-email', Sync.getAccountEmail() || '—');
+      setEl('cloud-status-label',  CLOUD_STATUS_TEXT[Sync.getStatus()] || '—');
+      const last = Sync.getLastCloudSync();
+      setEl('cloud-last-sync', last ? new Date(last).toLocaleString() : 'Never');
+    }
+  }
+
+  function showCloudAuthStatus(message, type) {
+    const el = document.getElementById('cloud-auth-status');
+    if (!el) return;
+    el.style.display = 'block';
+    el.className     = `import-status ${type}`;
+    el.textContent   = message;
+  }
+
+  // Map raw Supabase auth errors to messages a user can act on.
+  function friendlyAuthError(err) {
+    const msg = (err?.message || '').toLowerCase();
+    if (msg.includes('invalid login'))        return 'Incorrect email or password.';
+    if (msg.includes('already registered'))   return 'That email already has an account — try signing in.';
+    if (msg.includes('email not confirmed'))  return 'Please confirm your email first (check your inbox).';
+    if (msg.includes('password'))             return 'Password must be at least 6 characters.';
+    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'Too many attempts — please wait a few minutes and try again.';
+    if (msg.includes('failed to fetch') || msg.includes('network')) return 'Network error — check your connection.';
+    return err?.message || 'Something went wrong. Please try again.';
+  }
+
+  let _cloudAuthMode = 'signin'; // 'signin' | 'signup'
+
+  function setCloudAuthMode(mode) {
+    _cloudAuthMode = mode;
+    const confirmGroup = document.getElementById('cloud-confirm-group');
+    const submitBtn    = document.getElementById('cloud-submit-btn');
+    const modePrompt   = document.getElementById('cloud-mode-prompt');
+    const modeToggle   = document.getElementById('cloud-mode-toggle');
+    const passwordLabel = document.getElementById('cloud-password-label');
+    const passwordInput = document.getElementById('cloud-password');
+    const confirmInput  = document.getElementById('cloud-password-confirm');
+
+    if (mode === 'signup') {
+      confirmGroup?.classList.remove('hidden');
+      if (confirmInput)  confirmInput.required        = true;
+      if (submitBtn)     submitBtn.textContent         = 'Create Account';
+      if (modePrompt)    modePrompt.textContent        = 'Already have an account?';
+      if (modeToggle)    modeToggle.textContent        = 'Sign in';
+      if (passwordInput) { passwordInput.autocomplete  = 'new-password'; passwordInput.placeholder = 'At least 6 characters'; }
+    } else {
+      confirmGroup?.classList.add('hidden');
+      if (confirmInput)  { confirmInput.required = false; confirmInput.value = ''; }
+      if (submitBtn)     submitBtn.textContent         = 'Sign In';
+      if (modePrompt)    modePrompt.textContent        = "Don't have an account?";
+      if (modeToggle)    modeToggle.textContent        = 'Create one';
+      if (passwordInput) { passwordInput.autocomplete  = 'current-password'; passwordInput.placeholder = 'Enter your password'; }
+    }
+    // Clear status only when user manually toggles — not on background re-renders
+  }
+
+  async function doCloudAuth() {
+    const email    = document.getElementById('cloud-email')?.value.trim();
+    const password = document.getElementById('cloud-password')?.value || '';
+    if (!email || !password) { showCloudAuthStatus('Enter your email and password.', 'error'); return; }
+
+    if (_cloudAuthMode === 'signup') {
+      const confirm = document.getElementById('cloud-password-confirm')?.value || '';
+      if (!confirm) { showCloudAuthStatus('Please confirm your password.', 'error'); return; }
+      if (password !== confirm) { showCloudAuthStatus('Passwords don\'t match.', 'error'); return; }
+    }
+
+    const btn = document.getElementById('cloud-submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = _cloudAuthMode === 'signin' ? 'Signing in…' : 'Creating…'; }
+
+    try {
+      if (_cloudAuthMode === 'signup') {
+        const data = await Sync.signUp(email, password);
+        if (data.session) {
+          // Email confirmation disabled — signed in immediately; form is already hidden,
+          // so use a toast. Re-render to show the signed-in card state.
+          showToast('Account created — your data is now syncing.', 'success');
+          renderCloudSyncCard();
+          renderPage(state.currentPage);
+        } else {
+          // Email confirmation required — switch to sign-in mode (so the button reads
+          // "Sign In"), then show the message. Do NOT call renderCloudSyncCard() here
+          // as it would wipe the status message immediately.
+          setCloudAuthMode('signin');
+          showCloudAuthStatus(
+            'Check your email for a confirmation link, then come back here to sign in.',
+            'success'
+          );
+        }
+      } else {
+        await Sync.signIn(email, password);
+        showToast('Signed in — your data is now syncing across devices.', 'success');
+        renderCloudSyncCard();
+        renderPage(state.currentPage);
+      }
+    } catch (err) {
+      showCloudAuthStatus(friendlyAuthError(err), 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        // Restore the label based on current mode (setCloudAuthMode may have changed it).
+        btn.textContent = _cloudAuthMode === 'signin' ? 'Sign In' : 'Create Account';
+      }
+    }
+  }
+
+  async function cloudSyncNow() {
+    const btn  = document.getElementById('cloud-sync-now-btn');
+    const orig = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+    try {
+      await Sync.pushSnapshot();
+      await Sync.pullSnapshot();
+      showToast('Cloud sync complete.', 'success');
+    } catch {
+      showToast('Sync failed — check your connection.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      renderCloudSyncCard();
+    }
+  }
+
+  function cloudRestore() {
+    showConfirm(
+      'Restore from cloud?',
+      'This pulls the latest cloud snapshot and merges it into this device. The newest version of each item wins — nothing is lost.',
+      async () => {
+        try {
+          const r = await Sync.pullSnapshot({ force: true });
+          showToast(r.applied ? 'Restored from cloud.' : 'Nothing newer in the cloud.', r.applied ? 'success' : 'info');
+        } catch {
+          showToast('Restore failed — check your connection.', 'error');
+        } finally {
+          renderBackup();
+        }
+      }
+    );
+  }
+
+  function cloudSignOut() {
+    showConfirm(
+      'Sign out of cloud sync?',
+      'Your data stays on this device. Syncing pauses until you sign in again.',
+      async () => {
+        await Sync.signOut();
+        showToast('Signed out of cloud sync.', 'info');
+        renderCloudSyncCard();
+      }
+    );
   }
 
   export async function renderBackupLog() {
@@ -580,6 +760,19 @@ import { applyAccent, applyCompact, applyTheme } from './widgets.js';
       if (file) browseImportFile(file);
       browseInput.value = ''; // reset so same file can be picked again
     });
+
+    // Cloud Sync card
+    document.getElementById('cloud-signin-form')?.addEventListener('submit', e => { e.preventDefault(); doCloudAuth(); });
+    document.getElementById('cloud-mode-toggle')?.addEventListener('click', () => {
+      const statusEl = document.getElementById('cloud-auth-status');
+      if (statusEl) statusEl.style.display = 'none';
+      setCloudAuthMode(_cloudAuthMode === 'signin' ? 'signup' : 'signin');
+    });
+    document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
+    document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
+    document.getElementById('cloud-signout-btn')?.addEventListener('click', cloudSignOut);
+    // Keep the card in step with background sync state changes (auto-push results, token refresh, etc.)
+    document.addEventListener('lt-sync-changed', renderCloudSyncCard);
   }
 
   export async function backupCurrentProfile(silent = false) {

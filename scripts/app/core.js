@@ -8,6 +8,7 @@ import { backupCurrentProfile, configureBackupFolder, ensureCategoryColors, setu
 import { UserManager, setupUserPicker } from './users.js';
 import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
+import { initSync, queueCloudPush } from './sync.js';
 
   /* ---- Initialization ------------------------------ */
 
@@ -102,10 +103,12 @@ import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setup
     applyAccent(state.prefs.accent);
     applyCompact(state.prefs.compact);
 
-    // Enforce backup folder setup (unless user has already skipped)
+    // Enforce a data-safety choice on first launch: a local backup folder OR cloud sync.
+    // (Cloud sync is the path for non-Chromium browsers, where showDirectoryPicker is absent.)
     const existingHandle = await Storage.getDirectoryHandle();
     const backupSkipped  = localStorage.getItem('lt_backup_skipped') === 'true';
-    if (!existingHandle && !backupSkipped) {
+    const cloudOptIn     = localStorage.getItem('lt_cloud_optin') === 'true';
+    if (!existingHandle && !backupSkipped && !cloudOptIn) {
       const modal = document.getElementById('backup-required-modal');
       if (modal) { modal.style.display = 'flex'; _openModal(modal); }
       await waitForBackupFolderSetup();
@@ -114,6 +117,10 @@ import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setup
 
     updateSidebarUser();
     navigateTo('dashboard');
+
+    // Restore any cloud session and converge data in the background — never block boot,
+    // and never throw (offline / signed-out are normal states).
+    initSync().catch(err => console.warn('[App] cloud sync init failed:', err));
 
     setTimeout(() => {
       document.getElementById('loading-overlay').style.opacity = '0';
@@ -204,13 +211,15 @@ import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setup
 
   export function waitForBackupFolderSetup() {
     return new Promise(resolve => {
-      const btn     = document.getElementById('backup-required-btn');
-      const skipBtn = document.getElementById('backup-skip-btn');
+      const btn      = document.getElementById('backup-required-btn');
+      const skipBtn  = document.getElementById('backup-skip-btn');
+      const cloudBtn = document.getElementById('backup-cloud-btn');
       if (!btn) { resolve(); return; }
 
       function cleanup() {
         btn.removeEventListener('click', handler);
         skipBtn?.removeEventListener('click', skipHandler);
+        cloudBtn?.removeEventListener('click', cloudHandler);
       }
 
       async function handler() {
@@ -232,14 +241,30 @@ import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setup
         resolve();
       }
 
+      // Cloud sync as the alternative to a local folder — the only data-safety option
+      // available on Firefox/Safari/iOS. Dismiss the gate and send the user to the
+      // Backup page where the Cloud Sync card lets them sign in.
+      function cloudHandler() {
+        localStorage.setItem('lt_cloud_optin', 'true');
+        cleanup();
+        resolve();
+        navigateTo('backup');
+      }
+
       btn.addEventListener('click', handler);
       skipBtn?.addEventListener('click', skipHandler);
+      cloudBtn?.addEventListener('click', cloudHandler);
     });
   }
 
   /* ---- Auto Backup --------------------------------- */
 
   export async function triggerAutoBackup() {
+    // Cloud sync runs independently of the local backup folder — queue it first so
+    // cloud-only users (no folder configured) are still covered. queueCloudPush()
+    // no-ops unless signed in, bound, and online.
+    queueCloudPush();
+
     // Permission must be checked/requested during the user gesture (now), not inside
     // the timer — mobile Chrome rejects requestPermission outside a user activation.
     try {

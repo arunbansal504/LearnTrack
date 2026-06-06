@@ -46,6 +46,12 @@ export const state = {
   backupFailures:     0,     // consecutive auto-backup failures
   backupFailing:      false, // sticky warning state after repeated failures
 
+  /* ---- Cloud sync (Supabase) ---- */
+  syncSession:    null,        // current Supabase auth session, or null when signed out
+  syncStatus:     'disabled',  // 'disabled' | 'signed-out' | 'syncing' | 'synced' | 'offline' | 'error'
+  lastCloudSync:  0,           // Unix ms of the last successful push/pull (UI label)
+  cloudPushTimer: null,        // debounce handle for queueCloudPush()
+
   /* ---- Routing / misc ---- */
   currentPage:       'dashboard',
   pendingTimerReset: null,   // fired once, only after a timer-initiated entry saves
@@ -75,6 +81,7 @@ export const state = {
 export const BACKUP_FAILURE_LIMIT = 3;
 export const DELETED_RETENTION_DAYS = 90; // recycle-bin entries older than this are auto-purged on load
 export const LOG_PAGE_SIZE = 20;
+export const CLOUD_PUSH_DEBOUNCE = 2500; // ms to coalesce writes before pushing a snapshot to the cloud
 
 /* ---- Default Preferences ---- */
 export const DEFAULT_PREFS = {
