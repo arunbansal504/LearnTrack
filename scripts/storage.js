@@ -287,17 +287,11 @@ const Storage = (() => {
   // consume the IndexedDB quota. Permanently drop anything deleted more than
   // maxAgeDays ago. Returns the number of entries purged.
   async function purgeOldDeletedEntries(maxAgeDays = 90) {
-    const cutoff = Date.now() - maxAgeDays * 86400000;
+    const cutoff  = Date.now() - maxAgeDays * 86400000;
     const entries = await getAll(STORES.deletedEntries);
-    let purged = 0;
-    for (const e of entries) {
-      // Skip rows missing deletedAt — never purge something we can't age.
-      if (typeof e.deletedAt === 'number' && e.deletedAt < cutoff) {
-        await remove(STORES.deletedEntries, e.id);
-        purged++;
-      }
-    }
-    return purged;
+    const aged    = entries.filter(e => typeof e.deletedAt === 'number' && e.deletedAt < cutoff);
+    await Promise.all(aged.map(e => remove(STORES.deletedEntries, e.id)));
+    return aged.length;
   }
 
   /* ---- Achievement CRUD ------------------------------ */
@@ -378,16 +372,10 @@ const Storage = (() => {
   // any soft-deleted goal deleted more than maxAgeDays ago. Returns the count.
   async function purgeOldDeletedGoals(maxAgeDays = 90) {
     const cutoff = Date.now() - maxAgeDays * 86400000;
-    const goals = await getAll(STORES.deletedGoals);
-    let purged = 0;
-    for (const g of goals) {
-      // Skip rows missing deletedAt — never purge something we can't age.
-      if (typeof g.deletedAt === 'number' && g.deletedAt < cutoff) {
-        await remove(STORES.deletedGoals, g.id);
-        purged++;
-      }
-    }
-    return purged;
+    const goals  = await getAll(STORES.deletedGoals);
+    const aged   = goals.filter(g => typeof g.deletedAt === 'number' && g.deletedAt < cutoff);
+    await Promise.all(aged.map(g => remove(STORES.deletedGoals, g.id)));
+    return aged.length;
   }
 
   /* ---- Backup Log ------------------------------------ */
@@ -397,7 +385,7 @@ const Storage = (() => {
     await put(STORES.backupLog, record);
     const all  = await getAll(STORES.backupLog);
     const aged = all.sort((a, b) => b.id - a.id).slice(5);
-    for (const old of aged) await remove(STORES.backupLog, old.id);
+    await Promise.all(aged.map(old => remove(STORES.backupLog, old.id)));
   }
 
   async function getBackupLog() {

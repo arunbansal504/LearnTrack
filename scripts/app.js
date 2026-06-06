@@ -5167,40 +5167,58 @@ const App = (() => {
 
     let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
 
-    handle.addEventListener('mousedown', e => {
-      if (window.innerWidth < 769) return;
-      if (panel.classList.contains('fullscreen')) return;
-
+    function startDrag(clientX, clientY) {
+      if (panel.classList.contains('fullscreen')) return false;
       const rect = panel.getBoundingClientRect();
       panel.style.transition = 'none';
       panel.style.top    = rect.top  + 'px';
       panel.style.left   = rect.left + 'px';
       panel.style.bottom = 'auto';
       panel.style.right  = 'auto';
-
       origLeft = rect.left;
       origTop  = rect.top;
-      startX   = e.clientX;
-      startY   = e.clientY;
+      startX   = clientX;
+      startY   = clientY;
       dragging = true;
       panel.classList.add('dragging');
-      e.preventDefault();
-    });
+      return true;
+    }
 
-    document.addEventListener('mousemove', e => {
+    function moveDrag(clientX, clientY) {
       if (!dragging) return;
-      const newLeft = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  origLeft + e.clientX - startX));
-      const newTop  = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, origTop  + e.clientY - startY));
+      const newLeft = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  origLeft + clientX - startX));
+      const newTop  = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, origTop  + clientY - startY));
       panel.style.left = newLeft + 'px';
       panel.style.top  = newTop  + 'px';
-    });
+    }
 
-    document.addEventListener('mouseup', () => {
+    function endDrag() {
       if (!dragging) return;
       dragging = false;
       panel.classList.remove('dragging');
       panel.style.transition = '';
+    }
+
+    // Mouse drag (desktop only — skip on narrow viewports where panel is not floating)
+    handle.addEventListener('mousedown', e => {
+      if (window.innerWidth < 769) return;
+      if (startDrag(e.clientX, e.clientY)) e.preventDefault();
     });
+    document.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+    document.addEventListener('mouseup', endDrag);
+
+    // Touch drag (mobile / tablet)
+    handle.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      if (startDrag(t.clientX, t.clientY)) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', endDrag);
+    document.addEventListener('touchcancel', endDrag);
   }
 
   function setupPomodoro() {

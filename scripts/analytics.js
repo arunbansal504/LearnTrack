@@ -141,9 +141,9 @@ const Analytics = (() => {
   /* ---- Weekly Summary -------------------------------- */
 
   function calculateWeeklySummary(entries) {
-    const nowIST  = new Date(today() + 'T12:00:00');
-    const dowIST  = nowIST.getDay() || 7; // 1=Mon..7=Sun (treat 0/Sun as 7)
-    const mondayMs = nowIST.getTime() - (dowIST - 1) * 864e5;
+    const now      = new Date(today() + 'T12:00:00');
+    const dow      = now.getDay() || 7; // 1=Mon..7=Sun (treat 0/Sun as 7)
+    const mondayMs = now.getTime() - (dow - 1) * 864e5;
     const thisMonday = toDateStr(new Date(mondayMs));
     const thisSunday = toDateStr(new Date(mondayMs + 6 * 864e5));
 
@@ -174,10 +174,9 @@ const Analytics = (() => {
   /* ---- Monthly Summary ------------------------------- */
 
   function calculateMonthlySummary(entries) {
-    // Derive year/month in IST from today's IST date string
-    const todayIST = today();
-    const year     = parseInt(todayIST.slice(0, 4), 10);
-    const month    = parseInt(todayIST.slice(5, 7), 10) - 1; // 0-based
+    const todayStr = today();
+    const year     = parseInt(todayStr.slice(0, 4), 10);
+    const month    = parseInt(todayStr.slice(5, 7), 10) - 1; // 0-based
     const mm       = String(month + 1).padStart(2, '0');
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -199,10 +198,10 @@ const Analytics = (() => {
   /* ---- Monthly Totals (for bar chart) ---------------- */
 
   function calculateMonthlyTotals(entries, months = 12) {
-    const result  = [];
-    const todayIST = today();
-    const baseYear  = parseInt(todayIST.slice(0, 4), 10);
-    const baseMonth = parseInt(todayIST.slice(5, 7), 10) - 1; // 0-based
+    const result    = [];
+    const todayStr  = today();
+    const baseYear  = parseInt(todayStr.slice(0, 4), 10);
+    const baseMonth = parseInt(todayStr.slice(5, 7), 10) - 1; // 0-based
 
     for (let i = months - 1; i >= 0; i--) {
       // Derive target year/month without relying on browser timezone
