@@ -555,6 +555,7 @@ import * as Sync from './sync.js';
     if (msg.includes('already registered'))   return 'That email already has an account — try signing in.';
     if (msg.includes('email not confirmed'))  return 'Please confirm your email first (check your inbox).';
     if (msg.includes('password'))             return 'Password must be at least 6 characters.';
+    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'Too many attempts — please wait a few minutes and try again.';
     if (msg.includes('failed to fetch') || msg.includes('network')) return 'Network error — check your connection.';
     return err?.message || 'Something went wrong. Please try again.';
   }
