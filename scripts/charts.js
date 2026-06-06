@@ -665,7 +665,10 @@ const Charts = (() => {
     // In-place patching of Chart.js dataset options does not work reliably because
     // Chart.js caches resolved element options in meta._sharedOptions and returns
     // them verbatim on every subsequent update(), ignoring mutations to ds.pointBackgroundColor.
+    // Suppress animation so the accent change is instant instead of replaying the 600ms intro.
+    CHART_DEFAULTS.animation.duration = 0;
     Object.keys(_recreators).forEach(id => _recreators[id]());
+    CHART_DEFAULTS.animation.duration = 600;
     const accent = getAccentColor();
     document.querySelectorAll('.heatmap-day').forEach(el => {
       if (el.style.opacity) el.style.background = accent;
