@@ -696,14 +696,8 @@ import * as Sync from './sync.js';
               renderCloudSyncCard();
               renderPage(state.currentPage);
             },
-            onSkip: async () => {
-              // User declined the pull — still push local data to cloud.
-              try {
-                await Sync.pushOnlyAfterSignIn();
-                showToast('Signed in — local data backed up to the cloud.', 'success');
-              } catch {
-                showToast('Signed in — backup will retry automatically.', 'warning');
-              }
+            onSkip: () => {
+              // User declined the cloud pull — leave local data untouched.
               renderCloudSyncCard();
               renderPage(state.currentPage);
             },
