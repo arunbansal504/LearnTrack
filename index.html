@@ -1617,6 +1617,27 @@
   </div>
 </div>
 
+<!-- ===== MODAL: CLOUD SYNC CONFIRM ===== -->
+<div id="cloud-sync-confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sync-confirm-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="sync-confirm-title">Sync from Cloud?</h2>
+    </div>
+    <div class="modal-body">
+      <div class="backup-info" style="margin-bottom:var(--s-3)">
+        <div class="backup-info-row"><span>Signing in as:</span><strong id="sync-confirm-account">—</strong></div>
+        <div class="backup-info-row"><span>Local profile:</span><strong id="sync-confirm-local-user">—</strong></div>
+        <div class="backup-info-row"><span>Cloud backup:</span><strong id="sync-confirm-cloud-date">—</strong></div>
+      </div>
+      <p style="font-size:var(--text-sm);color:var(--text-muted)">Your local data will be merged with the cloud backup. In case of conflicts, the most recently edited version wins.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="sync-confirm-skip">Skip for now</button>
+      <button class="btn btn-primary" id="sync-confirm-ok">Sync &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: LINK ENTRY TO GOALS ===== -->
 <div id="link-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="link-goal-title" style="display:none;z-index:1050">
   <div class="modal">
@@ -2129,7 +2150,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=6"></script>
+<script type="module" src="scripts/main.js?v=7"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

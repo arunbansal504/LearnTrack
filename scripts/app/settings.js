@@ -600,6 +600,41 @@ import * as Sync from './sync.js';
     // Clear status only when user manually toggles — not on background re-renders
   }
 
+  // Show a confirmation modal before pulling cloud data.
+  // title / confirmText can be overridden for the "Restore" flow.
+  // onConfirm → user agrees to pull; onSkip → user declines (push-only or cancel).
+  function showSyncConfirmModal({ email, localUser, cloudInfo, title = 'Sync from Cloud?', confirmText = 'Sync & Continue', onConfirm, onSkip }) {
+    const modal = document.getElementById('cloud-sync-confirm-modal');
+    if (!modal) { onConfirm?.(); return; }
+
+    const dateStr = cloudInfo?.updatedAt ? new Date(cloudInfo.updatedAt).toLocaleString() : null;
+    setEl('sync-confirm-title', title);
+    setEl('sync-confirm-account', email || '—');
+    setEl('sync-confirm-local-user', localUser || '—');
+    setEl('sync-confirm-cloud-date', dateStr || 'No backup date available');
+
+    const confirmBtn  = document.getElementById('sync-confirm-ok');
+    const skipBtn     = document.getElementById('sync-confirm-skip');
+    if (confirmBtn) confirmBtn.textContent = confirmText;
+
+    modal.style.display = 'flex';
+    confirmBtn?.focus();
+
+    function cleanup() {
+      modal.style.display = 'none';
+      confirmBtn?.removeEventListener('click', handleConfirm);
+      skipBtn?.removeEventListener('click', handleSkip);
+      document.removeEventListener('keydown', handleKey);
+    }
+    function handleConfirm() { cleanup(); onConfirm?.(); }
+    function handleSkip()    { cleanup(); onSkip?.(); }
+    function handleKey(e)    { if (e.key === 'Escape') { cleanup(); onSkip?.(); } }
+
+    confirmBtn?.addEventListener('click', handleConfirm);
+    skipBtn?.addEventListener('click', handleSkip);
+    document.addEventListener('keydown', handleKey);
+  }
+
   async function doCloudAuth() {
     const email    = document.getElementById('cloud-email')?.value.trim();
     const password = document.getElementById('cloud-password')?.value || '';
@@ -618,9 +653,9 @@ import * as Sync from './sync.js';
       if (_cloudAuthMode === 'signup') {
         const data = await Sync.signUp(email, password);
         if (data.session) {
-          // Email confirmation disabled — signed in immediately; form is already hidden,
-          // so use a toast. Re-render to show the signed-in card state.
-          showToast('Account created — your data is now syncing.', 'success');
+          // Email confirmation disabled — new account, no cloud data yet, just push.
+          await Sync.pushOnlyAfterSignIn();
+          showToast('Account created — your data is now backed up to the cloud.', 'success');
           renderCloudSyncCard();
           renderPage(state.currentPage);
         } else {
@@ -634,17 +669,54 @@ import * as Sync from './sync.js';
           );
         }
       } else {
+        // Sign-in: authenticate first, then check for cloud data before pulling.
         await Sync.signIn(email, password);
-        showToast('Signed in — your data is now syncing across devices.', 'success');
-        renderCloudSyncCard();
-        renderPage(state.currentPage);
+        const cloudInfo = await Sync.peekCloudSnapshot();
+
+        if (cloudInfo) {
+          // Cloud has a snapshot — ask the user before merging it in.
+          // Re-enable the button so the page isn't frozen while the modal is open.
+          if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
+          showSyncConfirmModal({
+            email,
+            localUser: state.prefs.username || 'your profile',
+            cloudInfo,
+            onConfirm: async () => {
+              try {
+                await Sync.syncAfterSignIn();
+                showToast('Signed in — data synced across devices.', 'success');
+              } catch {
+                showToast('Signed in — sync will retry automatically.', 'warning');
+              }
+              renderCloudSyncCard();
+              renderPage(state.currentPage);
+            },
+            onSkip: async () => {
+              // User declined the pull — still push local data to cloud.
+              try {
+                await Sync.pushOnlyAfterSignIn();
+                showToast('Signed in — local data backed up to the cloud.', 'success');
+              } catch {
+                showToast('Signed in — backup will retry automatically.', 'warning');
+              }
+              renderCloudSyncCard();
+              renderPage(state.currentPage);
+            },
+          });
+          return; // modal callbacks handle the rest; finally re-enables button if needed
+        } else {
+          // No cloud data yet — just push local data up.
+          await Sync.pushOnlyAfterSignIn();
+          showToast('Signed in — your data is now backed up to the cloud.', 'success');
+          renderCloudSyncCard();
+          renderPage(state.currentPage);
+        }
       }
     } catch (err) {
       showCloudAuthStatus(friendlyAuthError(err), 'error');
     } finally {
       if (btn) {
         btn.disabled = false;
-        // Restore the label based on current mode (setCloudAuthMode may have changed it).
         btn.textContent = _cloudAuthMode === 'signin' ? 'Sign In' : 'Create Account';
       }
     }
@@ -666,11 +738,17 @@ import * as Sync from './sync.js';
     }
   }
 
-  function cloudRestore() {
-    showConfirm(
-      'Restore from cloud?',
-      'This pulls the latest cloud snapshot and merges it into this device. The newest version of each item wins — nothing is lost.',
-      async () => {
+  async function cloudRestore() {
+    let cloudInfo = null;
+    try { cloudInfo = await Sync.peekCloudSnapshot(); } catch { /* ignore */ }
+
+    showSyncConfirmModal({
+      email:       Sync.getAccountEmail(),
+      localUser:   state.prefs.username || 'your profile',
+      cloudInfo,
+      title:       'Restore from Cloud?',
+      confirmText: 'Restore',
+      onConfirm: async () => {
         try {
           const r = await Sync.pullSnapshot({ force: true });
           showToast(r.applied ? 'Restored from cloud.' : 'Nothing newer in the cloud.', r.applied ? 'success' : 'info');
@@ -679,8 +757,9 @@ import * as Sync from './sync.js';
         } finally {
           renderBackup();
         }
-      }
-    );
+      },
+      onSkip: () => { /* user cancelled, nothing to do */ },
+    });
   }
 
   function cloudSignOut() {

@@ -211,21 +211,27 @@ export async function signUp(email, password) {
   const sb = await getClient();
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) throw error;
-  // With email confirmation on, there is no session yet — caller shows a "check your email" message.
+  // With email confirmation on there is no session yet — caller shows a "check your email" message.
+  // With confirmation off a session arrives immediately; bind the account but do NOT pull — the
+  // caller is a brand-new account so there is no cloud data to pull, and the settings.js flow
+  // will push after this returns.
   if (data.session) {
     state.syncSession = data.session;
-    await onSignedIn();
+    setBoundAccount(data.session.user.id);
   }
   emitChange();
   return data;
 }
 
+// Authenticate only — does NOT pull from cloud. Call peekCloudSnapshot() then
+// syncAfterSignIn() / pushOnlyAfterSignIn() after showing the user a confirmation.
 export async function signIn(email, password) {
   const sb = await getClient();
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
   state.syncSession = data.session;
-  await onSignedIn();
+  setBoundAccount(data.session.user.id);
+  emitChange();
   return data;
 }
 
@@ -235,10 +241,24 @@ export async function signOut() {
   setStatus(isConfigured() ? 'signed-out' : 'disabled');
 }
 
-// Bind the active profile to this account and converge data both ways:
-// pull (merge cloud → local), then push (upload local-only records).
-async function onSignedIn() {
-  setBoundAccount(state.syncSession.user.id);
+// Fetch cloud snapshot metadata without importing it.
+// Returns { updatedAt, rev } if a snapshot exists, null otherwise.
+export async function peekCloudSnapshot() {
+  if (!canSync()) return null;
+  try {
+    const sb = await getClient();
+    const { data, error } = await sb
+      .from(SNAPSHOT_TABLE)
+      .select('rev, updated_at')
+      .eq('user_id', state.syncSession.user.id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { updatedAt: data.updated_at, rev: data.rev };
+  } catch { return null; }
+}
+
+// Pull cloud → local, then push local → cloud. Call after the user confirms the sync dialog.
+export async function syncAfterSignIn() {
   setStatus('syncing');
   try {
     await pullSnapshot({ force: true });
@@ -246,6 +266,20 @@ async function onSignedIn() {
     setStatus('synced');
   } catch (err) {
     console.warn('[Sync] sign-in sync failed:', err);
+    setStatus('error');
+  }
+  emitChange();
+}
+
+// Push local → cloud only (user declined the pull on sign-in).
+export async function pushOnlyAfterSignIn() {
+  if (!canSync()) { setStatus(isConfigured() ? 'signed-out' : 'disabled'); emitChange(); return; }
+  setStatus('syncing');
+  try {
+    await pushSnapshot();
+    setStatus('synced');
+  } catch (err) {
+    console.warn('[Sync] push-only failed:', err);
     setStatus('error');
   }
   emitChange();
