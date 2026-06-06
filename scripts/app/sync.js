@@ -138,12 +138,13 @@ export async function pushSnapshot() {
   const blob = await buildSnapshot();
   const rev  = Date.now();
   const { error } = await sb.from(SNAPSHOT_TABLE).upsert({
-    user_id:     state.syncSession.user.id,
-    data:        blob,
+    user_id:          state.syncSession.user.id,
+    data:             blob,
     rev,
-    device_id:   getDeviceId(),
-    app_version: APP_VERSION,
-    updated_at:  new Date().toISOString(),
+    device_id:        getDeviceId(),
+    app_version:      APP_VERSION,
+    updated_at:       new Date().toISOString(),
+    profile_username: state.prefs.username || '',
   });
   if (error) throw error;
   setLastSynced(rev);
@@ -242,18 +243,18 @@ export async function signOut() {
 }
 
 // Fetch cloud snapshot metadata without importing it.
-// Returns { updatedAt, rev } if a snapshot exists, null otherwise.
+// Returns { updatedAt, rev, username } if a snapshot exists, null otherwise.
 export async function peekCloudSnapshot() {
   if (!canSync()) return null;
   try {
     const sb = await getClient();
     const { data, error } = await sb
       .from(SNAPSHOT_TABLE)
-      .select('rev, updated_at')
+      .select('rev, updated_at, profile_username')
       .eq('user_id', state.syncSession.user.id)
       .maybeSingle();
     if (error || !data) return null;
-    return { updatedAt: data.updated_at, rev: data.rev };
+    return { updatedAt: data.updated_at, rev: data.rev, username: data.profile_username || null };
   } catch { return null; }
 }
 

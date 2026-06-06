@@ -1625,8 +1625,9 @@
     </div>
     <div class="modal-body">
       <div class="backup-info" style="margin-bottom:var(--s-3)">
-        <div class="backup-info-row"><span>Signing in as:</span><strong id="sync-confirm-account">—</strong></div>
-        <div class="backup-info-row"><span>Local profile:</span><strong id="sync-confirm-local-user">—</strong></div>
+        <div class="backup-info-row"><span>Account:</span><strong id="sync-confirm-account">—</strong></div>
+        <div class="backup-info-row" id="sync-confirm-cloud-user-row"><span>Cloud username:</span><strong id="sync-confirm-cloud-user">—</strong></div>
+        <div class="backup-info-row"><span>Local username:</span><strong id="sync-confirm-local-user">—</strong></div>
         <div class="backup-info-row"><span>Cloud backup:</span><strong id="sync-confirm-cloud-date">—</strong></div>
       </div>
       <p style="font-size:var(--text-sm);color:var(--text-muted)">Your local data will be merged with the cloud backup. In case of conflicts, the most recently edited version wins.</p>

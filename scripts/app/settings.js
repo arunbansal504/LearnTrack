@@ -613,6 +613,11 @@ import * as Sync from './sync.js';
     setEl('sync-confirm-local-user', localUser || '—');
     setEl('sync-confirm-cloud-date', dateStr || 'No backup date available');
 
+    const cloudUserRow = document.getElementById('sync-confirm-cloud-user-row');
+    const cloudUser    = cloudInfo?.username || null;
+    if (cloudUserRow) cloudUserRow.style.display = cloudUser ? 'flex' : 'none';
+    if (cloudUser) setEl('sync-confirm-cloud-user', cloudUser);
+
     const confirmBtn  = document.getElementById('sync-confirm-ok');
     const skipBtn     = document.getElementById('sync-confirm-skip');
     if (confirmBtn) confirmBtn.textContent = confirmText;
