@@ -1,0 +1,538 @@
+/* ---- MEDALS -------------------------------------- */
+
+/* Dashboard widget medals */
+
+.medals-preview-widget {
+  display: flex;
+  flex-direction: column;
+}
+
+.medals-widget-row {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+}
+
+/* ---- Card base ---- */
+.mw-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--s-3);
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  cursor: default;
+  text-align: center;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shine sweep — staggered per tier */
+.mw-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 55%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255,255,255,0.14) 45%,
+    rgba(255,255,255,0.22) 50%,
+    rgba(255,255,255,0.14) 55%,
+    transparent 100%
+  );
+  transform: translateX(-220%);
+  animation: mw-shine 4.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+.gold-tier::before   { animation-delay: 0s; }
+.silver-tier::before { animation-delay: 1.5s; }
+.bronze-tier::before { animation-delay: 3.0s; }
+
+@keyframes mw-shine {
+  0%        { transform: translateX(-220%); }
+  40%, 100% { transform: translateX(400%); }
+}
+
+/* ---- Tier backgrounds + border ---- */
+.mw-card.gold-tier {
+  background: linear-gradient(160deg, rgba(254,243,199,0.5) 0%, rgba(180,83,9,0.1) 100%);
+  border-color: rgba(202,138,4,0.3);
+  animation: mw-gold-pulse 2.8s ease-in-out infinite;
+}
+.mw-card.silver-tier {
+  background: linear-gradient(160deg, rgba(241,245,249,0.5) 0%, rgba(71,85,105,0.1) 100%);
+  border-color: rgba(100,116,139,0.22);
+}
+.mw-card.bronze-tier {
+  background: linear-gradient(160deg, rgba(254,215,170,0.5) 0%, rgba(124,45,18,0.1) 100%);
+  border-color: rgba(180,83,9,0.22);
+}
+
+[data-theme="dark"] .mw-card.gold-tier   { background: linear-gradient(160deg, rgba(180,83,9,0.18) 0%, rgba(180,83,9,0.05) 100%); }
+[data-theme="dark"] .mw-card.silver-tier { background: linear-gradient(160deg, rgba(71,85,105,0.22) 0%, rgba(71,85,105,0.05) 100%); }
+[data-theme="dark"] .mw-card.bronze-tier { background: linear-gradient(160deg, rgba(124,45,18,0.22) 0%, rgba(124,45,18,0.05) 100%); }
+
+/* Gold border pulse — signals "most valuable" */
+@keyframes mw-gold-pulse {
+  0%, 100% { border-color: rgba(202,138,4,0.3); }
+  50%       { border-color: rgba(202,138,4,0.75); }
+}
+
+.mw-card:hover { transform: translateY(-5px); }
+.mw-card.gold-tier:hover   { box-shadow: 0 12px 32px rgba(202,138,4,0.3); }
+.mw-card.silver-tier:hover { box-shadow: 0 12px 32px rgba(100,116,139,0.22); }
+.mw-card.bronze-tier:hover { box-shadow: 0 12px 32px rgba(180,83,9,0.22); }
+
+/* ---- Trophy: float + halo ---- */
+.mw-trophy {
+  line-height: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: mw-trophy-float 3.6s ease-in-out infinite;
+  z-index: 2;
+}
+
+/* Radial halo ring behind each trophy */
+.mw-trophy::before {
+  content: '';
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  z-index: -1;
+  animation: mw-halo-pulse 3.6s ease-in-out infinite;
+}
+.gold-tier   .mw-trophy::before { background: radial-gradient(circle, rgba(252,211,77,0.35) 0%, transparent 68%); }
+.silver-tier .mw-trophy::before { background: radial-gradient(circle, rgba(203,213,225,0.3)  0%, transparent 68%); }
+.bronze-tier .mw-trophy::before { background: radial-gradient(circle, rgba(251,146,60,0.3)   0%, transparent 68%); }
+
+/* Stagger float + halo so all three aren't in sync */
+.gold-tier   .mw-trophy { animation-delay: 0s; }
+.silver-tier .mw-trophy { animation-delay: 0.55s; }
+.bronze-tier .mw-trophy { animation-delay: 1.1s; }
+.gold-tier   .mw-trophy::before { animation-delay: 0s; }
+.silver-tier .mw-trophy::before { animation-delay: 0.55s; }
+.bronze-tier .mw-trophy::before { animation-delay: 1.1s; }
+
+.mw-trophy svg {
+  width: 54px;
+  height: auto;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.18));
+}
+
+@keyframes mw-trophy-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes mw-halo-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.45; }
+  50%       { transform: scale(1.25); opacity: 1; }
+}
+
+/* ---- Count + label ---- */
+.mw-count {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 2;
+}
+.gold-tier   .mw-count { color: #B45309; }
+.silver-tier .mw-count { color: #475569; }
+.bronze-tier .mw-count { color: #92400E; }
+
+[data-theme="dark"] .gold-tier   .mw-count { color: #FCD34D; }
+[data-theme="dark"] .silver-tier .mw-count { color: #CBD5E1; }
+[data-theme="dark"] .bronze-tier .mw-count { color: #FB923C; }
+
+.mw-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  position: relative;
+  z-index: 2;
+}
+
+/* Achievements page medals section */
+.medals-section {
+  margin-bottom: var(--s-4);
+}
+.medals-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+.medals-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.medals-section-sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.medals-section-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+}
+.medal-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-3) var(--s-4);
+  transition: var(--transition);
+}
+.medal-card:hover { border-color: var(--accent-glow); transform: translateY(-1px); }
+.gold-card   { border-left: 3px solid #f59e0b; }
+.silver-card { border-left: 3px solid #94a3b8; }
+.bronze-card { border-left: 3px solid #cd7c54; }
+.medal-card-icon { font-size: 36px; line-height: 1; flex-shrink: 0; }
+.medal-card-icon svg { width: 32px; height: 36px; }
+.medal-card-body { display: flex; flex-direction: column; gap: 2px; }
+.medal-card-count {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.gold-card   .medal-card-count { color: #d97706; }
+.silver-card .medal-card-count { color: #64748b; }
+.bronze-card .medal-card-count { color: #b45309; }
+.medal-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.medal-card-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+@media (max-width: 600px) {
+  .medals-section-row { grid-template-columns: 1fr; }
+}
+
+/* ---- REWARDS GUIDE ------------------------------- */
+
+.rewards-guide {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--s-4);
+  overflow: hidden;
+}
+.rewards-guide[open] > .rewards-guide-summary .rewards-guide-chevron {
+  transform: rotate(180deg);
+}
+.rewards-guide-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s;
+}
+.rewards-guide[open] > .rewards-guide-summary {
+  border-bottom-color: var(--border);
+  background: var(--surface-2);
+}
+.rewards-guide-summary::-webkit-details-marker { display: none; }
+.rewards-guide-summary:hover { background: var(--surface-2); }
+.rewards-guide-summary-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rewards-guide-summary-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  flex: 1;
+}
+.rewards-guide-chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.rewards-guide-body {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-1);
+  padding: var(--s-4);
+}
+.rewards-guide-card {
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+.rewards-guide-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  margin-bottom: var(--s-3);
+}
+.rewards-guide-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rewards-guide-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px var(--s-2);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text-2);
+  gap: var(--s-2);
+}
+.rewards-guide-row.highlight-row {
+  background: var(--accent-faint);
+  color: var(--text);
+  font-weight: 600;
+}
+.rewards-guide-row.current-level-row {
+  background: var(--accent-faint);
+  color: var(--accent-text);
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--accent);
+  box-shadow: inset 3px 0 8px -2px var(--accent-glow);
+}
+.rewards-guide-row.current-level-row .rgv {
+  color: var(--accent-text);
+}
+.level-you-pill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: var(--accent-btn);
+  color: #fff;
+  border-radius: 99px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  margin-left: 4px;
+  line-height: 1.6;
+}
+.rgv {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rgv.accent { color: var(--accent-text); }
+
+@media (max-width: 768px) {
+  .rewards-guide-body { grid-template-columns: 1fr; }
+}
+
+/* ---- ACHIEVEMENTS PAGE --------------------------- */
+.level-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--s-4) var(--s-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-5);
+  margin-bottom: var(--s-4);
+  background: linear-gradient(135deg, var(--accent-faint) 0%, transparent 60%);
+}
+
+.level-hero-left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.level-ring {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.level-ring-svg {
+  width: 72px;
+  height: 72px;
+  transform: rotate(-90deg);
+}
+
+.ring-bg { fill: none; stroke: var(--border); stroke-width: 8; }
+.ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 276.5;
+  transition: stroke-dashoffset 1s ease;
+}
+
+.level-ring-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.level-num { font-size: 20px; font-weight: 800; color: var(--accent-text); line-height: 1; }
+.level-label { font-size: 10px; color: var(--text-3); }
+
+.level-title { font-size: 16px; font-weight: 700; }
+.level-xp { font-size: 12px; color: var(--text-2); margin: var(--s-1) 0; }
+
+.level-xp-bar {
+  height: 5px;
+  width: 160px;
+}
+
+.xp-progress {
+  height: 6px;
+  background: var(--border);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.xp-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: var(--r-full);
+  transition: width 0.6s ease;
+}
+
+.level-hero-right {
+  display: flex;
+  gap: var(--s-3);
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.total-xp-card, .badges-earned-card {
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  padding: var(--s-3) var(--s-4);
+  text-align: center;
+  min-width: 0;
+}
+
+.total-xp-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--s-1); }
+.total-xp-value { font-size: 22px; font-weight: 800; color: var(--accent-text); }
+
+.achievements-filter {
+  display: flex;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+
+.filter-pill {
+  padding: 6px 16px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+.filter-pill:hover { border-color: var(--accent-text); color: var(--text); }
+.filter-pill.active { background: var(--accent-btn); border-color: var(--accent-btn); color: white; }
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--s-3);
+}
+
+.achievement-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-3) var(--s-3) var(--s-4);
+  text-align: center;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement-card.earned {
+  border-color: var(--accent-glow);
+  background: linear-gradient(135deg, var(--accent-faint) 0%, var(--surface) 100%);
+}
+
+.achievement-card.locked {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+.achievement-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
+.achievement-icon { font-size: 30px; margin-bottom: var(--s-2); }
+.achievement-name { font-size: 12px; font-weight: 700; margin-bottom: var(--s-1); }
+.achievement-desc { font-size: 10px; color: var(--text-2); margin-bottom: var(--s-2); }
+
+.achievement-progress-bar-wrap {
+  height: 4px;
+  background: var(--border);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  margin-bottom: var(--s-1);
+}
+
+.achievement-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: var(--r-full);
+  transition: width 0.8s ease;
+}
+
+.achievement-progress-text { font-size: 10px; color: var(--text-3); }
+
+.achievement-xp-badge {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  background: var(--accent-faint);
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--r-full);
+}
+
+.achievement-earned-badge {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  font-size: 14px;
+}
+

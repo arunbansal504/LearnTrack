@@ -1,0 +1,131 @@
+/* ===== DELETED GOALS PAGE ===== */
+#dg-goals-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-3);
+}
+.dg-goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  flex-wrap: wrap;
+  transition: background 0.15s;
+}
+.dg-goal-row.dl-selected {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.dg-goal-checkbox {
+  flex-shrink: 0;
+}
+.dg-goal-info {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.dg-goal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+.dg-title-link {
+  cursor: pointer;
+}
+.dg-title-link:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dg-goal-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-shrink: 0;
+}
+.dg-goal-deleted-at {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.dg-goal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.compact-mode .dg-goal-row { padding: var(--s-2) var(--s-3); }
+
+/* Deleted Goal Detail Modal */
+.dg-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+.dg-detail-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin: 0 0 var(--s-4);
+  white-space: pre-wrap;
+}
+.dg-detail-section {
+  margin-bottom: var(--s-4);
+}
+.dg-detail-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: var(--s-2);
+}
+.dg-detail-value {
+  font-size: 13px;
+  color: var(--text-1);
+}
+.dg-detail-milestones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.dg-detail-ms-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 13px;
+}
+.dg-detail-ms-check { flex-shrink: 0; font-size: 14px; }
+.dg-detail-ms-label { color: var(--text-1); }
+.dg-detail-ms-label.dg-ms-done { text-decoration: line-through; color: var(--text-3); }
+.dg-detail-dates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.dg-detail-date-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.dg-detail-date-row span:first-child { color: var(--text-3); }
+.dg-detail-date-row span:last-child  { color: var(--text-1); font-weight: 500; }
+.dg-date-deleted span:last-child     { color: var(--danger-text); }
+#dg-detail-modal .btn-danger-ghost {
+  color: var(--danger-text);
+}
+#dg-detail-modal .btn-danger-ghost:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
