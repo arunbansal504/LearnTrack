@@ -446,6 +446,26 @@ const Storage = (() => {
     };
   }
 
+  // Cross-device deletion reconcile (pure, unit-tested):
+  // After a snapshot merge, a record that was soft-deleted on another device arrives in the
+  // deletedEntries/deletedGoals list, but importAll only ever ADDS/UPDATES — it never removes
+  // from the live store, so the live copy would linger as a ghost. Return the ids that should
+  // be removed from the live store: those present in both, where the deletion is at least as
+  // recent as the live record's last edit (so a record that was RESTORED/edited more recently
+  // than it was deleted is left intact — newest action wins).
+  function reconcileDeletedIds(liveRecords, deletedRecords) {
+    const liveById = new Map((liveRecords || []).map(r => [r.id, r]));
+    const toRemove = [];
+    for (const d of (deletedRecords || [])) {
+      const live = liveById.get(d.id);
+      if (!live) continue;
+      const delTs  = Number(d.deletedAt) || 0;
+      const liveTs = Number(live.updatedAt) || Number(live.createdAt) || 0;
+      if (delTs >= liveTs) toRemove.push(d.id);
+    }
+    return toRemove;
+  }
+
   async function importAll(backup) {
     if (!backup || backup.appName !== 'LearnTrack' || !backup.data) {
       throw new Error('Invalid backup file format');
@@ -527,6 +547,12 @@ const Storage = (() => {
       const existing = await get(STORES.deletedGoals, incoming.id);
       if (!existing) await put(STORES.deletedGoals, incoming);
     }
+
+    // Propagate cross-device deletions: drop live records that another device soft-deleted.
+    const [liveEntries, allDeletedEntries] = await Promise.all([getAll(STORES.entries), getAll(STORES.deletedEntries)]);
+    for (const id of reconcileDeletedIds(liveEntries, allDeletedEntries)) await remove(STORES.entries, id);
+    const [liveGoals, allDeletedGoals] = await Promise.all([getAll(STORES.goals), getAll(STORES.deletedGoals)]);
+    for (const id of reconcileDeletedIds(liveGoals, allDeletedGoals)) await remove(STORES.goals, id);
 
     return { imported, skipped, updated, prefsRestored };
   }

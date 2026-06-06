@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="AI-Powered Learning Tracker — track daily learning, visualize progress, stay motivated." />
   <meta name="theme-color" content="#6c63ff" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src blob:; object-src 'none'; base-uri 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.supabase.co wss://*.supabase.co; worker-src blob:; object-src 'none'; base-uri 'self';" />
   <title>LearnTrack — Your Learning Journey</title>
 
   <!-- Favicon -->
@@ -1272,6 +1272,51 @@
       </div>
 
       <div class="backup-layout">
+        <!-- Cloud Sync Section -->
+        <div class="backup-card wide-card" id="cloud-sync-card">
+          <div class="backup-card-icon">☁️</div>
+          <div class="backup-card-content">
+            <h2>Cloud Sync</h2>
+            <p>Sign in to back up this profile to the cloud and sync it across your devices. Your data stays on this device too — the cloud is a safety net.</p>
+
+            <!-- Not configured for this build -->
+            <div id="cloud-disabled" class="backup-configure-prompt hidden">
+              <span class="configure-warning-text">⚠️ Cloud sync isn’t set up for this build yet.</span>
+            </div>
+
+            <!-- Signed out: sign-in / sign-up -->
+            <form id="cloud-signin-form" class="cloud-auth-form hidden" autocomplete="on" style="max-width:380px">
+              <div class="form-group" style="margin-bottom:var(--s-3)">
+                <label for="cloud-email">Email</label>
+                <input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email" required />
+              </div>
+              <div class="form-group" style="margin-bottom:var(--s-4)">
+                <label for="cloud-password">Password</label>
+                <input type="password" id="cloud-password" placeholder="At least 6 characters" autocomplete="current-password" minlength="6" required />
+              </div>
+              <div class="backup-actions">
+                <button type="submit" class="btn btn-primary" id="cloud-signin-btn">Sign In</button>
+                <button type="button" class="btn btn-secondary" id="cloud-signup-btn">Create Account</button>
+              </div>
+              <div class="import-status" id="cloud-auth-status" style="display:none;margin-top:var(--s-3)"></div>
+            </form>
+
+            <!-- Signed in -->
+            <div id="cloud-signedin" class="hidden">
+              <div class="backup-info">
+                <div class="backup-info-row"><span>Account:</span><strong id="cloud-account-email">—</strong></div>
+                <div class="backup-info-row"><span>Status:</span><strong id="cloud-status-label">—</strong></div>
+                <div class="backup-info-row"><span>Last synced:</span><strong id="cloud-last-sync">Never</strong></div>
+              </div>
+              <div class="backup-actions">
+                <button class="btn btn-primary" id="cloud-sync-now-btn">Sync Now</button>
+                <button class="btn btn-secondary" id="cloud-restore-btn">Restore from Cloud</button>
+                <button class="btn btn-ghost" id="cloud-signout-btn">Sign Out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Backup Section -->
         <div class="backup-card">
           <div class="backup-card-icon">💾</div>
@@ -2054,6 +2099,9 @@
     <button id="backup-required-btn" class="btn btn-primary" style="width:100%">
       Choose Backup Folder
     </button>
+    <button id="backup-cloud-btn" class="btn btn-secondary" style="width:100%;margin-top:0.5rem">
+      ☁️ Sign in to sync instead
+    </button>
     <button id="backup-skip-btn" class="btn btn-ghost" style="width:100%;margin-top:0.5rem;color:var(--text-3);font-size:13px">
       Skip for now
     </button>
@@ -2064,7 +2112,7 @@
      Classic scripts run before deferred ES modules, so these globals
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
-<script src="scripts/storage.js?v=17"></script>
+<script src="scripts/storage.js?v=18"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=18"></script>
@@ -2073,7 +2121,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=5"></script>
+<script type="module" src="scripts/main.js?v=6"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

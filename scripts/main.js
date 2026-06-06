@@ -13,6 +13,7 @@ import './app/log.js';
 import './app/nav.js';
 import './app/reports.js';
 import './app/settings.js';
+import './app/sync.js';
 import './app/users.js';
 import './app/utils.js';
 import './app/widgets.js';
