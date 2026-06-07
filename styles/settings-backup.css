@@ -72,34 +72,157 @@
   gap: var(--s-2);
 }
 
-.theme-option {
-  padding: 5px 12px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 500;
-  transition: var(--transition);
-}
-.theme-option:hover { border-color: var(--accent-text); color: var(--text); }
-.theme-option.active { border-color: var(--accent-text); background: var(--accent-faint); color: var(--accent-text); }
-
-.accent-options {
+/* ---- Appearance section -------------------------------- */
+.appearance-group {
   display: flex;
+  flex-direction: column;
   gap: var(--s-2);
 }
 
+.theme-grid {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-2) var(--s-1);
+  border-radius: var(--r-md);
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 72px;
+}
+.theme-option:hover { border-color: var(--accent); }
+.theme-option.active { border-color: var(--accent); background: var(--accent-faint); }
+.theme-option[data-locked="true"] { opacity: 0.55; cursor: default; }
+.theme-option[data-locked="true"]:hover { border-color: var(--border); }
+
+.theme-preview {
+  width: 56px;
+  height: 34px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+.theme-preview--light    { background: linear-gradient(135deg, #e6e8f0 50%, #f4f5fb 50%); }
+.theme-preview--dark     { background: linear-gradient(135deg, #0f0f13 50%, #1e1e2a 50%); }
+.theme-preview--midnight { background: linear-gradient(135deg, #070b14 50%, #111a2e 50%); }
+.theme-preview--solarized{ background: linear-gradient(135deg, #eee8d5 50%, #fdf6e3 50%); }
+
+.theme-option-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.theme-option.active .theme-option-label { color: var(--accent-text); }
+
+.lock-badge {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.7;
+  display: inline-block;
+}
+
+/* Accent swatches — sidebar (24 px) and settings (30 px via context) */
+.accent-settings-row {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .accent-swatch {
+  position: relative;
   width: 24px;
   height: 24px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
   transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .accent-swatch:hover { transform: scale(1.2); }
 .accent-swatch.active { border-color: var(--text); transform: scale(1.2); }
+.accent-swatch[data-locked="true"] { opacity: 0.45; cursor: default; }
+.accent-swatch[data-locked="true"]:hover { transform: none; }
+
+.accent-settings-row .accent-swatch {
+  width: 30px;
+  height: 30px;
+}
+
+.accent-swatch .lock-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  font-size: 8px;
+  background: var(--surface);
+  border-radius: 50%;
+  padding: 1px;
+  line-height: 1;
+}
+
+/* Custom hex swatch — conic-gradient rainbow */
+.accent-custom-swatch {
+  background: conic-gradient(
+    hsl(0,90%,55%), hsl(40,90%,55%), hsl(80,90%,45%),
+    hsl(160,80%,40%), hsl(200,90%,50%), hsl(260,80%,55%),
+    hsl(310,85%,50%), hsl(360,90%,55%)
+  );
+}
+.accent-custom-swatch .custom-accent-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.8);
+  background: var(--surface);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.custom-accent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+  padding: var(--s-3);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.color-picker-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 30px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  padding: 2px;
+  background: transparent;
+}
+.color-picker-input::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker-input::-webkit-color-swatch { border-radius: 4px; border: none; }
+
+.accent-options {
+  display: flex;
+  gap: var(--s-2);
+}
 
 .danger-zone .settings-section-title { color: var(--danger-text); }
 .danger-zone .settings-card { border-color: rgba(239,68,68,0.2); }

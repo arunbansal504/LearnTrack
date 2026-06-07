@@ -52,6 +52,10 @@ export const state = {
   lastCloudSync:  0,           // Unix ms of the last successful push/pull (UI label)
   cloudPushTimer: null,        // debounce handle for queueCloudPush()
 
+  /* ---- Entitlements (appearance gating) ---- */
+  tier:         'free',   // 'free' | 'premium' | 'family' — loaded by entitlements.js
+  entitlements: null,     // Map<'kind:key', min_tier> — null = not yet fetched
+
   /* ---- Routing / misc ---- */
   currentPage:       'dashboard',
   pendingTimerReset: null,   // fired once, only after a timer-initiated entry saves
@@ -98,6 +102,7 @@ export const DEFAULT_PREFS = {
   goalHistory:          [],
   monthlyGoalHistory:   [],
   cloudAutoBackup:      false,
+  customAccentHex:      null,   // '#rrggbb' when custom hex accent is active, else null
 };
 
 // Distinct base palette for category colors; beyond it we generate unique golden-angle hues.

@@ -5,6 +5,10 @@ import { navigateTo, updateSidebarUser } from './nav.js';
 import { getBackupFilename } from './settings.js';
 import { _closeModal, _openModal, escapeHtml, showConfirm, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
+import { setCloudProfileId } from './cloud-repo.js';
+
+// Must match the default profile_limit in the subscriptions table (free tier).
+const FREE_PROFILE_LIMIT = 5;
 
 export const UserManager = (() => {
   const USERS_KEY  = 'lt_users';
@@ -53,15 +57,77 @@ export const UserManager = (() => {
   return { getUsers, saveUsers, getActiveId, setActiveId, getActive, createUser, updateUser, deleteUser };
 })();
 
+  /* ---- Cloud profile row creation ------------------ */
+  // Called after a local profile is created. Inserts a row into the Supabase
+  // `profiles` table and stores the returned UUID locally (for sync-engine).
+  // Uses a dynamic import of sync.js to avoid a circular-dependency at module
+  // evaluation time (sync.js already imports UserManager from this file).
+  export async function createCloudProfileRow(localUser) {
+    if (!state.syncSession) return; // not signed in — skip; migration handles existing profiles
+    const { getClient } = await import('./sync.js');
+    const sb        = await getClient();
+    const accountId = state.syncSession.user.id;
+    const users     = UserManager.getUsers();
+    const { data, error } = await sb
+      .from('profiles')
+      .insert({
+        account_id: accountId,
+        name:       localUser.name,
+        color:      localUser.color,
+        sort_order: users.findIndex(u => u.id === localUser.id),
+      })
+      .select('id')
+      .single();
+    if (error) {
+      if (error.message?.includes('profile_limit_reached') || error.code === 'P0001') {
+        throw new Error('profile_limit_reached');
+      }
+      throw error; // network / RLS / other — caller logs and continues
+    }
+    setCloudProfileId(localUser.id, accountId, data.id);
+  }
+
   /* ---- User Picker --------------------------------- */
 
   export function setupUserPicker() {
-    document.getElementById('create-user-submit-btn')?.addEventListener('click', () => {
-      const name = document.getElementById('new-user-name-input')?.value.trim();
-      if (!name) { showToast('Please enter a name', 'warning'); return; }
-      const existing = UserManager.getUsers().find(u => u.name.toLowerCase() === name.toLowerCase());
-      if (existing) { showToast(`A profile named "${existing.name}" already exists.`, 'warning'); return; }
-      const user = UserManager.createUser(name);
+    document.getElementById('create-user-submit-btn')?.addEventListener('click', async () => {
+      const nameInput = document.getElementById('new-user-name-input');
+      const submitBtn = document.getElementById('create-user-submit-btn');
+      const name = nameInput?.value.trim();
+
+      if (!name) { showToast('Please enter a name.', 'warning'); return; }
+
+      const allUsers = UserManager.getUsers();
+      if (allUsers.find(u => u.name.toLowerCase() === name.toLowerCase())) {
+        showToast(`A profile named "${name}" already exists.`, 'warning');
+        return;
+      }
+
+      // Client-side guard — server enforces the same limit via trigger.
+      if (allUsers.length >= FREE_PROFILE_LIMIT) {
+        showToast(`You've reached the ${FREE_PROFILE_LIMIT}-profile limit for your plan.`, 'error');
+        return;
+      }
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Creating…'; }
+
+      const user = UserManager.createUser(name); // optimistic local-first create
+
+      try {
+        await createCloudProfileRow(user);
+      } catch (err) {
+        if (err.message === 'profile_limit_reached') {
+          // Server rejected — roll back the local profile we just created
+          UserManager.deleteUser(user.id);
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create'; }
+          showToast('Profile limit reached. Upgrade your plan for more profiles.', 'error');
+          return;
+        }
+        // Any other error (network / offline) — profile stays local; migration or next sync will create the cloud row
+        console.warn('[Users] Cloud profile row creation skipped:', err?.message || err);
+      }
+
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create'; }
       switchUser(user.id, name);
     });
     document.getElementById('new-user-name-input')?.addEventListener('keydown', e => {
@@ -103,12 +169,21 @@ export const UserManager = (() => {
     const nameInput = document.getElementById('new-user-name-input');
     if (nameInput) nameInput.value = '';
 
+    // Show/hide profile creation form based on the profile limit
+    const atLimit   = UserManager.getUsers().length >= FREE_PROFILE_LIMIT;
+    const limitMsg  = document.getElementById('user-picker-limit-msg');
+    const createRow = modal.querySelector('.user-create-row');
+    const divider   = modal.querySelector('.user-create-divider');
+    if (limitMsg)  limitMsg.style.display  = atLimit ? 'block' : 'none';
+    if (createRow) createRow.style.display  = atLimit ? 'none'  : 'flex';
+    if (divider)   divider.style.display    = 'flex'; // always show the divider
+
     const footer = document.getElementById('user-picker-footer');
     if (footer) footer.style.display = canCancel ? 'flex' : 'none';
 
     modal.style.display = 'flex';
     _openModal(modal);
-    setTimeout(() => nameInput?.focus(), 100);
+    setTimeout(() => { if (!atLimit) nameInput?.focus(); }, 100);
   }
 
   export function closeUserPicker() {
@@ -172,6 +247,10 @@ export const UserManager = (() => {
     const renameIconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
     const deleteIconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
 
+    const limitNote = users.length >= FREE_PROFILE_LIMIT
+      ? `<p class="settings-hint profile-limit-note profile-limit-note--full">Profile limit reached (${users.length}/${FREE_PROFILE_LIMIT}) — remove a profile to add another.</p>`
+      : `<p class="settings-hint profile-limit-note">${users.length} / ${FREE_PROFILE_LIMIT} profiles used.</p>`;
+
     list.innerHTML = users.map(u => {
       const isActive = u.id === activeId;
       const s = _getProfileStats(u.id);
@@ -212,7 +291,7 @@ export const UserManager = (() => {
           </div>
         </div>
       `;
-    }).join('') || '<p class="settings-hint">No profiles found.</p>';
+    }).join('') + limitNote || '<p class="settings-hint">No profiles found.</p>';
 
     list.querySelectorAll('.user-manage-switchable, .profile-card-switchable').forEach(el => {
       el.addEventListener('click', () => switchUser(el.dataset.uid));

@@ -36,9 +36,18 @@ const APP_VERSION = '1.0';
 let _supabase = null;
 let _clientPromise = null;
 
+// Lazy reference to the per-record sync engine — loaded on demand so
+// sync-engine.js can import getClient from this file without creating
+// a circular-dependency problem at module evaluation time.
+let _engine = null;
+function getEngine() {
+  if (_engine) return Promise.resolve(_engine);
+  return import('./sync-engine.js').then(mod => { _engine = mod; return mod; }).catch(() => null);
+}
+
 /* ---- Lazy Supabase client -------------------------------------- */
 
-async function getClient() {
+export async function getClient() {
   if (_supabase) return _supabase;
   if (!_clientPromise) {
     _clientPromise = (async () => {
@@ -207,39 +216,13 @@ export function queueCloudPush() {
 }
 
 /* ---- Auth ------------------------------------------------------- */
-
-export async function signUp(email, password) {
-  const sb = await getClient();
-  const { data, error } = await sb.auth.signUp({ email, password });
-  if (error) throw error;
-  // With email confirmation on there is no session yet — caller shows a "check your email" message.
-  // With confirmation off a session arrives immediately; bind the account but do NOT pull — the
-  // caller is a brand-new account so there is no cloud data to pull, and the settings.js flow
-  // will push after this returns.
-  if (data.session) {
-    state.syncSession = data.session;
-    setBoundAccount(data.session.user.id);
-  }
-  emitChange();
-  return data;
-}
-
-// Authenticate only — does NOT pull from cloud. Call peekCloudSnapshot() then
-// syncAfterSignIn() / pushOnlyAfterSignIn() after showing the user a confirmation.
-export async function signIn(email, password) {
-  const sb = await getClient();
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  state.syncSession = data.session;
-  setBoundAccount(data.session.user.id);
-  emitChange();
-  return data;
-}
+// Password auth (signUp / signIn) removed — replaced by OTP + Google OAuth in auth.js.
 
 export async function signOut() {
   try { const sb = await getClient(); await sb.auth.signOut(); } catch { /* ignore */ }
   state.syncSession = null;
   setStatus(isConfigured() ? 'signed-out' : 'disabled');
+  getEngine().then(e => e?.stopEngine()).catch(() => {});
 }
 
 // Fetch cloud snapshot metadata without importing it.
@@ -356,7 +339,12 @@ export async function initSync() {
 
     sb.auth.onAuthStateChange((_event, s) => {
       state.syncSession = s || null;
-      if (!s) setStatus(isConfigured() ? 'signed-out' : 'disabled');
+      if (s) {
+        getEngine().then(e => e?.startEngine()).catch(() => {});
+      } else {
+        setStatus(isConfigured() ? 'signed-out' : 'disabled');
+        getEngine().then(e => e?.stopEngine()).catch(() => {});
+      }
       emitChange();
     });
 
@@ -368,6 +356,10 @@ export async function initSync() {
     } else {
       setStatus('signed-out');
     }
+
+    // Start the per-record sync engine. It's a no-op until Phase 5 migration
+    // writes the cloud profile UUID (getCloudProfileId returns null before then).
+    getEngine().then(e => e?.startEngine()).catch(() => {});
   } catch (err) {
     console.warn('[Sync] init failed:', err);
     setStatus('error');

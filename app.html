@@ -30,7 +30,7 @@
   <!-- Stylesheets -->
   <!-- main.css was split into the ordered files below. They MUST load in this order
        (and before dashboard.css / animations.css) so the cascade is unchanged. -->
-  <link rel="stylesheet" href="styles/tokens.css?v=1" />
+  <link rel="stylesheet" href="styles/tokens.css?v=2" />
   <link rel="stylesheet" href="styles/base.css?v=1" />
   <link rel="stylesheet" href="styles/layout.css?v=1" />
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
@@ -39,7 +39,7 @@
   <link rel="stylesheet" href="styles/modals.css?v=1" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
-  <link rel="stylesheet" href="styles/settings-backup.css?v=1" />
+  <link rel="stylesheet" href="styles/settings-backup.css?v=2" />
   <link rel="stylesheet" href="styles/calendar.css?v=1" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
   <link rel="stylesheet" href="styles/chrome.css?v=1" />
@@ -1216,6 +1216,77 @@
         </div>
         </div><!-- /.settings-row -->
 
+        <!-- ===== APPEARANCE ===== -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">Appearance</h2>
+          <div class="settings-card">
+
+            <!-- Theme -->
+            <div class="appearance-group">
+              <div class="setting-label">Theme</div>
+              <div class="theme-grid">
+                <button class="theme-option" data-theme="light" aria-label="Light theme">
+                  <span class="theme-preview theme-preview--light"></span>
+                  <span class="theme-option-label">Light</span>
+                </button>
+                <button class="theme-option" data-theme="dark" aria-label="Dark theme">
+                  <span class="theme-preview theme-preview--dark"></span>
+                  <span class="theme-option-label">Dark</span>
+                </button>
+                <button class="theme-option" data-theme="midnight" aria-label="Midnight theme">
+                  <span class="theme-preview theme-preview--midnight"></span>
+                  <span class="theme-option-label">Midnight <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="solarized" aria-label="Solarized theme">
+                  <span class="theme-preview theme-preview--solarized"></span>
+                  <span class="theme-option-label">Solarized <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Accent -->
+            <div class="appearance-group">
+              <div class="setting-label">Accent Color</div>
+              <div class="accent-settings-row">
+                <button class="accent-swatch" data-accent="blue"   style="background:#3b82f6" aria-label="Blue accent"></button>
+                <button class="accent-swatch" data-accent="purple" style="background:#6c63ff" aria-label="Purple accent"></button>
+                <button class="accent-swatch" data-accent="green"  style="background:#10b981" aria-label="Green accent">
+                  <span class="lock-badge" aria-hidden="true">🔒</span>
+                </button>
+                <button class="accent-swatch" data-accent="teal"   style="background:#14b8a6" aria-label="Teal accent">
+                  <span class="lock-badge" aria-hidden="true">🔒</span>
+                </button>
+                <button class="accent-swatch" data-accent="orange" style="background:#f97316" aria-label="Orange accent">
+                  <span class="lock-badge" aria-hidden="true">🔒</span>
+                </button>
+                <button class="accent-swatch" data-accent="rose"   style="background:#f43f5e" aria-label="Rose accent">
+                  <span class="lock-badge" aria-hidden="true">🔒</span>
+                </button>
+                <button class="accent-swatch accent-custom-swatch" id="custom-accent-open-btn" aria-label="Custom accent color">
+                  <span class="custom-accent-icon" id="custom-accent-icon" aria-hidden="true"></span>
+                  <span class="lock-badge" aria-hidden="true">🔒</span>
+                </button>
+              </div>
+              <div id="custom-accent-row" class="custom-accent-row hidden">
+                <input type="color" id="custom-accent-input" class="color-picker-input" value="#6c63ff" aria-label="Custom accent hex color" />
+                <span class="setting-hint">Any hex color</span>
+                <button class="btn btn-secondary btn-sm" id="custom-accent-apply">Apply</button>
+                <button class="btn btn-ghost btn-sm"  id="custom-accent-cancel">Reset</button>
+              </div>
+            </div>
+
+            <!-- Compact mode -->
+            <div class="setting-row setting-row--inline">
+              <label class="setting-label" for="setting-compact">Compact Mode</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-compact" aria-label="Compact mode" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+          </div>
+        </div>
+
         <div class="settings-section">
           <h2 class="settings-section-title">Categories</h2>
           <div class="settings-card">
@@ -1285,29 +1356,51 @@
               <span class="configure-warning-text">⚠️ Cloud sync isn’t set up for this build yet.</span>
             </div>
 
-            <!-- Signed out: sign-in / sign-up (mode toggled by JS) -->
-            <form id="cloud-signin-form" class="cloud-auth-form hidden" autocomplete="on" style="max-width:380px">
-              <div class="form-group" style="margin-bottom:var(--s-3)">
-                <label for="cloud-email">Email</label>
-                <input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email" required />
+            <!-- Signed out: two-step OTP + Google (step toggled by JS) -->
+            <div id="cloud-signin-form" class="cloud-auth-form hidden" style="max-width:380px">
+
+              <!-- Step 1: enter email -->
+              <div id="cloud-otp-step1">
+                <div class="form-group" style="margin-bottom:var(--s-3)">
+                  <label for="cloud-email">Email address</label>
+                  <input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email" />
+                </div>
+                <div class="backup-actions" style="margin-bottom:var(--s-3)">
+                  <button type="button" class="btn btn-primary" id="cloud-send-otp-btn">Send Code</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:var(--s-3);margin-bottom:var(--s-3)">
+                  <hr style="flex:1;border:none;border-top:1px solid var(--border-2)" />
+                  <span style="font-size:12px;color:var(--text-3)">or</span>
+                  <hr style="flex:1;border:none;border-top:1px solid var(--border-2)" />
+                </div>
+                <button type="button" class="btn btn-secondary" id="cloud-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:var(--s-2)">
+                  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                  Continue with Google
+                </button>
               </div>
-              <div class="form-group" style="margin-bottom:var(--s-3)">
-                <label for="cloud-password" id="cloud-password-label">Password</label>
-                <input type="password" id="cloud-password" placeholder="Enter your password" autocomplete="current-password" minlength="6" required />
+
+              <!-- Step 2: enter OTP code -->
+              <div id="cloud-otp-step2" class="hidden">
+                <p style="margin:0 0 var(--s-3);font-size:var(--text-sm);color:var(--text-2)">
+                  We sent a 6-digit code to <strong id="cloud-otp-email-display"></strong>. Enter it below:
+                </p>
+                <div class="form-group" style="margin-bottom:var(--s-3)">
+                  <label for="cloud-otp-code">Verification code</label>
+                  <input type="text" id="cloud-otp-code" placeholder="123456" maxlength="6"
+                         inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
+                </div>
+                <div class="backup-actions" style="margin-bottom:var(--s-2)">
+                  <button type="button" class="btn btn-primary" id="cloud-verify-otp-btn">Verify &amp; Sign In</button>
+                  <button type="button" class="btn btn-ghost" id="cloud-otp-back-btn">Back</button>
+                </div>
+                <p style="font-size:12px;color:var(--text-3);margin:0">
+                  Didn't receive it?
+                  <button type="button" id="cloud-resend-otp-btn" class="btn btn-ghost" style="padding:0 4px;font-size:12px;height:auto;min-height:0;color:var(--accent-text)">Resend code</button>
+                </p>
               </div>
-              <div class="form-group hidden" id="cloud-confirm-group" style="margin-bottom:var(--s-4)">
-                <label for="cloud-password-confirm">Confirm Password</label>
-                <input type="password" id="cloud-password-confirm" placeholder="Repeat your password" autocomplete="new-password" />
-              </div>
-              <div class="backup-actions" style="margin-bottom:var(--s-3)">
-                <button type="submit" class="btn btn-primary" id="cloud-submit-btn">Sign In</button>
-              </div>
-              <p style="font-size:12px;color:var(--text-3);margin:0">
-                <span id="cloud-mode-prompt">Don't have an account?</span>
-                <button type="button" id="cloud-mode-toggle" class="btn btn-ghost" style="padding:0 4px;font-size:12px;height:auto;min-height:0;color:var(--accent-text)">Create one</button>
-              </p>
+
               <div class="import-status" id="cloud-auth-status" style="display:none;margin-top:var(--s-3)"></div>
-            </form>
+            </div>
 
             <!-- Signed in -->
             <div id="cloud-signedin" class="hidden">
@@ -1369,6 +1462,11 @@
               <button class="btn btn-secondary btn-sm" id="configure-folder-btn">Configure Folder</button>
             </div>
 
+            <!-- Non-FSA browser notice -->
+            <div id="fsa-backup-notice" class="backup-configure-prompt hidden">
+              <span class="configure-warning-text">⚠️ Auto-folder backup requires Chrome or Edge. "Backup Now" will download a JSON file instead.</span>
+            </div>
+
             <div class="backup-actions">
               <button class="btn btn-primary" id="backup-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1404,6 +1502,11 @@
             <!-- Folder not configured -->
             <div id="restore-folder-unconfigured" class="backup-configure-prompt">
               <span class="configure-warning-text">⚠️ Configure a backup folder to enable restore</span>
+            </div>
+
+            <!-- Non-FSA browser notice -->
+            <div id="fsa-restore-notice" class="backup-configure-prompt hidden">
+              <span class="configure-warning-text">⚠️ Folder restore requires Chrome or Edge. Use "Browse File" to import a backup.</span>
             </div>
 
             <div class="backup-actions">
@@ -1451,6 +1554,9 @@
         <!-- Rendered by JS -->
       </div>
       <div class="user-create-divider"><span>New Profile</span></div>
+      <div id="user-picker-limit-msg" class="user-picker-limit-msg" style="display:none">
+        Profile limit reached — remove a profile to create another.
+      </div>
       <div class="user-create-row">
         <input type="text" id="new-user-name-input" class="setting-input" placeholder="Enter a name..." maxlength="30" autocomplete="off" />
         <button class="btn btn-primary" id="create-user-submit-btn">Create</button>
@@ -1641,6 +1747,22 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" id="sync-confirm-skip">Skip for now</button>
       <button class="btn btn-primary" id="sync-confirm-ok">Sync &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: CLOUD BACKUP TOGGLE CONFIRM ===== -->
+<div id="cloud-backup-toggle-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cloud-toggle-modal-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="cloud-toggle-modal-title">Enable Cloud Backup?</h2>
+    </div>
+    <div class="modal-body">
+      <p id="cloud-toggle-modal-body"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="cloud-toggle-cancel">Cancel</button>
+      <button class="btn btn-primary" id="cloud-toggle-confirm">Enable</button>
     </div>
   </div>
 </div>
@@ -2148,7 +2270,7 @@
      Classic scripts run before deferred ES modules, so these globals
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
-<script src="scripts/storage.js?v=18"></script>
+<script src="scripts/storage.js?v=19"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=18"></script>
@@ -2157,7 +2279,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=7"></script>
+<script type="module" src="scripts/main.js?v=11"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

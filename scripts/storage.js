@@ -9,7 +9,7 @@
 const Storage = (() => {
 
   let _dbName      = 'LearnTrackDB';
-  const DB_VERSION = 4;
+  const DB_VERSION = 5;
   let _lsPrefix    = 'lt_';
   const STORES = {
     entries:        'entries',
@@ -20,10 +20,21 @@ const Storage = (() => {
     deletedEntries: 'deletedEntries',
     goals:          'goals',
     deletedGoals:   'deletedGoals',
+    outbox:         'outbox',   // pending cloud sync mutations
   };
 
   let _db = null;
   let _useLocalStorage = false;
+  let _mutationHook = null; // set by sync-engine so it can react to local writes
+
+  /* ---- Outbox: enqueue a pending cloud-sync op ------ */
+  // Each op: { op, kind, recordId, payload, queuedAt }
+  // id is auto-assigned by IndexedDB (autoIncrement). Fire-and-forget; failures are non-fatal.
+  function enqueueOutboxOp(op) {
+    if (_useLocalStorage || !_db) return;
+    idbPut(STORES.outbox, { op: op.op, kind: op.kind, recordId: op.recordId, payload: op.payload || null, queuedAt: Date.now() }).catch(() => {});
+    if (_mutationHook) try { _mutationHook(); } catch { /* ignore */ }
+  }
 
   /* ---- IndexedDB Init -------------------------------- */
 
@@ -71,6 +82,11 @@ const Storage = (() => {
         if (!db.objectStoreNames.contains(STORES.deletedGoals)) {
           const dgs = db.createObjectStore(STORES.deletedGoals, { keyPath: 'id' });
           dgs.createIndex('deletedAt', 'deletedAt');
+        }
+
+        if (!db.objectStoreNames.contains(STORES.outbox)) {
+          // autoIncrement: engine reads all + deletes by auto-assigned integer id
+          db.createObjectStore(STORES.outbox, { keyPath: 'id', autoIncrement: true });
         }
       };
 
@@ -242,6 +258,7 @@ const Storage = (() => {
     }
     entry.updatedAt = Date.now();
     await put(STORES.entries, entry);
+    enqueueOutboxOp({ op: 'upsert', kind: 'entry', recordId: entry.id, payload: { ...entry } });
     return entry;
   }
 
@@ -262,7 +279,8 @@ const Storage = (() => {
     const entry = await get(STORES.entries, id);
     if (!entry) return;
     await put(STORES.deletedEntries, { ...entry, deletedAt: Date.now() });
-    return remove(STORES.entries, id);
+    await remove(STORES.entries, id);
+    enqueueOutboxOp({ op: 'soft-delete', kind: 'entry', recordId: id, payload: null });
   }
 
   async function getDeletedEntries() {
@@ -276,11 +294,13 @@ const Storage = (() => {
     const { deletedAt: _dropped, ...restored } = entry;
     restored.updatedAt = Date.now();
     await put(STORES.entries, restored);
-    return remove(STORES.deletedEntries, id);
+    await remove(STORES.deletedEntries, id);
+    enqueueOutboxOp({ op: 'restore', kind: 'entry', recordId: id, payload: { ...restored } });
   }
 
   async function permanentlyDeleteEntry(id) {
-    return remove(STORES.deletedEntries, id);
+    await remove(STORES.deletedEntries, id);
+    enqueueOutboxOp({ op: 'perm-delete', kind: 'entry', recordId: id, payload: null });
   }
 
   // Soft-deleted entries otherwise live in the recycle bin forever and slowly
@@ -307,6 +327,7 @@ const Storage = (() => {
   async function saveAchievement(ach) {
     if (!ach.earnedAt) ach.earnedAt = Date.now();
     await put(STORES.achievements, ach);
+    enqueueOutboxOp({ op: 'upsert', kind: 'achievement', recordId: ach.id, payload: { ...ach } });
     return ach;
   }
 
@@ -319,6 +340,7 @@ const Storage = (() => {
     }
     goal.updatedAt = Date.now();
     await put(STORES.goals, goal);
+    enqueueOutboxOp({ op: 'upsert', kind: 'goal', recordId: goal.id, payload: { ...goal } });
     return goal;
   }
 
@@ -347,7 +369,8 @@ const Storage = (() => {
     );
     if (duplicate) await remove(STORES.deletedGoals, duplicate.id);
     await put(STORES.deletedGoals, { ...goal, deletedAt: Date.now() });
-    return remove(STORES.goals, id);
+    await remove(STORES.goals, id);
+    enqueueOutboxOp({ op: 'soft-delete', kind: 'goal', recordId: id, payload: null });
   }
 
   async function getDeletedGoals() {
@@ -361,11 +384,13 @@ const Storage = (() => {
     const { deletedAt: _dropped, ...restored } = goal;
     restored.updatedAt = Date.now();
     await put(STORES.goals, restored);
-    return remove(STORES.deletedGoals, id);
+    await remove(STORES.deletedGoals, id);
+    enqueueOutboxOp({ op: 'restore', kind: 'goal', recordId: id, payload: { ...restored } });
   }
 
   async function permanentlyDeleteGoal(id) {
-    return remove(STORES.deletedGoals, id);
+    await remove(STORES.deletedGoals, id);
+    enqueueOutboxOp({ op: 'perm-delete', kind: 'goal', recordId: id, payload: null });
   }
 
   // Mirror purgeOldDeletedEntries for the goals recycle bin: permanently drop
@@ -593,6 +618,27 @@ const Storage = (() => {
     } catch { return null; }
   }
 
+  /* ---- Outbox public API ----------------------------- */
+
+  async function getAllOutboxOps() {
+    if (_useLocalStorage || !_db) return [];
+    return idbGetAll(STORES.outbox);
+  }
+
+  async function removeOutboxOp(id) {
+    if (_useLocalStorage || !_db) return;
+    return idbDelete(STORES.outbox, id);
+  }
+
+  async function clearOutbox() {
+    if (_useLocalStorage || !_db) return;
+    return idbClear(STORES.outbox);
+  }
+
+  function setMutationHook(fn) {
+    _mutationHook = fn;
+  }
+
   /* ---- Reset all data -------------------------------- */
 
   async function resetAll() {
@@ -653,6 +699,11 @@ const Storage = (() => {
     // Directory handle persistence
     saveDirectoryHandle,
     getDirectoryHandle,
+    // Outbox (cloud sync mutation queue)
+    getAllOutboxOps,
+    removeOutboxOp,
+    clearOutbox,
+    setMutationHook,
     // Low-level (for edge cases)
     get,
     put,

@@ -117,6 +117,58 @@
   --input-border: #888ba0;
 }
 
+/* ---- MIDNIGHT THEME ------------------------------ */
+[data-theme="midnight"] {
+  --bg:        #070b14;
+  --bg-2:      #0c1220;
+  --bg-3:      #111a2e;
+  --bg-4:      #172338;
+  --surface:   #111a2e;
+  --surface-2: #172338;
+  --surface-3: #1d2c45;
+  --border:    rgba(100, 140, 210, 0.10);
+  --border-2:  rgba(100, 140, 210, 0.18);
+  --text:      #d4e2f8;
+  --text-2:    #7a9cc8;
+  --text-3:    #5a7aaa;
+  --text-inv:  #070b14;
+  --shadow:    0 4px 24px rgba(0,0,0,0.55);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.40);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.65);
+  --accent-text:  var(--accent-light);
+  --success-text: #10b981;
+  --warning-text: #f59e0b;
+  --danger-text:  #f87171;
+  --info-text:    #60a5fa;
+  --input-border: #3a5a88;
+}
+
+/* ---- SOLARIZED THEME ----------------------------- */
+[data-theme="solarized"] {
+  --bg:        #fdf6e3;
+  --bg-2:      #eee8d5;
+  --bg-3:      #e5dece;
+  --bg-4:      #d8d1bb;
+  --surface:   #fdf6e3;
+  --surface-2: #eee8d5;
+  --surface-3: #e5dece;
+  --border:    rgba(88, 110, 117, 0.18);
+  --border-2:  rgba(88, 110, 117, 0.30);
+  --text:      #073642;
+  --text-2:    #586e75;
+  --text-3:    #839496;
+  --text-inv:  #fdf6e3;
+  --shadow:    0 4px 24px rgba(7,54,66,0.14);
+  --shadow-sm: 0 2px 8px rgba(7,54,66,0.09);
+  --shadow-lg: 0 8px 48px rgba(7,54,66,0.20);
+  --accent-text:  var(--accent-text-light);
+  --success-text: #065f46;
+  --warning-text: #92400e;
+  --danger-text:  #991b1b;
+  --info-text:    #1d4ed8;
+  --input-border: #93a1a1;
+}
+
 /* ---- ACCENT COLOR OVERRIDES --------------------- */
 [data-accent="blue"]   { --accent:#3b82f6; --accent-light:#60a5fa; --accent-dark:#2563eb; --accent-glow:rgba(59,130,246,0.25);  --accent-faint:rgba(59,130,246,0.08);  --accent-btn:#2563eb; --accent-text-light:#1d4ed8; }
 [data-accent="green"]  { --accent:#10b981; --accent-light:#34d399; --accent-dark:#059669; --accent-glow:rgba(16,185,129,0.25);  --accent-faint:rgba(16,185,129,0.08);  --accent-btn:#047857; --accent-text-light:#065f46; }

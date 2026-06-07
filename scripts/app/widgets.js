@@ -7,13 +7,18 @@ import { setInputVal, showToast } from './utils.js';
   /* ---- Theme & Accent ------------------------------ */
 
   export function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme || 'dark');
     const toggle = document.getElementById('theme-toggle');
-    if (toggle) toggle.checked = theme === 'dark';
+    if (toggle) toggle.checked = (theme === 'dark' || theme === 'midnight');
   }
 
   export function applyAccent(accent) {
-    document.documentElement.setAttribute('data-accent', accent);
+    if (accent && accent.startsWith('#')) {
+      _applyCustomHexAccent(accent);
+    } else {
+      _clearCustomHexVars();
+      document.documentElement.setAttribute('data-accent', accent || 'purple');
+    }
     syncTimerGradient(accent);
   }
 
@@ -22,6 +27,62 @@ import { setInputVal, showToast } from './utils.js';
     if (!panel) return;
     const map = { purple: 1, blue: 2, green: 4, orange: 6, pink: 7, red: 8 };
     panel.dataset.grad = String(map[accent] || 1);
+  }
+
+  /* ---- Custom hex accent helpers ------------------- */
+
+  function _hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
+  function _hslToHexColor(h, s, l) {
+    s /= 100; l /= 100;
+    const a  = s * Math.min(l, 1 - l);
+    const k  = n => (n + h / 30) % 12;
+    const f  = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    const hx = x => Math.round(x * 255).toString(16).padStart(2, '0');
+    return `#${hx(f(0))}${hx(f(8))}${hx(f(4))}`;
+  }
+
+  function _hexToHsl(hex) {
+    const [r, g, b] = _hexToRgb(hex).map(x => x / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return [0, 0, l * 100];
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let h;
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      default: h = ((r - g) / d + 4) / 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+
+  function _applyCustomHexAccent(hex) {
+    const [r, g, b]  = _hexToRgb(hex);
+    const [h, s, l]  = _hexToHsl(hex);
+    const light      = _hslToHexColor(h, s, Math.min(l + 14, 88));
+    const dark       = _hslToHexColor(h, s, Math.max(l - 12, 20));
+    const btn        = _hslToHexColor(h, Math.min(s + 5, 100), Math.max(l - 18, 18));
+    const textLight  = _hslToHexColor(h, s, Math.max(l - 22, 15));
+    const root = document.documentElement;
+    root.style.setProperty('--accent',           hex);
+    root.style.setProperty('--accent-light',     light);
+    root.style.setProperty('--accent-dark',      dark);
+    root.style.setProperty('--accent-glow',      `rgba(${r},${g},${b},0.25)`);
+    root.style.setProperty('--accent-faint',     `rgba(${r},${g},${b},0.08)`);
+    root.style.setProperty('--accent-btn',       btn);
+    root.style.setProperty('--accent-text-light', textLight);
+    root.removeAttribute('data-accent');
+  }
+
+  function _clearCustomHexVars() {
+    const root = document.documentElement;
+    ['--accent','--accent-light','--accent-dark','--accent-glow','--accent-faint','--accent-btn','--accent-text-light']
+      .forEach(v => root.style.removeProperty(v));
   }
 
   /* ---- Live Clock ---------------------------------- */

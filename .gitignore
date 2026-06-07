@@ -22,3 +22,8 @@ desktop.ini
 # Editor folders
 .vscode/
 .idea/
+
+# MCP JSON files
+.mcp.json
+
+SAAS_IMPLEMENTATION_PLAN.md

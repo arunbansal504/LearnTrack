@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LearnTrack — The all-in-one learning tracker that helps you log daily progress, hit academic goals, and stay motivated with XP and achievements." />
+  <meta name="theme-color" content="#6c63ff" />
+  <title>LearnTrack — Track Every Hour of Learning</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Design tokens (shared with the app) -->
+  <link rel="stylesheet" href="styles/tokens.css?v=1" />
+  <!-- Landing-specific styles -->
+  <link rel="stylesheet" href="styles/landing.css?v=1" />
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="l-nav" aria-label="Main navigation">
+  <div class="l-container l-nav-inner">
+    <a href="landing.html" class="l-nav-logo" aria-label="LearnTrack home">
+      <span class="l-nav-logo-icon">🎯</span>
+      LearnTrack
+    </a>
+    <div class="l-nav-actions">
+      <button id="landing-theme-toggle" class="l-btn l-btn-ghost" aria-label="Toggle theme">🌙</button>
+      <a href="app.html" class="l-btn l-btn-secondary">Sign in</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="l-hero">
+  <div class="l-container">
+    <div class="l-hero-eyebrow">
+      ✨ Your personal learning command center
+    </div>
+    <h1 class="l-hero-title">
+      Every hour of learning<br />
+      <span class="l-hero-title-accent">tracked, visualized, celebrated.</span>
+    </h1>
+    <p class="l-hero-subtitle">
+      LearnTrack helps you log what you study, hit your academic goals, and stay motivated — all in one beautifully organized place.
+    </p>
+
+    <!-- Auth entry form -->
+    <div class="l-hero-auth">
+      <!-- Step 1: email -->
+      <div id="landing-step1">
+        <div class="l-hero-auth-row">
+          <input type="email" id="landing-email" placeholder="Enter your email" autocomplete="email" aria-label="Email address" />
+          <button type="button" id="landing-send-otp" class="l-btn l-btn-primary">Get started</button>
+        </div>
+        <div class="l-hero-divider">or</div>
+        <button type="button" id="landing-google" class="l-btn l-btn-google l-btn-full">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          Continue with Google
+        </button>
+        <p class="l-hero-note">Free to start · No password required · Your data stays on your device</p>
+      </div>
+
+      <!-- Step 2: OTP code -->
+      <div id="landing-step2" class="l-otp-step2">
+        <p>We sent a 6-digit code to <strong id="landing-otp-email-display"></strong>.</p>
+        <input type="text" id="landing-otp-code" placeholder="123456" maxlength="6"
+               inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+               aria-label="Verification code" />
+        <button type="button" id="landing-verify-otp" class="l-btn l-btn-primary l-btn-full">Verify &amp; Continue</button>
+        <div style="display:flex;justify-content:center;gap:16px;font-size:0.875rem">
+          <button type="button" id="landing-otp-back" class="l-btn l-btn-ghost">← Back</button>
+          <button type="button" id="landing-resend-otp" class="l-btn l-btn-ghost">Resend code</button>
+        </div>
+      </div>
+
+      <div id="landing-auth-status" class="l-auth-status" role="alert"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SOCIAL PROOF STRIP ===== -->
+<div class="l-social">
+  <div class="l-container">
+    <p class="l-social-label">Everything you need to become a consistent learner</p>
+    <div class="l-social-stats">
+      <div>
+        <div class="l-social-stat-value">9</div>
+        <div class="l-social-stat-label">pages & views</div>
+      </div>
+      <div>
+        <div class="l-social-stat-value">100%</div>
+        <div class="l-social-stat-label">offline-capable</div>
+      </div>
+      <div>
+        <div class="l-social-stat-value">5</div>
+        <div class="l-social-stat-label">profiles per account</div>
+      </div>
+      <div>
+        <div class="l-social-stat-value">∞</div>
+        <div class="l-social-stat-label">learning entries</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FEATURE SHOWCASE ===== -->
+<section class="l-section l-features">
+  <div class="l-container">
+    <div class="l-section-header">
+      <p class="l-section-eyebrow">What's inside</p>
+      <h2 class="l-section-title">Everything a serious learner needs</h2>
+      <p class="l-section-subtitle">
+        Built from the ground up for students, self-taught developers, and lifelong learners.
+      </p>
+    </div>
+
+    <div class="l-features-grid">
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">📊</div>
+        <h3 class="l-feature-title">Analytics Dashboard</h3>
+        <p class="l-feature-desc">
+          At-a-glance stats, interactive charts, daily heatmap, streak tracking, and AI-generated insights — all on one screen.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">📝</div>
+        <h3 class="l-feature-title">Daily Learning Log</h3>
+        <p class="l-feature-desc">
+          Log every study session with topic, category, duration, difficulty, mood, notes, and resource links. Search and filter instantly.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">🎯</div>
+        <h3 class="l-feature-title">Academic Goals</h3>
+        <p class="l-feature-desc">
+          Set time-based, count-based, checklist, or exam goals. Track progress visually and link your log entries directly to each goal.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">📅</div>
+        <h3 class="l-feature-title">Calendar View</h3>
+        <p class="l-feature-desc">
+          Browse your entire learning history month by month. Click any day to see exactly what you studied and for how long.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">🏆</div>
+        <h3 class="l-feature-title">Achievements & XP</h3>
+        <p class="l-feature-desc">
+          Earn XP for every session, level up your profile, and unlock badges for streaks, milestones, and consistency.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">📄</div>
+        <h3 class="l-feature-title">PDF Monthly Reports</h3>
+        <p class="l-feature-desc">
+          Export a detailed monthly report as a PDF in one click — complete with charts, tables, and all your entries formatted cleanly.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">⏱️</div>
+        <h3 class="l-feature-title">Pomodoro Timer</h3>
+        <p class="l-feature-desc">
+          Built-in focus timer that auto-creates a log entry when your session ends — so you never forget to record a study block.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">👥</div>
+        <h3 class="l-feature-title">Multi-Profile Households</h3>
+        <p class="l-feature-desc">
+          One account, up to five learner profiles. Perfect for families or students tracking multiple subjects separately.
+        </p>
+      </div>
+
+      <div class="l-feature-card">
+        <div class="l-feature-icon">☁️</div>
+        <h3 class="l-feature-title">Cloud Sync</h3>
+        <p class="l-feature-desc">
+          Opt-in cloud backup keeps your data safe and synced across devices. Fully offline-first — everything works without a connection.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAIN POINTS → SOLUTIONS ===== -->
+<section class="l-section l-pain" id="why-learntrack">
+  <div class="l-container">
+    <div class="l-section-header">
+      <p class="l-section-eyebrow">Why LearnTrack</p>
+      <h2 class="l-section-title">Sound familiar? We built the fix.</h2>
+      <p class="l-section-subtitle">
+        Every feature exists because real learners hit these walls.
+      </p>
+    </div>
+
+    <div class="l-pain-list">
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">😓</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"I study every day but can't tell if I'm actually making progress."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">📊</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">The dashboard shows your streak, total hours, weekly trends, and a full heatmap — tangible proof of your consistency at a glance.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">🙃</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"I set a goal in January and forgot about it by February."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">🎯</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">Academic goals with live progress tracking and deadline alerts. Each log entry can be linked to a goal so your time automatically counts toward it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">😩</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"I lose motivation after a few good days. I can't maintain a routine."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">🏆</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">XP, levels, streaks, and achievement badges turn learning into a game. Seeing your progress visually makes it harder to break the chain.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">🗂️</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"My study notes are in five different apps and I can never find anything."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">🗃️</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">Every session is logged with topic, category, notes, and resource links — all searchable and filterable in one place.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">😤</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"Generating a progress report takes an hour of spreadsheet work."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">📄</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">One-click PDF monthly reports with charts, tables, and a full session log — ready to share or review in seconds.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="l-pain-item">
+        <div class="l-pain-problem">
+          <div class="l-pain-problem-icon">😰</div>
+          <div>
+            <div class="l-pain-problem-label">The problem</div>
+            <div class="l-pain-problem-text">"I'm terrified of losing my data if my computer breaks."</div>
+          </div>
+        </div>
+        <div class="l-pain-solution">
+          <div class="l-pain-solution-icon">☁️</div>
+          <div>
+            <div class="l-pain-solution-label">The fix</div>
+            <div class="l-pain-solution-text">Auto-backup to a local folder on every save, plus optional cloud sync to your account. Your data is always safe, always yours.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== FINAL CTA ===== -->
+<section class="l-section l-cta">
+  <div class="l-container">
+    <div class="l-cta-box">
+      <h2 class="l-cta-title">Start tracking your learning today.</h2>
+      <p class="l-cta-subtitle">Free to use · Works offline · No password required</p>
+      <div class="l-cta-actions">
+        <a href="app.html" class="l-btn l-btn-primary l-btn-lg">Open the app</a>
+        <a href="#why-learntrack" class="l-btn l-btn-secondary l-btn-lg">Learn more</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="l-footer">
+  <div class="l-container">
+    <p>© 2026 LearnTrack &nbsp;·&nbsp; <a href="app.html">Open app</a></p>
+  </div>
+</footer>
+
+<script type="module" src="scripts/landing.js?v=1"></script>
+</body>
+</html>

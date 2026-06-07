@@ -12,8 +12,8 @@
    and the app shows the sync UI as unavailable.
    ================================================================ */
 
-export const SUPABASE_URL      = 'https://snfppslemvlmocrxnooe.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_gXc-GvFEQrBNZzGJl1wxrQ_Z4yvG2lQ';
+export const SUPABASE_URL      = 'https://codeflqdchbhsdjbuhqw.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_p4sjIxGfeoFdFYKHy3BqCQ_HQ_nM0c3';
 
 // True once real credentials have been filled in (not the shipped placeholders).
 export function isConfigured() {

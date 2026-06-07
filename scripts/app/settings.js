@@ -6,7 +6,10 @@ import { navigateTo, renderPage, updateSidebarUser } from './nav.js';
 import { UserManager, openUserPicker, renderUsersManagement, switchUser } from './users.js';
 import { escapeHtml, setCheckbox, setEl, setInputVal, showConfirm, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
+import { canUse, loadEntitlements } from './entitlements.js';
+import { getCloudProfileId } from './cloud-repo.js';
 import * as Sync from './sync.js';
+import * as Auth from './auth.js';
 
   /* ---- SETTINGS PAGE ------------------------------- */
 
@@ -16,25 +19,72 @@ import * as Sync from './sync.js';
     setInputVal('setting-monthly-goal',  state.prefs.monthlyGoalHr || 20);
     sizeUsernameInput();
     setInputVal('setting-reminder-time', state.prefs.reminderTime || '20:00');
-    setCheckbox('setting-compact',    state.prefs.compact || false);
-    setCheckbox('setting-reminder',   state.prefs.reminder || false);
-
-    // Theme options highlight
-    document.querySelectorAll('.theme-option').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.theme === (state.prefs.theme || 'dark'));
-    });
-
-    // Accent options
-    document.querySelectorAll('.accent-swatch').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.accent === (state.prefs.accent || 'purple'));
-    });
+    setCheckbox('setting-reminder', state.prefs.reminder || false);
 
     // Reminder time row
     const rtRow = document.getElementById('reminder-time-row');
     if (rtRow) rtRow.style.display = state.prefs.reminder ? 'flex' : 'none';
 
+    renderAppearance();
+    // Reload entitlements from cloud in background; re-render appearance once resolved
+    loadEntitlements().then(renderAppearance).catch(() => {});
+
     renderCategories();
     renderUsersManagement();
+  }
+
+  export function renderAppearance() {
+    const theme   = state.prefs.theme          || 'dark';
+    const accent  = state.prefs.accent         || 'purple';
+    const isHex   = accent.startsWith('#');
+    const compact = state.prefs.compact        ?? true;
+
+    // ---- compact toggle ----
+    const compactEl = document.getElementById('setting-compact');
+    if (compactEl) compactEl.checked = compact;
+
+    // ---- theme buttons ----
+    document.querySelectorAll('.theme-option[data-theme]').forEach(btn => {
+      const t      = btn.dataset.theme;
+      const locked = !canUse('theme', t);
+      btn.classList.toggle('active', t === theme);
+      btn.dataset.locked = locked ? 'true' : 'false';
+      const badge = btn.querySelector('.lock-badge');
+      if (badge) badge.style.display = locked ? '' : 'none';
+    });
+
+    // ---- preset accent swatches ----
+    document.querySelectorAll('.accent-swatch[data-accent]').forEach(btn => {
+      const a      = btn.dataset.accent;
+      const locked = !canUse('accent', a);
+      btn.classList.toggle('active', !isHex && a === accent);
+      btn.dataset.locked = locked ? 'true' : 'false';
+      const badge = btn.querySelector('.lock-badge');
+      if (badge) badge.style.display = locked ? '' : 'none';
+    });
+
+    // ---- custom hex swatch ----
+    const customBtn = document.getElementById('custom-accent-open-btn');
+    if (customBtn) {
+      const locked = !canUse('feature', 'custom_accent');
+      customBtn.dataset.locked = locked ? 'true' : 'false';
+      customBtn.classList.toggle('active', isHex);
+      const badge = customBtn.querySelector('.lock-badge');
+      if (badge) badge.style.display = locked ? '' : 'none';
+      // Show the current hex as a dot inside the swatch when active
+      const icon = document.getElementById('custom-accent-icon');
+      if (icon) icon.style.background = isHex ? accent : 'var(--surface)';
+    }
+
+    // ---- custom hex row ----
+    const customRow   = document.getElementById('custom-accent-row');
+    const customInput = document.getElementById('custom-accent-input');
+    if (isHex) {
+      customRow?.classList.remove('hidden');
+      if (customInput) customInput.value = accent;
+    } else {
+      customRow?.classList.add('hidden');
+    }
   }
 
   export function sizeUsernameInput() {
@@ -70,25 +120,74 @@ import * as Sync from './sync.js';
       });
     });
 
-    document.querySelectorAll('.theme-option').forEach(btn => {
+    document.querySelectorAll('.theme-option[data-theme]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.dataset.locked === 'true') {
+          showToast('Upgrade to Premium to unlock this theme.', 'info');
+          return;
+        }
         const theme = btn.dataset.theme;
         state.prefs.theme = theme;
         await Storage.setPref('theme', theme);
         applyTheme(theme);
-        document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+        renderAppearance();
+        _patchCloudAppearance();
       });
     });
 
-    document.querySelectorAll('.accent-swatch').forEach(btn => {
+    document.querySelectorAll('.accent-swatch[data-accent]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.dataset.locked === 'true') {
+          showToast('Upgrade to Premium to unlock this accent.', 'info');
+          return;
+        }
         const accent = btn.dataset.accent;
-        state.prefs.accent = accent;
+        state.prefs.accent       = accent;
+        state.prefs.customAccentHex = null;
         await Storage.setPref('accent', accent);
+        await Storage.setPref('customAccentHex', null);
         applyAccent(accent);
-        document.querySelectorAll('.accent-swatch').forEach(b => b.classList.toggle('active', b.dataset.accent === accent));
+        renderAppearance();
         Charts.refreshAllCharts();
+        _patchCloudAppearance();
       });
+    });
+
+    // Custom hex swatch button — toggle the picker row (Premium only)
+    document.getElementById('custom-accent-open-btn')?.addEventListener('click', () => {
+      const btn = document.getElementById('custom-accent-open-btn');
+      if (btn?.dataset.locked === 'true') {
+        showToast('Upgrade to Premium to use a custom accent color.', 'info');
+        return;
+      }
+      const row = document.getElementById('custom-accent-row');
+      row?.classList.toggle('hidden');
+    });
+
+    // Apply custom hex
+    document.getElementById('custom-accent-apply')?.addEventListener('click', async () => {
+      const input = document.getElementById('custom-accent-input');
+      const hex   = input?.value || '#6c63ff';
+      state.prefs.accent          = hex;
+      state.prefs.customAccentHex = hex;
+      await Storage.setPref('accent', hex);
+      await Storage.setPref('customAccentHex', hex);
+      applyAccent(hex);
+      renderAppearance();
+      Charts.refreshAllCharts();
+      _patchCloudAppearance();
+    });
+
+    // Reset custom hex — revert to purple
+    document.getElementById('custom-accent-cancel')?.addEventListener('click', async () => {
+      state.prefs.accent          = 'purple';
+      state.prefs.customAccentHex = null;
+      await Storage.setPref('accent', 'purple');
+      await Storage.setPref('customAccentHex', null);
+      applyAccent('purple');
+      renderAppearance();
+      Charts.refreshAllCharts();
+      _patchCloudAppearance();
     });
 
     document.getElementById('setting-compact')?.addEventListener('change', async e => {
@@ -487,12 +586,17 @@ import * as Sync from './sync.js';
     setEl('restore-profile-name',  activeUser?.name || '—');
     setEl('restore-filename',      filename);
 
-    // Show/hide folder configured vs. unconfigured sections
-    const configured = !!folderName;
+    // Show/hide folder UI depending on FSA support + configuration state
+    const hasFsa     = !!window.showDirectoryPicker;
+    const configured = hasFsa && !!folderName;
+
+    document.getElementById('fsa-backup-notice')?.classList.toggle('hidden', hasFsa);
     document.getElementById('backup-folder-configured')?.classList.toggle('hidden', !configured);
-    document.getElementById('backup-folder-unconfigured')?.classList.toggle('hidden', configured);
+    document.getElementById('backup-folder-unconfigured')?.classList.toggle('hidden', !hasFsa || configured);
+
+    document.getElementById('fsa-restore-notice')?.classList.toggle('hidden', hasFsa);
     document.getElementById('restore-folder-info')?.classList.toggle('hidden', !configured);
-    document.getElementById('restore-folder-unconfigured')?.classList.toggle('hidden', configured);
+    document.getElementById('restore-folder-unconfigured')?.classList.toggle('hidden', !hasFsa || configured);
 
     if (configured) {
       setEl('backup-folder-name',  folderName);
@@ -529,18 +633,8 @@ import * as Sync from './sync.js';
     const showForm = configured && !signedIn;
     document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !showForm);
     document.getElementById('cloud-signedin')?.classList.toggle('hidden', !configured || !signedIn);
-    // Always start on the sign-in tab when the form becomes visible, with a clean slate
-    if (showForm) {
-      setCloudAuthMode('signin');
-      const emailEl = document.getElementById('cloud-email');
-      const passEl  = document.getElementById('cloud-password');
-      const confEl  = document.getElementById('cloud-password-confirm');
-      if (emailEl) emailEl.value = '';
-      if (passEl)  passEl.value  = '';
-      if (confEl)  confEl.value  = '';
-      const statusEl = document.getElementById('cloud-auth-status');
-      if (statusEl) statusEl.style.display = 'none';
-    }
+    // Reset to step-1 email form whenever the sign-in UI becomes visible.
+    if (showForm) resetCloudAuthForm();
 
     if (configured && signedIn) {
       setEl('cloud-account-email', Sync.getAccountEmail() || '—');
@@ -563,46 +657,26 @@ import * as Sync from './sync.js';
     el.textContent   = message;
   }
 
-  // Map raw Supabase auth errors to messages a user can act on.
-  function friendlyAuthError(err) {
-    const msg = (err?.message || '').toLowerCase();
-    if (msg.includes('invalid login'))        return 'Incorrect email or password.';
-    if (msg.includes('already registered'))   return 'That email already has an account — try signing in.';
-    if (msg.includes('email not confirmed'))  return 'Please confirm your email first (check your inbox).';
-    if (msg.includes('password'))             return 'Password must be at least 6 characters.';
-    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'Too many attempts — please wait a few minutes and try again.';
-    if (msg.includes('failed to fetch') || msg.includes('network')) return 'Network error — check your connection.';
-    return err?.message || 'Something went wrong. Please try again.';
+  function hideCloudAuthStatus() {
+    const el = document.getElementById('cloud-auth-status');
+    if (el) el.style.display = 'none';
   }
 
-  let _cloudAuthMode = 'signin'; // 'signin' | 'signup'
+  // Switch between the email-entry step and the OTP-code step.
+  function showOtpStep(step) {
+    document.getElementById('cloud-otp-step1')?.classList.toggle('hidden', step !== 1);
+    document.getElementById('cloud-otp-step2')?.classList.toggle('hidden', step !== 2);
+    hideCloudAuthStatus();
+  }
 
-  function setCloudAuthMode(mode) {
-    _cloudAuthMode = mode;
-    const confirmGroup = document.getElementById('cloud-confirm-group');
-    const submitBtn    = document.getElementById('cloud-submit-btn');
-    const modePrompt   = document.getElementById('cloud-mode-prompt');
-    const modeToggle   = document.getElementById('cloud-mode-toggle');
-    const passwordLabel = document.getElementById('cloud-password-label');
-    const passwordInput = document.getElementById('cloud-password');
-    const confirmInput  = document.getElementById('cloud-password-confirm');
-
-    if (mode === 'signup') {
-      confirmGroup?.classList.remove('hidden');
-      if (confirmInput)  confirmInput.required        = true;
-      if (submitBtn)     submitBtn.textContent         = 'Create Account';
-      if (modePrompt)    modePrompt.textContent        = 'Already have an account?';
-      if (modeToggle)    modeToggle.textContent        = 'Sign in';
-      if (passwordInput) { passwordInput.autocomplete  = 'new-password'; passwordInput.placeholder = 'At least 6 characters'; }
-    } else {
-      confirmGroup?.classList.add('hidden');
-      if (confirmInput)  { confirmInput.required = false; confirmInput.value = ''; }
-      if (submitBtn)     submitBtn.textContent         = 'Sign In';
-      if (modePrompt)    modePrompt.textContent        = "Don't have an account?";
-      if (modeToggle)    modeToggle.textContent        = 'Create one';
-      if (passwordInput) { passwordInput.autocomplete  = 'current-password'; passwordInput.placeholder = 'Enter your password'; }
-    }
-    // Clear status only when user manually toggles — not on background re-renders
+  // Called from renderCloudSyncCard when the form becomes visible — reset to step 1.
+  function resetCloudAuthForm() {
+    const emailEl = document.getElementById('cloud-email');
+    const codeEl  = document.getElementById('cloud-otp-code');
+    if (emailEl) emailEl.value = '';
+    if (codeEl)  codeEl.value  = '';
+    showOtpStep(1);
+    hideCloudAuthStatus();
   }
 
   // Show a confirmation modal before pulling cloud data.
@@ -645,84 +719,46 @@ import * as Sync from './sync.js';
     document.addEventListener('keydown', handleKey);
   }
 
-  async function doCloudAuth() {
-    const email    = document.getElementById('cloud-email')?.value.trim();
-    const password = document.getElementById('cloud-password')?.value || '';
-    if (!email || !password) { showCloudAuthStatus('Enter your email and password.', 'error'); return; }
+  // Kept email in a closure so step-2 always uses the same address.
+  let _otpEmail = '';
 
-    if (_cloudAuthMode === 'signup') {
-      const confirm = document.getElementById('cloud-password-confirm')?.value || '';
-      if (!confirm) { showCloudAuthStatus('Please confirm your password.', 'error'); return; }
-      if (password !== confirm) { showCloudAuthStatus('Passwords don\'t match.', 'error'); return; }
-    }
-
-    const btn = document.getElementById('cloud-submit-btn');
-    if (btn) { btn.disabled = true; btn.textContent = _cloudAuthMode === 'signin' ? 'Signing in…' : 'Creating…'; }
-
+  async function sendOtp() {
+    const email = (document.getElementById('cloud-email')?.value || '').trim();
+    if (!email) { showCloudAuthStatus('Enter your email address.', 'error'); return; }
+    const btn = document.getElementById('cloud-send-otp-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     try {
-      if (_cloudAuthMode === 'signup') {
-        const data = await Sync.signUp(email, password);
-        if (data.session) {
-          // Email confirmation disabled — new account, no cloud data yet, just push.
-          await Sync.pushOnlyAfterSignIn();
-          showToast('Account created — your data is now backed up to the cloud.', 'success');
-          renderCloudSyncCard();
-          renderPage(state.currentPage);
-        } else {
-          // Email confirmation required — switch to sign-in mode (so the button reads
-          // "Sign In"), then show the message. Do NOT call renderCloudSyncCard() here
-          // as it would wipe the status message immediately.
-          setCloudAuthMode('signin');
-          showCloudAuthStatus(
-            'Check your email for a confirmation link, then come back here to sign in.',
-            'success'
-          );
-        }
-      } else {
-        // Sign-in: authenticate first, then check for cloud data before pulling.
-        await Sync.signIn(email, password);
-        const cloudInfo = await Sync.peekCloudSnapshot();
-
-        if (cloudInfo) {
-          // Cloud has a snapshot — ask the user before merging it in.
-          // Re-enable the button so the page isn't frozen while the modal is open.
-          if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
-          showSyncConfirmModal({
-            email,
-            localUser: state.prefs.username || 'your profile',
-            cloudInfo,
-            onConfirm: async () => {
-              try {
-                await Sync.syncAfterSignIn();
-                showToast('Signed in — data synced across devices.', 'success');
-              } catch {
-                showToast('Signed in — sync will retry automatically.', 'warning');
-              }
-              renderCloudSyncCard();
-              renderPage(state.currentPage);
-            },
-            onSkip: () => {
-              // User declined the cloud pull — leave local data untouched.
-              renderCloudSyncCard();
-              renderPage(state.currentPage);
-            },
-          });
-          return; // modal callbacks handle the rest; finally re-enables button if needed
-        } else {
-          // No cloud data yet — just push local data up.
-          await Sync.pushOnlyAfterSignIn();
-          showToast('Signed in — your data is now backed up to the cloud.', 'success');
-          renderCloudSyncCard();
-          renderPage(state.currentPage);
-        }
-      }
+      await Auth.requestEmailOtp(email);
+      _otpEmail = email;
+      const display = document.getElementById('cloud-otp-email-display');
+      if (display) display.textContent = email;
+      const codeEl = document.getElementById('cloud-otp-code');
+      if (codeEl) { codeEl.value = ''; codeEl.focus(); }
+      showOtpStep(2);
     } catch (err) {
-      showCloudAuthStatus(friendlyAuthError(err), 'error');
+      showCloudAuthStatus(Auth.friendlyAuthError(err), 'error');
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = _cloudAuthMode === 'signin' ? 'Sign In' : 'Create Account';
-      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Send Code'; }
+    }
+  }
+
+  async function verifyOtp() {
+    const code = (document.getElementById('cloud-otp-code')?.value || '').trim();
+    if (!code) { showCloudAuthStatus('Enter the 6-digit code.', 'error'); return; }
+    const btn = document.getElementById('cloud-verify-otp-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+    try {
+      await Auth.verifyEmailOtp(_otpEmail, code);
+      // After OTP success, sync.js needs to know the session exists.
+      // The supabase-js onAuthStateChange wired in initSync() propagates it,
+      // but we also notify the card immediately.
+      showToast('Signed in successfully.', 'success');
+      renderCloudSyncCard();
+      renderPage(state.currentPage);
+    } catch (err) {
+      showCloudAuthStatus(Auth.friendlyAuthError(err), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Verify & Sign In'; }
     }
   }
 
@@ -786,7 +822,8 @@ import * as Sync from './sync.js';
       'Sign out of cloud sync?',
       'Your data stays on this device. Syncing pauses until you sign in again.',
       async () => {
-        await Sync.signOut();
+        await Auth.signOut();
+        Sync.signOut();
         showToast('Signed out of cloud sync.', 'info');
         renderCloudSyncCard();
       }
@@ -848,6 +885,131 @@ import * as Sync from './sync.js';
     }
   }
 
+  /* ---- Cloud backup toggle — Yes/No confirmation modal ----------- */
+
+  function showCloudBackupToggleModal(enabling, onConfirm) {
+    const modal      = document.getElementById('cloud-backup-toggle-modal');
+    const titleEl    = document.getElementById('cloud-toggle-modal-title');
+    const bodyEl     = document.getElementById('cloud-toggle-modal-body');
+    const confirmBtn = document.getElementById('cloud-toggle-confirm');
+    const cancelBtn  = document.getElementById('cloud-toggle-cancel');
+
+    if (!modal) { onConfirm(); return; }
+
+    if (enabling) {
+      if (titleEl)    titleEl.textContent = 'Enable Cloud Backup?';
+      if (bodyEl)     bodyEl.textContent  = 'Your learning data for this profile will be uploaded to the cloud and kept in sync across devices. You can disable this at any time.';
+      if (confirmBtn) { confirmBtn.textContent = 'Enable'; confirmBtn.className = 'btn btn-primary'; }
+    } else {
+      if (titleEl)    titleEl.textContent = 'Disable Cloud Backup?';
+      if (bodyEl)     bodyEl.textContent  = 'Cloud sync will stop for this profile. Your data stays on this device — you can re-enable cloud backup at any time.';
+      if (confirmBtn) { confirmBtn.textContent = 'Disable'; confirmBtn.className = 'btn btn-secondary'; }
+    }
+
+    modal.style.display = 'flex';
+    confirmBtn?.focus();
+
+    function cleanup() {
+      modal.style.display = 'none';
+      if (confirmBtn) confirmBtn.className = 'btn btn-primary';
+      confirmBtn?.removeEventListener('click', handleConfirm);
+      cancelBtn?.removeEventListener('click', handleCancel);
+      document.removeEventListener('keydown', handleKey);
+    }
+    function handleConfirm() { cleanup(); onConfirm(); }
+    function handleCancel()  { cleanup(); }
+    function handleKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(); }
+      if (e.key === 'Enter')  { e.preventDefault(); cleanup(); onConfirm(); }
+    }
+    confirmBtn?.addEventListener('click', handleConfirm);
+    cancelBtn?.addEventListener('click', handleCancel);
+    document.addEventListener('keydown', handleKey);
+  }
+
+  async function _applyCloudBackupToggle(enabling) {
+    const autoChk = document.getElementById('cloud-auto-backup');
+    if (enabling) {
+      if (!Sync.isSignedIn()) {
+        showToast('Sign in to a cloud account before enabling cloud backup.', 'warning');
+        return;
+      }
+      try {
+        showToast('Setting up cloud backup…', 'info');
+        const { migrate } = await import('./migration.js');
+        await migrate();
+      } catch (err) {
+        console.warn('[CloudBackup] Migration failed:', err);
+        showToast('Cloud backup setup failed — ' + (err.message || 'unknown error'), 'error');
+        return;
+      }
+      state.prefs.cloudAutoBackup = true;
+      if (autoChk) autoChk.checked = true;
+      try { await Storage.setPref('cloudAutoBackup', true); } catch {}
+      // Activate the per-record sync engine now that a cloud profile UUID exists
+      import('./sync-engine.js').then(mod => { mod.startEngine?.(); }).catch(() => {});
+      showToast('Cloud backup enabled.', 'success');
+    } else {
+      state.prefs.cloudAutoBackup = false;
+      if (autoChk) autoChk.checked = false;
+      try { await Storage.setPref('cloudAutoBackup', false); } catch {}
+      import('./sync-engine.js').then(mod => { mod.stopEngine?.(); }).catch(() => {});
+      showToast('Cloud backup disabled.', 'info');
+    }
+    renderCloudSyncCard();
+  }
+
+  /* ---- FSA-unavailable JSON download fallback -------------------- */
+
+  async function downloadBackupJson() {
+    const activeUser = UserManager.getActive();
+    const filename   = getBackupFilename(activeUser);
+    const backup     = await Storage.exportAll();
+    const { lastBackupDate: _drop, compact: _compact, ...exportedPrefs } = backup.data.preferences;
+    backup.data.preferences = {
+      ...exportedPrefs,
+      username:           state.prefs.username,
+      dailyGoalMin:       state.prefs.dailyGoalMin,
+      monthlyGoalHr:      state.prefs.monthlyGoalHr,
+      goalHistory:        state.prefs.goalHistory || [],
+      monthlyGoalHistory: state.prefs.monthlyGoalHistory || [],
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    await Storage.setPref('lastBackupDate', Date.now());
+    await Storage.addBackupLog({ type: 'export', label: `Downloaded → ${filename}` });
+    state.lastAutoBackup = Date.now();
+    showToast('Backup downloaded.', 'success');
+    renderBackup();
+  }
+
+  /* Patch the cloud profiles row when theme/accent changes.
+     Fires and forgets — non-critical; only runs when cloud backup is on. */
+  async function _patchCloudAppearance() {
+    if (!state.prefs.cloudAutoBackup || !Sync.isSignedIn()) return;
+    const session = state.syncSession;
+    if (!session) return;
+    const accountId      = session.user.id;
+    const localUser      = UserManager.getActive();
+    const localProfileId = localUser?.id || 'default';
+    const cloudProfileId = getCloudProfileId(localProfileId, accountId);
+    if (!cloudProfileId) return;
+    try {
+      const sb = await Sync.getClient();
+      await sb.from('profiles').update({
+        theme:             state.prefs.theme             || 'dark',
+        accent:            state.prefs.accent            || 'purple',
+        custom_accent_hex: state.prefs.customAccentHex   || null,
+      }).eq('id', cloudProfileId).eq('account_id', accountId);
+    } catch { /* non-critical */ }
+  }
+
   export function setupBackup() {
     const warnChip = document.getElementById('sidebar-backup-warning');
     if (warnChip) {
@@ -869,27 +1031,31 @@ import * as Sync from './sync.js';
       browseInput.value = ''; // reset so same file can be picked again
     });
 
-    // Cloud Sync card
-    document.getElementById('cloud-signin-form')?.addEventListener('submit', e => { e.preventDefault(); doCloudAuth(); });
-    document.getElementById('cloud-mode-toggle')?.addEventListener('click', () => {
-      const statusEl = document.getElementById('cloud-auth-status');
-      if (statusEl) statusEl.style.display = 'none';
-      setCloudAuthMode(_cloudAuthMode === 'signin' ? 'signup' : 'signin');
+    // Cloud Sync card — OTP flow
+    document.getElementById('cloud-send-otp-btn')?.addEventListener('click', sendOtp);
+    document.getElementById('cloud-email')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendOtp(); } });
+    document.getElementById('cloud-verify-otp-btn')?.addEventListener('click', verifyOtp);
+    document.getElementById('cloud-otp-code')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); verifyOtp(); } });
+    document.getElementById('cloud-otp-back-btn')?.addEventListener('click', () => showOtpStep(1));
+    document.getElementById('cloud-resend-otp-btn')?.addEventListener('click', () => {
+      showOtpStep(1);
+      const emailEl = document.getElementById('cloud-email');
+      if (emailEl) emailEl.value = _otpEmail;
+    });
+    document.getElementById('cloud-google-btn')?.addEventListener('click', async () => {
+      try { await Auth.signInWithGoogle(); }
+      catch (err) { showCloudAuthStatus(Auth.friendlyAuthError(err), 'error'); }
     });
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
     document.getElementById('cloud-signout-btn')?.addEventListener('click', cloudSignOut);
     const autoChk = document.getElementById('cloud-auto-backup');
     if (autoChk) {
-      autoChk.addEventListener('change', async (e) => {
-        const enabled = !!e.target.checked;
-        state.prefs.cloudAutoBackup = enabled;
-        try { await Storage.setPref('cloudAutoBackup', enabled); } catch {}
-        if (enabled && Sync.isBound()) {
-          // Kick off an immediate queued push when enabling auto-backup
-          Sync.queueCloudPush();
-        }
-        renderCloudSyncCard();
+      autoChk.addEventListener('change', (e) => {
+        const enabling = !!e.target.checked;
+        // Revert the checkbox immediately — the modal re-applies it on confirm
+        autoChk.checked = !enabling;
+        showCloudBackupToggleModal(enabling, () => _applyCloudBackupToggle(enabling));
       });
     }
     // Keep the card in step with background sync state changes (auto-push results, token refresh, etc.)
@@ -899,6 +1065,13 @@ import * as Sync from './sync.js';
   export async function backupCurrentProfile(silent = false) {
     if (!silent && state.entries.length === 0) {
       showToast('No data to save. Add some learning entries first.', 'warning');
+      return;
+    }
+
+    // Firefox / Safari — no FSA API: fall back to a JSON file download
+    if (!window.showDirectoryPicker) {
+      if (!silent) { await downloadBackupJson(); }
+      else throw new Error('Auto-folder backup requires Chrome or Edge. Use cloud backup for automatic sync.');
       return;
     }
 
@@ -954,6 +1127,12 @@ import * as Sync from './sync.js';
   export async function loadBackupForProfile() {
     const activeUser = UserManager.getActive();
     const filename   = getBackupFilename(activeUser);
+
+    // Firefox / Safari — folder access unavailable
+    if (!window.showDirectoryPicker) {
+      showImportStatus('Folder restore is unavailable in this browser. Use "Browse File" to import a backup.', 'info');
+      return;
+    }
 
     // Load automatically from the stored folder — no picker shown
     const dirHandle = await getOrRequestFolderHandle('read');

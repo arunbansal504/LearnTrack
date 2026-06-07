@@ -9,6 +9,7 @@ import { UserManager, setupUserPicker } from './users.js';
 import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
 import { initSync, queueCloudPush } from './sync.js';
+import { getClient } from './sync.js';
 
   /* ---- Initialization ------------------------------ */
 
@@ -39,6 +40,23 @@ import { initSync, queueCloudPush } from './sync.js';
     if (storedBackupTs) state.lastAutoBackup = storedBackupTs;
     updateSidebarBackupStatus(false);
     setInterval(updateSidebarBackupStatus, 60000);
+
+    // Auth gate: signed-out users go to the landing page.
+    // Check cheaply via localStorage before loading the Supabase client.
+    // Bypass if: auth callback in URL (OTP / OAuth redirect), or running on localhost (dev).
+    const hasStoredSession = !!localStorage.getItem('lt_sb_auth');
+    const hasAuthCallback  = /[?#](access_token|code|error)=/.test(window.location.search + window.location.hash);
+    const isLocalhost      = /^localhost(:\d+)?$/.test(window.location.hostname);
+    if (!hasStoredSession && !hasAuthCallback && !isLocalhost) {
+      window.location.replace('landing.html');
+      return;
+    }
+    // If there is a stored session, confirm it's still valid (async, non-blocking for init).
+    if (hasStoredSession && !hasAuthCallback) {
+      getClient().then(sb => sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session && !isLocalhost) window.location.replace('landing.html');
+      })).catch(() => {});
+    }
 
     // Ensure at least one user profile exists (auto-create on first launch)
     let users = UserManager.getUsers();
