@@ -115,7 +115,7 @@ function wireAuth() {
 
   verifyBtn?.addEventListener('click', async () => {
     const code = codeInput?.value.trim();
-    if (!code) { showStatus(statusEl, 'Enter the 6-digit code.', 'error'); return; }
+    if (!code) { showStatus(statusEl, 'Enter the code from your email.', 'error'); return; }
     verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…';
     try {
       await verifyOtp(_otpEmail, code);

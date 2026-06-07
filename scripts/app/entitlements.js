@@ -32,8 +32,9 @@ export async function loadEntitlements() {
 
   try {
     const sb = await getClient();
+    // Query the subscription row for the signed-in account (account_id maps to auth.users.id)
     const [subRes, optRes] = await Promise.all([
-      sb.from('subscriptions').select('tier').single(),
+      sb.from('subscriptions').select('tier').eq('account_id', session.user.id).maybeSingle(),
       sb.from('appearance_options').select('kind,key,min_tier').order('sort_order'),
     ]);
 

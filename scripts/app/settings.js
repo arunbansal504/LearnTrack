@@ -638,7 +638,9 @@ import * as Auth from './auth.js';
 
     if (configured && signedIn) {
       setEl('cloud-account-email', Sync.getAccountEmail() || '—');
-      setEl('cloud-status-label',  CLOUD_STATUS_TEXT[Sync.getStatus()] || '—');
+      const status = Sync.getStatus();
+      const statusLabel = signedIn ? 'Signed in' : (CLOUD_STATUS_TEXT[status] || '—');
+      setEl('cloud-status-label', statusLabel);
       const last = Sync.getLastCloudSync();
       setEl('cloud-last-sync', last ? new Date(last).toLocaleString() : 'Never');
       // Auto Cloud Backup checkbox reflects saved preference (default: false)
@@ -744,7 +746,7 @@ import * as Auth from './auth.js';
 
   async function verifyOtp() {
     const code = (document.getElementById('cloud-otp-code')?.value || '').trim();
-    if (!code) { showCloudAuthStatus('Enter the 6-digit code.', 'error'); return; }
+    if (!code) { showCloudAuthStatus('Enter the code from your email.', 'error'); return; }
     const btn = document.getElementById('cloud-verify-otp-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
     try {

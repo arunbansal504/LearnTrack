@@ -111,6 +111,7 @@ export function getAccountEmail() { return state.syncSession?.user?.email || nul
 export function getLastCloudSync() {
   return state.lastCloudSync || parseInt(localStorage.getItem(pkey('sync_at')) || '0', 10);
 }
+export function setSyncStatus(status) { setStatus(status); }
 export function isSignedIn() { return !!state.syncSession; }
 
 // The active profile is bound to the currently signed-in account.
@@ -329,6 +330,14 @@ export async function initSync() {
     const { data: { session } } = await sb.auth.getSession();
     state.syncSession = session || null;
 
+    // Load entitlements on boot if signed in so UI reflects the correct tier.
+    if (state.syncSession) {
+      import('./entitlements.js')
+        .then(mod => mod.loadEntitlements())
+        .then(() => emitChange())
+        .catch(() => {});
+    }
+
     if (isCallback) {
       cleanCallbackUrl();
       // Navigate to the dashboard regardless of whether sign-in succeeded, so the
@@ -341,6 +350,26 @@ export async function initSync() {
       state.syncSession = s || null;
       if (s) {
         getEngine().then(e => e?.startEngine()).catch(() => {});
+        // Load entitlements (appearance_options + subscription tier) so
+        // UI gating (themes/accents) updates immediately after sign-in.
+        import('./entitlements.js')
+          .then(mod => mod.loadEntitlements())
+          .then(() => emitChange())
+          .catch(() => {});
+        if (canSync()) {
+          setStatus('syncing');
+          pullSnapshot({ force: true })
+            .then(() => pushSnapshot())
+            .then(() => setStatus('synced'))
+            .catch(err => {
+              console.warn('[Sync] auth state sync failed:', err);
+              setStatus('error');
+            });
+        } else if (!navigator.onLine) {
+          setStatus('offline');
+        } else {
+          setStatus('signed-out');
+        }
       } else {
         setStatus(isConfigured() ? 'signed-out' : 'disabled');
         getEngine().then(e => e?.stopEngine()).catch(() => {});
