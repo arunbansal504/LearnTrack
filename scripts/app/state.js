@@ -55,6 +55,7 @@ export const state = {
   /* ---- Entitlements (appearance gating) ---- */
   tier:         'free',   // 'free' | 'premium' | 'family' — loaded by entitlements.js
   entitlements: null,     // Map<'kind:key', min_tier> — null = not yet fetched
+  profileLimit: 1,        // max profiles allowed by the user's subscription
 
   /* ---- Routing / misc ---- */
   currentPage:       'dashboard',
@@ -103,6 +104,7 @@ export const DEFAULT_PREFS = {
   monthlyGoalHistory:   [],
   cloudAutoBackup:      false,
   customAccentHex:      null,   // '#rrggbb' when custom hex accent is active, else null
+  themeAccentOverrides: {},    // { [themeName]: accentValue } — per-theme accent overrides
 };
 
 // Distinct base palette for category colors; beyond it we generate unique golden-angle hues.

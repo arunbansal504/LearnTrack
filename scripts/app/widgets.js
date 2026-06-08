@@ -20,6 +20,13 @@ import { setInputVal, showToast } from './utils.js';
       document.documentElement.setAttribute('data-accent', accent || 'purple');
     }
     syncTimerGradient(accent);
+    // Keep the sidebar accent swatches in sync with the active accent at all times.
+    // renderAppearance() only runs when the settings page is open, so this covers boot
+    // and every accent change that happens outside the settings page.
+    const isHex = typeof accent === 'string' && accent.startsWith('#');
+    document.querySelectorAll('.sidebar-accent-row .accent-swatch[data-accent]').forEach(btn => {
+      btn.classList.toggle('active', !isHex && btn.dataset.accent === accent);
+    });
   }
 
   export function syncTimerGradient(accent) {

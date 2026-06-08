@@ -55,7 +55,8 @@ export async function migrate() {
   // 1. Ensure a cloud profiles row exists (writes UUID via setCloudProfileId)
   if (!getCloudProfileId(localProfileId, accountId)) {
     await createCloudProfileRow(
-      localUser || { id: localProfileId, name: 'Learner', color: '#6c63ff' }
+      localUser || { id: localProfileId, name: 'Learner', color: '#6c63ff' },
+      { backfill: true }
     );
   }
 

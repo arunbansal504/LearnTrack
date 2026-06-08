@@ -502,7 +502,10 @@ import { capitalise, safeHref, showToast } from './utils.js';
 
   export async function generateMonthlyReport() {
     const sel = document.getElementById('report-month');
-    if (!sel) return;
+    if (!sel || !sel.value) {
+      showToast('No months with logged entries available.', 'warning');
+      return;
+    }
     const [year, month0] = sel.value.split('-').map(Number);
     const month = month0 - 1;
 

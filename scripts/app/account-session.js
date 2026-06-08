@@ -81,6 +81,34 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
       .order('sort_order', { ascending: true });
     if (error) throw error;
     cloudProfiles = data || [];
+
+    // Belt-and-suspenders: ensure this account has a row in public.accounts and
+    // public.subscriptions. The DB trigger handle_new_user() normally does this
+    // on auth.users INSERT, but has been observed to misfire silently. The INSERT
+    // policy on accounts now allows authenticated users to insert their own row,
+    // so this upsert self-heals any missed trigger without touching existing rows.
+    sb.from('accounts')
+      .upsert({ id: accountId, email: session.user.email }, { onConflict: 'id', ignoreDuplicates: true })
+      .then(() =>
+        sb.from('subscriptions')
+          .upsert(
+            { account_id: accountId, tier: 'free', status: 'trialing', profile_limit: 1,
+              trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() },
+            { onConflict: 'account_id', ignoreDuplicates: true }
+          )
+      )
+      .catch(() => { /* non-fatal; trigger covers the normal path */ });
+
+    // Reactivation: a successful sign-in cancels any pending account deletion.
+    // Fire-and-forget so it never blocks or fails the hydrate; the RPC no-ops
+    // (returns false) when nothing was pending.
+    sb.rpc('cancel_account_deletion')
+      .then(({ data: wasPending, error: cancelErr }) => {
+        if (!cancelErr && wasPending === true) {
+          showToast('Welcome back! Your scheduled account deletion has been cancelled.', 'success');
+        }
+      })
+      .catch(() => { /* non-fatal */ });
   } catch (err) {
     console.warn('[AccountSession] hydrate fetch failed:', err?.message || err);
     showToast('Could not reach the cloud — working with local data for now.', 'warning');
@@ -96,24 +124,32 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
     state.syncSession = session; // clearLocalAccountData nulls it — restore for the pulls below
   }
 
-  // Empty cloud → first-time signer with (possibly) un-migrated local work.
-  // Leave local data intact; enabling Auto Cloud Backup migrates it later.
-  if (!cloudProfiles.length) {
-    setAccountOwner(accountId);
-    localStorage.removeItem(JUST_LOGGED_IN_KEY);
-    return UserManager.getActiveId();
-  }
-
   // Stash orphan local profiles (no cloud mapping for this account) so they
   // don't appear in the profile page while logged in. Their data is preserved;
   // clearLocalAccountData restores them when the user signs out.
-  const allLocalUsers = UserManager.getUsers();
-  const orphanUsers   = allLocalUsers.filter(u => !Repo.getCloudProfileId(u.id, accountId));
-  if (orphanUsers.length) {
-    localStorage.setItem('lt_offline_profiles', JSON.stringify(orphanUsers));
-    UserManager.saveUsers(allLocalUsers.filter(u => Repo.getCloudProfileId(u.id, accountId)));
-  } else {
-    localStorage.removeItem('lt_offline_profiles');
+  // This runs BEFORE the empty-cloud check so that even a brand-new account
+  // doesn't accidentally inherit locally-created profiles.
+  {
+    const allLocalUsers = UserManager.getUsers();
+    const orphanUsers   = allLocalUsers.filter(u => !Repo.getCloudProfileId(u.id, accountId));
+    if (orphanUsers.length) {
+      localStorage.setItem('lt_offline_profiles', JSON.stringify(orphanUsers));
+      UserManager.saveUsers(allLocalUsers.filter(u => Repo.getCloudProfileId(u.id, accountId)));
+      // If the active profile was just stashed, clear the pointer so core.init
+      // picks the right profile from the cloud list (or creates a fresh one).
+      const activeId = UserManager.getActiveId();
+      if (orphanUsers.some(u => u.id === activeId)) localStorage.removeItem('lt_active_user');
+    } else {
+      localStorage.removeItem('lt_offline_profiles');
+    }
+  }
+
+  // Empty cloud → brand-new account with no data yet. Orphans were stashed
+  // above so the app starts fresh. Return null so core.init creates a new profile.
+  if (!cloudProfiles.length) {
+    setAccountOwner(accountId);
+    localStorage.removeItem(JUST_LOGGED_IN_KEY);
+    return null;
   }
 
   const total = cloudProfiles.length;
@@ -253,6 +289,41 @@ async function finalizeSignOut(accountId) {
 }
 
 /* ================================================================
+   ACCOUNT DELETION — soft delete now, server purges after 60 days
+   ================================================================ */
+
+// Flags the cloud account for deletion (server sets a 60-day purge date),
+// then tears down the local session exactly like sign-out. Signing back in
+// within the window auto-cancels the deletion (see hydrateAllProfilesFromCloud).
+// Returns true on success. Callers handle their own confirmation UI.
+export async function handleAccountDeletion() {
+  const accountId = state.syncSession?.user?.id || null;
+  if (!accountId) {
+    showToast('You need to be signed in to delete your account.', 'warning');
+    return false;
+  }
+  if (!navigator.onLine) {
+    showToast('You need an internet connection to delete your account.', 'warning');
+    return false;
+  }
+
+  try {
+    const { getClient } = await import('./sync.js');
+    const sb = await getClient();
+    const { error } = await sb.rpc('request_account_deletion');
+    if (error) throw error;
+  } catch (err) {
+    console.warn('[AccountSession] account deletion failed:', err?.message || err);
+    showToast('Could not delete your account — please try again.', 'error');
+    return false;
+  }
+
+  showToast('Account scheduled for deletion. Sign back in within 60 days to cancel.', 'warning');
+  await finalizeSignOut(accountId);   // sign out + wipe local data + redirect to landing
+  return true;
+}
+
+/* ================================================================
    UNSYNCED-CHANGES detection + push (req 4)
    ================================================================ */
 
@@ -295,7 +366,7 @@ export async function syncAllProfilesToCloud(accountId, dirty, onProgress) {
       // A profile that predates cloud sync needs its cloud row before draining.
       if (!Repo.getCloudProfileId(p.id, accountId)) {
         const localUser = UserManager.getUsers().find(x => x.id === p.id);
-        if (localUser) await createCloudProfileRow(localUser);
+        if (localUser) await createCloudProfileRow(localUser, { backfill: true });
       }
 
       await Engine.drainOutbox({ manual: true });

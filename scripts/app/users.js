@@ -7,8 +7,35 @@ import { _closeModal, _openModal, escapeHtml, showConfirm, showToast } from './u
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
 import { setCloudProfileId, getCloudProfileId } from './cloud-repo.js';
 
-// Must match the default profile_limit in the subscriptions table (free tier).
-const FREE_PROFILE_LIMIT = 5;
+// Fallback used before entitlements are loaded (offline / not signed in).
+const FREE_PROFILE_LIMIT = 1;
+
+// Single source of truth for the profile cap. The limit only restricts creating
+// NEW profiles — profiles a user already owns are always usable, even when the
+// account is over its current plan's limit (e.g. after a downgrade).
+export function getProfileLimit() {
+  return state.profileLimit ?? FREE_PROFILE_LIMIT;
+}
+export function canCreateProfile() {
+  if (localStorage.getItem('lt_skip_auth')) return true;
+  return UserManager.getUsers().length < getProfileLimit();
+}
+
+// Profile-count caption shown in the picker + Profiles page. Three states:
+// under the limit, exactly at it, or over it (grandfathered — e.g. after a
+// downgrade), in which case the copy reassures rather than alarms.
+function profileLimitMessage(count, limit, { canRemove = false } = {}) {
+  if (count > limit) {
+    return `You're using all ${count} of your profiles. Your current plan includes ` +
+           `${limit} — you keep full access to every profile; upgrade to create more.`;
+  }
+  if (count >= limit) {
+    return canRemove
+      ? `Profile limit reached (${count}/${limit}) — remove a profile to add another.`
+      : `Profile limit reached (${count}/${limit}) — upgrade your plan to add more profiles.`;
+  }
+  return `${count} / ${limit} profiles used.`;
+}
 
 export const UserManager = (() => {
   const USERS_KEY  = 'lt_users';
@@ -62,19 +89,38 @@ export const UserManager = (() => {
   // `profiles` table and stores the returned UUID locally (for sync-engine).
   // Uses a dynamic import of sync.js to avoid a circular-dependency at module
   // evaluation time (sync.js already imports UserManager from this file).
-  export async function createCloudProfileRow(localUser) {
+  // `backfill: true` registers a profile the user ALREADY owns locally (predates
+  // sync, first-launch baseline, migration) — it must always reach the cloud, so
+  // it routes through the backfill_profile RPC which bypasses the plan-limit cap.
+  // The default (capped) path is for genuinely-new profiles (the Create button)
+  // and lets the enforce_profile_limit trigger reject inserts over the limit.
+  export async function createCloudProfileRow(localUser, { backfill = false } = {}) {
     if (!state.syncSession) return; // not signed in — skip; migration handles existing profiles
     const { getClient } = await import('./sync.js');
     const sb        = await getClient();
     const accountId = state.syncSession.user.id;
     const users     = UserManager.getUsers();
+    const sortOrder = users.findIndex(u => u.id === localUser.id);
+
+    if (backfill) {
+      const { data, error } = await sb.rpc('backfill_profile', {
+        p_name:       localUser.name,
+        p_color:      localUser.color,
+        p_sort_order: sortOrder,
+        p_is_default: false,
+      });
+      if (error) throw error; // network / RLS / other — caller logs and continues
+      setCloudProfileId(localUser.id, accountId, data); // RPC returns the new uuid
+      return;
+    }
+
     const { data, error } = await sb
       .from('profiles')
       .insert({
         account_id: accountId,
         name:       localUser.name,
         color:      localUser.color,
-        sort_order: users.findIndex(u => u.id === localUser.id),
+        sort_order: sortOrder,
       })
       .select('id')
       .single();
@@ -104,8 +150,8 @@ export const UserManager = (() => {
       }
 
       // Client-side guard — server enforces the same limit via trigger.
-      if (allUsers.length >= FREE_PROFILE_LIMIT && !localStorage.getItem('lt_skip_auth')) {
-        showToast(`You've reached the ${FREE_PROFILE_LIMIT}-profile limit for your plan.`, 'error');
+      if (!canCreateProfile()) {
+        showToast(`You've reached the ${getProfileLimit()}-profile limit for your plan.`, 'error');
         return;
       }
 
@@ -169,12 +215,17 @@ export const UserManager = (() => {
     const nameInput = document.getElementById('new-user-name-input');
     if (nameInput) nameInput.value = '';
 
-    // Show/hide profile creation form based on the profile limit
-    const atLimit   = !localStorage.getItem('lt_skip_auth') && UserManager.getUsers().length >= FREE_PROFILE_LIMIT;
+    // Show/hide profile creation form based on the real plan limit (not a
+    // hardcoded free cap), so premium users can create up to their allowance and
+    // grandfathered (over-limit) users get reassuring copy instead of an error.
+    const atLimit   = !canCreateProfile();
     const limitMsg  = document.getElementById('user-picker-limit-msg');
     const createRow = modal.querySelector('.user-create-row');
     const divider   = modal.querySelector('.user-create-divider');
-    if (limitMsg)  limitMsg.style.display  = atLimit ? 'block' : 'none';
+    if (limitMsg)  {
+      limitMsg.textContent  = profileLimitMessage(UserManager.getUsers().length, getProfileLimit());
+      limitMsg.style.display = atLimit ? 'block' : 'none';
+    }
     if (createRow) createRow.style.display  = atLimit ? 'none'  : 'flex';
     if (divider)   divider.style.display    = 'flex'; // always show the divider
 
@@ -263,9 +314,14 @@ export const UserManager = (() => {
     const starOutlinedSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
     const starFilledSvg   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
-    const limitNote = users.length >= FREE_PROFILE_LIMIT
-      ? `<p class="settings-hint profile-limit-note profile-limit-note--full">Profile limit reached (${users.length}/${FREE_PROFILE_LIMIT}) — remove a profile to add another.</p>`
-      : `<p class="settings-hint profile-limit-note">${users.length} / ${FREE_PROFILE_LIMIT} profiles used.</p>`;
+    const limit     = getProfileLimit();
+    const atLimit   = users.length >= limit;            // disables the create form
+    const overLimit = users.length >  limit;            // grandfathered (e.g. after downgrade)
+    const canRemove = users.length > 1;                 // can't remove the last profile
+    const limitMsg  = profileLimitMessage(users.length, limit, { canRemove });
+    // Only style as a hard "full" warning when exactly at the cap — the
+    // over-limit (grandfathered) state is reassuring, not an error.
+    const limitNote = `<p class="settings-hint profile-limit-note${atLimit && !overLimit ? ' profile-limit-note--full' : ''}">${limitMsg}</p>`;
 
     list.innerHTML = users.map(u => {
       const isActive  = u.id === activeId;
@@ -312,6 +368,12 @@ export const UserManager = (() => {
         </div>
       `;
     }).join('') + limitNote || '<p class="settings-hint">No profiles found.</p>';
+
+    // Disable the create form when the profile limit is reached.
+    const createBtn   = document.getElementById('create-user-submit-btn');
+    const createInput = document.getElementById('new-user-name-input');
+    if (createBtn)   { createBtn.disabled   = atLimit; }
+    if (createInput) { createInput.disabled = atLimit; createInput.placeholder = atLimit ? 'Profile limit reached' : 'Enter a name...'; }
 
     list.querySelectorAll('.user-manage-switchable, .profile-card-switchable').forEach(el => {
       el.addEventListener('click', () => switchUser(el.dataset.uid));
@@ -515,7 +577,7 @@ export async function setDefaultProfile(localUserId) {
     const localUser = UserManager.getUsers().find(u => u.id === localUserId);
     if (!localUser) return;
     try {
-      await createCloudProfileRow(localUser);
+      await createCloudProfileRow(localUser, { backfill: true });
       cloudPid = getCloudProfileId(localUserId, accountId);
     } catch (err) {
       console.warn('[Users] setDefaultProfile — cloud row creation failed:', err);

@@ -9,6 +9,7 @@ import { openEntryModal, renderLog } from './log.js';
 import { renderReports } from './reports.js';
 import { renderBackup, renderSettings } from './settings.js';
 import { UserManager, openUserPicker, renderUsersManagement } from './users.js';
+import { loadEntitlements } from './entitlements.js';
 import { setEl } from './utils.js';
 
   /* ---- Navigation ---------------------------------- */
@@ -315,5 +316,7 @@ import { setEl } from './utils.js';
 
   export function renderProfiles() {
     cacheActiveUserStats();
-    renderUsersManagement();
+    // Refresh entitlements from cloud so profile_limit reflects any plan changes,
+    // then re-render so the limit note and create button state are always current.
+    loadEntitlements().finally(() => renderUsersManagement());
   }

@@ -5,12 +5,12 @@ import { _setupLogPromptModal, setupGoalModal, setupLinkGoalModal } from './goal
 import { setupEntryModal, setupFilterPanel } from './log.js';
 import { navigateTo, setupMobileNav, setupNavigation, setupSidebar, updateSidebarUser } from './nav.js';
 import { backupCurrentProfile, configureBackupFolder, ensureCategoryColors, setupBackup, setupSettings } from './settings.js';
-import { UserManager, setupUserPicker } from './users.js';
+import { UserManager, setupUserPicker, createCloudProfileRow } from './users.js';
 import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
 import { initSync, queueCloudPush } from './sync.js';
 import { getClient } from './sync.js';
-import { loadEntitlements } from './entitlements.js';
+import { loadEntitlements, canUse } from './entitlements.js';
 
   /* ---- Loading-overlay progress (sign-in hydrate) -- */
 
@@ -119,6 +119,8 @@ import { loadEntitlements } from './entitlements.js';
       const first = UserManager.createUser('Me');
       UserManager.setActiveId(first.id);
       users = [first];
+      // Push to cloud immediately if the user is already signed in.
+      if (state.syncSession) createCloudProfileRow(first, { backfill: true }).catch(() => {});
     }
 
     let activeId = UserManager.getActiveId();
@@ -128,6 +130,17 @@ import { loadEntitlements } from './entitlements.js';
     }
 
     await loadAndShowApp(activeId);
+  }
+
+  function _syncSidebarAccentSwatches() {
+    const accent = state.prefs.accent || 'purple';
+    const isHex  = accent.startsWith('#');
+    document.querySelectorAll('.sidebar-accent-row .accent-swatch[data-accent]').forEach(btn => {
+      const a = btn.dataset.accent;
+      btn.classList.toggle('active', !isHex && a === accent);
+      const locked = !canUse('accent', a);
+      btn.dataset.locked = locked ? 'true' : 'false';
+    });
   }
 
   export async function loadAndShowApp(userId) {
@@ -175,6 +188,7 @@ import { loadEntitlements } from './entitlements.js';
     applyTheme(state.prefs.theme);
     applyAccent(state.prefs.accent);
     applyCompact(state.prefs.compact);
+    _syncSidebarAccentSwatches();
 
     // Enforce a data-safety choice on first launch: a local backup folder OR cloud sync.
     // (Cloud sync is the path for non-Chromium browsers, where showDirectoryPicker is absent.)

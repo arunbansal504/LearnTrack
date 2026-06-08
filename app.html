@@ -39,12 +39,12 @@
   <link rel="stylesheet" href="styles/modals.css?v=2" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
-  <link rel="stylesheet" href="styles/settings-backup.css?v=3" />
+  <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
   <link rel="stylesheet" href="styles/calendar.css?v=1" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
   <link rel="stylesheet" href="styles/chrome.css?v=1" />
   <link rel="stylesheet" href="styles/responsive.css?v=1" />
-  <link rel="stylesheet" href="styles/profiles-users.css?v=2" />
+  <link rel="stylesheet" href="styles/profiles-users.css?v=3" />
   <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
   <link rel="stylesheet" href="styles/timer.css?v=1" />
   <link rel="stylesheet" href="styles/goals.css?v=1" />
@@ -1225,7 +1225,7 @@
 
         <!-- ===== APPEARANCE ===== -->
         <div class="settings-section">
-          <h2 class="settings-section-title">Appearance</h2>
+          <h2 class="settings-section-title">Appearance <span id="plan-tier-badge" class="plan-tier-badge"></span></h2>
           <div class="settings-card">
 
             <!-- Theme -->
@@ -1292,8 +1292,11 @@
             </div>
 
             <!-- Accent -->
-            <div class="appearance-group">
-              <div class="setting-label">Accent Color</div>
+            <div class="appearance-group" style="margin-top:var(--s-3)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div class="setting-label" style="margin-bottom:0">Accent Color</div>
+                <button class="accent-reset-btn" id="reset-theme-accent-btn" style="display:none" aria-label="Reset accent to theme default"></button>
+              </div>
               <div class="accent-settings-row">
                 <button class="accent-swatch" data-accent="blue"   style="background:#3b82f6" aria-label="Blue accent"></button>
                 <button class="accent-swatch" data-accent="purple" style="background:#6c63ff" aria-label="Purple accent"></button>
@@ -1314,6 +1317,10 @@
                   <span class="lock-badge" aria-hidden="true">🔒</span>
                 </button>
               </div>
+              <div id="reset-all-theme-accents-row" style="display:none;margin-top:var(--s-2)">
+                <button class="accent-reset-btn accent-reset-btn-all" id="reset-all-theme-accents-btn" aria-label="Reset all themes to their default accent colors">Reset all themes to default</button>
+              </div>
+              <div id="reset-per-theme-row" class="theme-chips-row" style="display:none"></div>
               <div id="custom-accent-row" class="custom-accent-row hidden">
                 <input type="color" id="custom-accent-input" class="color-picker-input" value="#6c63ff" aria-label="Custom accent hex color" />
                 <span class="setting-hint">Any hex color</span>
@@ -1322,14 +1329,6 @@
               </div>
             </div>
 
-            <!-- Compact mode -->
-            <div class="setting-row setting-row--inline">
-              <label class="setting-label" for="setting-compact">Compact Mode</label>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-compact" aria-label="Compact mode" />
-                <span class="toggle-thumb"></span>
-              </label>
-            </div>
 
           </div>
         </div>
@@ -1375,6 +1374,13 @@
                 <div class="settings-hint">Permanently delete all learning entries and achievements.</div>
               </div>
               <button class="btn btn-danger" id="reset-data-btn">Reset Data</button>
+            </div>
+            <div class="setting-row" id="delete-account-row" style="display:none">
+              <div>
+                <div class="setting-label">Delete Account</div>
+                <div class="settings-hint">Permanently delete your cloud account and all its data after a 60-day grace period. Signing back in within 60 days cancels it.</div>
+              </div>
+              <button class="btn btn-danger" id="delete-account-btn">Delete Account</button>
             </div>
           </div>
         </div>
@@ -1725,6 +1731,25 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
       <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: DELETE ACCOUNT (typed confirmation) ===== -->
+<div id="delete-account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-account-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="delete-account-title">Delete your account?</h2>
+    </div>
+    <div class="modal-body">
+      <p>This schedules your cloud account and <strong>all of its data</strong> for permanent deletion in <strong>60 days</strong>. You'll be signed out on this device.</p>
+      <p style="font-size:var(--text-sm);color:var(--text-muted)">You can cancel any time within those 60 days by signing back in. After that, deletion is permanent and cannot be undone.</p>
+      <label for="delete-account-confirm-input" style="display:block;margin-top:var(--s-3);font-size:var(--text-sm);color:var(--text-muted)">Type <strong id="delete-account-email-hint"></strong> to confirm:</label>
+      <input type="text" id="delete-account-confirm-input" class="setting-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="your email" style="margin-top:var(--s-2);width:100%" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="delete-account-cancel">Cancel</button>
+      <button class="btn btn-danger" id="delete-account-confirm-btn" disabled>Delete Account</button>
     </div>
   </div>
 </div>
@@ -2325,7 +2350,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=20"></script>
+<script type="module" src="scripts/main.js?v=33"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

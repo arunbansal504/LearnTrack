@@ -28,6 +28,12 @@ import * as Auth from './auth.js';
     mint:     '#059669',
   };
 
+  // Maps named preset accents to hex for display in per-theme chips.
+  const NAMED_ACCENT_COLORS = {
+    blue: '#3b82f6', purple: '#6c63ff', green: '#10b981',
+    teal: '#14b8a6', orange: '#f97316', rose:  '#f43f5e',
+  };
+
   /* ---- SETTINGS PAGE ------------------------------- */
 
   export function renderSettings() {
@@ -43,22 +49,30 @@ import * as Auth from './auth.js';
     if (rtRow) rtRow.style.display = state.prefs.reminder ? 'flex' : 'none';
 
     renderAppearance();
-    // Reload entitlements from cloud in background; re-render appearance once resolved
-    loadEntitlements().then(renderAppearance).catch(() => {});
-
     renderCategories();
     renderUsersManagement();
+    // Reload entitlements from cloud; re-render appearance + user management once resolved
+    // so profile_limit and gated features always reflect the current subscription.
+    loadEntitlements().finally(() => { renderAppearance(); renderUsersManagement(); });
+
+    // Danger Zone: "Delete Account" is cloud-only — show it only when signed in.
+    const delRow = document.getElementById('delete-account-row');
+    if (delRow) delRow.style.display = Sync.isSignedIn() ? 'flex' : 'none';
   }
 
   export function renderAppearance() {
     const theme   = state.prefs.theme          || 'dark';
     const accent  = state.prefs.accent         || 'purple';
     const isHex   = accent.startsWith('#');
-    const compact = state.prefs.compact        ?? true;
 
-    // ---- compact toggle ----
-    const compactEl = document.getElementById('setting-compact');
-    if (compactEl) compactEl.checked = compact;
+    // ---- plan tier badge ----
+    const badge = document.getElementById('plan-tier-badge');
+    if (badge) {
+      const tier = state.tier || 'free';
+      const labels = { free: 'Free', premium: 'Premium', family: 'Family' };
+      badge.textContent = labels[tier] || tier;
+      badge.dataset.tier = tier;
+    }
 
     // ---- theme buttons ----
     document.querySelectorAll('.theme-option[data-theme]').forEach(btn => {
@@ -102,6 +116,45 @@ import * as Auth from './auth.js';
     } else {
       customRow?.classList.add('hidden');
     }
+
+    // ---- reset-to-theme-default button ----
+    // Visible only when the active theme has a paired default AND the current accent differs from it.
+    const resetThemeBtn = document.getElementById('reset-theme-accent-btn');
+    if (resetThemeBtn) {
+      const themeDefault = THEME_ACCENTS[theme];
+      const show = !!(themeDefault && accent !== themeDefault);
+      resetThemeBtn.style.display = show ? '' : 'none';
+      if (show) {
+        const label = theme.charAt(0).toUpperCase() + theme.slice(1);
+        resetThemeBtn.textContent = `Reset ${label} to default`;
+      }
+    }
+
+    // ---- reset-all-theme-accents button ----
+    // Visible when any theme has a stored override.
+    const resetAllRow = document.getElementById('reset-all-theme-accents-row');
+    const overrides = state.prefs.themeAccentOverrides || {};
+    const overridePairs = Object.entries(overrides);
+    if (resetAllRow) {
+      resetAllRow.style.display = overridePairs.length > 0 ? '' : 'none';
+    }
+
+    // ---- per-theme reset chips ----
+    // One chip per theme that has a custom override — lets the user reset a single theme.
+    const perThemeRow = document.getElementById('reset-per-theme-row');
+    if (perThemeRow) {
+      if (overridePairs.length > 0) {
+        perThemeRow.style.display = '';
+        perThemeRow.innerHTML = overridePairs.map(([t, val]) => {
+          const label = t.charAt(0).toUpperCase() + t.slice(1);
+          const hex   = val.startsWith('#') ? val : (NAMED_ACCENT_COLORS[val] || '#6c63ff');
+          return `<button class="theme-reset-chip" data-reset-theme="${t}" title="Reset ${label} to default"><span class="chip-dot" style="background:${hex}"></span><span>${label}</span><span class="chip-x">×</span></button>`;
+        }).join('');
+      } else {
+        perThemeRow.style.display = 'none';
+        perThemeRow.innerHTML = '';
+      }
+    }
   }
 
   export function sizeUsernameInput() {
@@ -139,7 +192,7 @@ import * as Auth from './auth.js';
 
     document.querySelectorAll('.theme-option[data-theme]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (btn.dataset.locked === 'true') {
+        if (!canUse('theme', btn.dataset.theme)) {
           showToast('Upgrade to Premium to unlock this theme.', 'info');
           return;
         }
@@ -148,14 +201,16 @@ import * as Auth from './auth.js';
         await Storage.setPref('theme', theme);
         applyTheme(theme);
 
-        const pairedAccent = THEME_ACCENTS[theme];
-        if (pairedAccent) {
-          const isHex = pairedAccent.startsWith('#');
-          state.prefs.accent = pairedAccent;
-          state.prefs.customAccentHex = isHex ? pairedAccent : null;
-          await Storage.setPref('accent', pairedAccent);
-          await Storage.setPref('customAccentHex', isHex ? pairedAccent : null);
-          applyAccent(pairedAccent);
+        // Use the user's saved override for this theme, falling back to the theme default.
+        const overrides    = state.prefs.themeAccentOverrides || {};
+        const accentToApply = overrides[theme] || THEME_ACCENTS[theme];
+        if (accentToApply) {
+          const isHex = accentToApply.startsWith('#');
+          state.prefs.accent = accentToApply;
+          state.prefs.customAccentHex = isHex ? accentToApply : null;
+          await Storage.setPref('accent', accentToApply);
+          await Storage.setPref('customAccentHex', isHex ? accentToApply : null);
+          applyAccent(accentToApply);
           Charts.refreshAllCharts();
         }
 
@@ -166,7 +221,7 @@ import * as Auth from './auth.js';
 
     document.querySelectorAll('.accent-swatch[data-accent]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (btn.dataset.locked === 'true') {
+        if (!canUse('accent', btn.dataset.accent)) {
           showToast('Upgrade to Premium to unlock this accent.', 'info');
           return;
         }
@@ -175,6 +230,7 @@ import * as Auth from './auth.js';
         state.prefs.customAccentHex = null;
         await Storage.setPref('accent', accent);
         await Storage.setPref('customAccentHex', null);
+        await _saveThemeAccentOverride(accent);
         applyAccent(accent);
         renderAppearance();
         Charts.refreshAllCharts();
@@ -184,8 +240,7 @@ import * as Auth from './auth.js';
 
     // Custom hex swatch button — toggle the picker row (Premium only)
     document.getElementById('custom-accent-open-btn')?.addEventListener('click', () => {
-      const btn = document.getElementById('custom-accent-open-btn');
-      if (btn?.dataset.locked === 'true') {
+      if (!canUse('feature', 'custom_accent')) {
         showToast('Upgrade to Premium to use a custom accent color.', 'info');
         return;
       }
@@ -201,29 +256,33 @@ import * as Auth from './auth.js';
       state.prefs.customAccentHex = hex;
       await Storage.setPref('accent', hex);
       await Storage.setPref('customAccentHex', hex);
+      await _saveThemeAccentOverride(hex);
       applyAccent(hex);
       renderAppearance();
       Charts.refreshAllCharts();
       _patchCloudAppearance();
     });
 
-    // Reset custom hex — revert to purple
+    // Reset custom hex — revert to the theme's default accent (or purple for light/dark).
+    // Also clears the per-theme override so the default sticks on next switch.
     document.getElementById('custom-accent-cancel')?.addEventListener('click', async () => {
-      state.prefs.accent          = 'purple';
+      const theme         = state.prefs.theme || 'dark';
+      const defaultAccent = THEME_ACCENTS[theme] || 'purple';
+      state.prefs.accent          = defaultAccent;
       state.prefs.customAccentHex = null;
-      await Storage.setPref('accent', 'purple');
+      await Storage.setPref('accent', defaultAccent);
       await Storage.setPref('customAccentHex', null);
-      applyAccent('purple');
+      const overrides = { ...(state.prefs.themeAccentOverrides || {}) };
+      delete overrides[theme];
+      state.prefs.themeAccentOverrides = overrides;
+      await Storage.setPref('themeAccentOverrides', overrides);
+      applyAccent(defaultAccent);
       renderAppearance();
       Charts.refreshAllCharts();
       _patchCloudAppearance();
     });
 
-    document.getElementById('setting-compact')?.addEventListener('change', async e => {
-      state.prefs.compact = e.target.checked;
-      await Storage.setPref('compact', e.target.checked);
-      applyCompact(e.target.checked);
-    });
+
 
     document.getElementById('setting-reminder')?.addEventListener('change', async e => {
       const enabled = e.target.checked;
@@ -267,8 +326,33 @@ import * as Auth from './auth.js';
     document.getElementById('new-profile-header-btn')?.addEventListener('click', () => openUserPicker(true));
 
     document.getElementById('reset-data-btn')?.addEventListener('click', () => {
-      showConfirm('Reset all data?', 'This will permanently delete ALL your entries, achievements, and settings. This cannot be undone!', async () => {
+      const accountId       = state.syncSession?.user?.id || null;
+      const localProfileId  = UserManager.getActiveId();
+      const cloudProfileId  = accountId ? getCloudProfileId(localProfileId, accountId) : null;
+      const willResetCloud  = Sync.isSignedIn() && !!cloudProfileId;
+
+      const msg = willResetCloud
+        ? 'This will permanently delete ALL entries, goals, achievements, and settings for this profile — both on this device and from the cloud. This cannot be undone!'
+        : 'This will permanently delete ALL your entries, goals, achievements, and settings on this device. This cannot be undone!';
+
+      showConfirm('Reset all data?', msg, async () => {
+        // Wipe local data and clear the outbox so stale ops can't re-sync deleted data.
         await Storage.resetAll();
+        await Storage.clearOutbox();
+
+        // Wipe cloud data for this profile (entries/goals/achievements/categories/prefs).
+        if (willResetCloud) {
+          try {
+            const { getClient } = await import('./sync.js');
+            const sb = await getClient();
+            const { error } = await sb.rpc('reset_profile_data', { p_profile_id: cloudProfileId });
+            if (error) throw error;
+          } catch (err) {
+            console.warn('[Settings] cloud reset failed:', err?.message || err);
+            showToast('Local data cleared. Cloud reset failed — try again while online.', 'warning');
+          }
+        }
+
         state.entries   = [];
         state.goals     = [];
         state.prefs     = { ...DEFAULT_PREFS };
@@ -287,6 +371,143 @@ import * as Auth from './auth.js';
         showToast('All data has been reset.', 'warning');
       });
     });
+
+    document.getElementById('reset-theme-accent-btn')?.addEventListener('click', async () => {
+      const theme        = state.prefs.theme || 'dark';
+      const themeDefault = THEME_ACCENTS[theme];
+      if (!themeDefault) return;
+      // Remove the per-theme override and apply the paired default.
+      const overrides = { ...(state.prefs.themeAccentOverrides || {}) };
+      delete overrides[theme];
+      state.prefs.themeAccentOverrides = overrides;
+      await Storage.setPref('themeAccentOverrides', overrides);
+      const isHex = themeDefault.startsWith('#');
+      state.prefs.accent          = themeDefault;
+      state.prefs.customAccentHex = isHex ? themeDefault : null;
+      await Storage.setPref('accent', themeDefault);
+      await Storage.setPref('customAccentHex', isHex ? themeDefault : null);
+      applyAccent(themeDefault);
+      Charts.refreshAllCharts();
+      renderAppearance();
+      _patchCloudAppearance();
+    });
+
+    document.getElementById('reset-all-theme-accents-btn')?.addEventListener('click', async () => {
+      // Clear all per-theme overrides and re-apply the current theme's default.
+      state.prefs.themeAccentOverrides = {};
+      await Storage.setPref('themeAccentOverrides', {});
+      const theme        = state.prefs.theme || 'dark';
+      const themeDefault = THEME_ACCENTS[theme];
+      if (themeDefault) {
+        const isHex = themeDefault.startsWith('#');
+        state.prefs.accent          = themeDefault;
+        state.prefs.customAccentHex = isHex ? themeDefault : null;
+        await Storage.setPref('accent', themeDefault);
+        await Storage.setPref('customAccentHex', isHex ? themeDefault : null);
+        applyAccent(themeDefault);
+        Charts.refreshAllCharts();
+      }
+      renderAppearance();
+      _patchCloudAppearance();
+      showToast('All theme accents reset to defaults.', 'info');
+    });
+
+    // Per-theme chip: reset just one theme's override.
+    document.getElementById('reset-per-theme-row')?.addEventListener('click', async (e) => {
+      const chip = e.target.closest('[data-reset-theme]');
+      if (!chip) return;
+      const targetTheme = chip.dataset.resetTheme;
+      const overrides = { ...(state.prefs.themeAccentOverrides || {}) };
+      delete overrides[targetTheme];
+      state.prefs.themeAccentOverrides = overrides;
+      await Storage.setPref('themeAccentOverrides', overrides);
+      // If target is the active theme, immediately restore the theme default.
+      if (targetTheme === (state.prefs.theme || 'dark')) {
+        const themeDefault = THEME_ACCENTS[targetTheme];
+        if (themeDefault) {
+          const isHex = themeDefault.startsWith('#');
+          state.prefs.accent          = themeDefault;
+          state.prefs.customAccentHex = isHex ? themeDefault : null;
+          await Storage.setPref('accent', themeDefault);
+          await Storage.setPref('customAccentHex', isHex ? themeDefault : null);
+          applyAccent(themeDefault);
+          Charts.refreshAllCharts();
+          _patchCloudAppearance();
+        }
+      }
+      renderAppearance();
+      const label = targetTheme.charAt(0).toUpperCase() + targetTheme.slice(1);
+      showToast(`${label} accent reset to default.`, 'info');
+    });
+
+    document.getElementById('delete-account-btn')?.addEventListener('click', () => {
+      if (!Sync.isSignedIn()) {
+        showToast('Sign in to a cloud account first.', 'warning');
+        return;
+      }
+      showDeleteAccountModal();
+    });
+  }
+
+  // Typed-confirmation modal for account deletion. The red Delete button stays
+  // disabled until the user types their account email (or "DELETE" if no email
+  // is available). On confirm, account-session.js flags the cloud account for a
+  // 60-day soft delete and tears down the local session (mirrors cloudSignOut).
+  function showDeleteAccountModal() {
+    const modal     = document.getElementById('delete-account-modal');
+    const input     = document.getElementById('delete-account-confirm-input');
+    const hint      = document.getElementById('delete-account-email-hint');
+    const confirmBtn = document.getElementById('delete-account-confirm-btn');
+    const cancelBtn = document.getElementById('delete-account-cancel');
+    if (!modal || !input || !confirmBtn) {
+      // Markup missing — fall back to the generic confirm dialog.
+      showConfirm('Delete your account?', 'This schedules your cloud account and all its data for permanent deletion in 60 days. You can cancel by signing back in within that window.', () => _runAccountDeletion());
+      return;
+    }
+
+    const expected = (Sync.getAccountEmail() || 'DELETE').trim();
+    if (hint) hint.textContent = expected;
+    input.placeholder = Sync.getAccountEmail() ? 'your email' : 'DELETE';
+    input.value = '';
+    confirmBtn.disabled = true;
+
+    const matches = () => input.value.trim().toLowerCase() === expected.toLowerCase();
+
+    function onInput() { confirmBtn.disabled = !matches(); }
+    function cleanup() {
+      modal.style.display = 'none';
+      input.removeEventListener('input', onInput);
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn?.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+    }
+    function onConfirm() {
+      if (!matches()) return;
+      cleanup();
+      _runAccountDeletion();
+    }
+    function onCancel() { cleanup(); }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(); }
+      if (e.key === 'Enter')  { e.preventDefault(); onConfirm(); }
+    }
+
+    input.addEventListener('input', onInput);
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn?.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+
+    modal.style.display = 'flex';
+    setTimeout(() => input.focus(), 0);
+  }
+
+  function _runAccountDeletion() {
+    import('./account-session.js')
+      .then(m => m.handleAccountDeletion())
+      .catch(err => {
+        console.warn('[Settings] account deletion failed:', err);
+        showToast('Could not delete your account — please try again.', 'error');
+      });
   }
 
   export async function saveProfile() {
@@ -1037,6 +1258,16 @@ import * as Auth from './auth.js';
     state.lastAutoBackup = Date.now();
     showToast('Backup downloaded.', 'success');
     renderBackup();
+  }
+
+  /* Persist the chosen accent for the current theme so switching themes and back
+     restores the user's pick rather than the theme's factory default. */
+  async function _saveThemeAccentOverride(accent) {
+    const theme    = state.prefs.theme || 'dark';
+    const overrides = { ...(state.prefs.themeAccentOverrides || {}) };
+    overrides[theme] = accent;
+    state.prefs.themeAccentOverrides = overrides;
+    await Storage.setPref('themeAccentOverrides', overrides);
   }
 
   /* Patch the cloud profiles row when theme/accent changes.
