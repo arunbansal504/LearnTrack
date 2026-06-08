@@ -867,20 +867,17 @@ import * as Auth from './auth.js';
     });
   }
 
+  // Sign-out is orchestrated by account-session.js: it warns about unsynced
+  // changes when Auto Cloud Backup is off (offering to push them first), then
+  // clears this account's local data (keeping the local backup folder) and
+  // redirects to the landing page.
   function cloudSignOut() {
-    showConfirm(
-      'Sign out of cloud sync?',
-      'Your data stays on this device. Syncing pauses until you sign in again.',
-      async () => {
-        await Auth.signOut();
-        Sync.signOut();
-        showToast('Signed out of cloud sync.', 'info');
-        renderCloudSyncCard();
-        // After signing out, redirect back to the landing page so the user
-        // can re-authenticate or read the onboarding content.
-        setTimeout(() => { window.location.replace('landing.html'); }, 400);
-      }
-    );
+    import('./account-session.js')
+      .then(m => m.handleSignOut())
+      .catch(err => {
+        console.warn('[Settings] sign-out failed:', err);
+        showToast('Sign-out failed — please try again.', 'error');
+      });
   }
 
   export async function renderBackupLog() {

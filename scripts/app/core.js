@@ -12,6 +12,19 @@ import { initSync, queueCloudPush } from './sync.js';
 import { getClient } from './sync.js';
 import { loadEntitlements } from './entitlements.js';
 
+  /* ---- Loading-overlay progress (sign-in hydrate) -- */
+
+  function updateLoadingProgress(done, total) {
+    const el = document.querySelector('#loading-overlay .loading-text');
+    if (el) el.textContent = total
+      ? `Loading your profiles from cloud… (${done}/${total})`
+      : 'Loading your profiles from cloud…';
+  }
+  function resetLoadingProgress() {
+    const el = document.querySelector('#loading-overlay .loading-text');
+    if (el) el.textContent = 'Loading your learning journey...';
+  }
+
   /* ---- Initialization ------------------------------ */
 
   export async function init() {
@@ -64,14 +77,41 @@ import { loadEntitlements } from './entitlements.js';
             return;
           }
       } catch (err) {
-          // On error (network/other) treat as unauthenticated for security.
-          window.location.replace('landing.html');
-          return;
+          // Offline with a stored session: let the user keep working offline
+          // (the persisted token is read locally). Only treat an error as
+          // unauthenticated — and redirect — when we're actually online.
+          if (navigator.onLine) {
+            window.location.replace('landing.html');
+            return;
+          }
       }
     }
 
     // Set tier early so every page render sees the correct entitlements from the start
     await loadEntitlements();
+
+    // Fresh sign-in (landing → app, or OAuth return): eagerly pull every cloud
+    // profile's full data into IndexedDB and open the default profile, before
+    // the app shell renders. hydrate owns the lt_just_logged_in flag lifecycle.
+    const justLoggedIn = localStorage.getItem('lt_just_logged_in') === '1' || hasAuthCallback;
+    if (justLoggedIn) {
+      try {
+        const sb = await getClient();
+        const { data: { session } } = await sb.auth.getSession(); // also completes OAuth code exchange
+        if (session) {
+          state.syncSession = session;
+          const { hydrateAllProfilesFromCloud } = await import('./account-session.js');
+          const defaultId = await hydrateAllProfilesFromCloud(session, updateLoadingProgress);
+          if (defaultId) UserManager.setActiveId(defaultId);
+        } else {
+          localStorage.removeItem('lt_just_logged_in');
+        }
+      } catch (err) {
+        console.warn('[App] sign-in hydrate failed:', err);
+      } finally {
+        resetLoadingProgress();
+      }
+    }
 
     // Ensure at least one user profile exists (auto-create on first launch)
     let users = UserManager.getUsers();
@@ -198,7 +238,10 @@ import { loadEntitlements } from './entitlements.js';
         });
       });
       for (const e of changed) {
-        try { await Storage.saveEntry(e); } catch (err) { console.error('[App] goal-link migration save failed:', err); }
+        // Use low-level put (not saveEntry) so goalId backlinks don't create
+        // outbox ops. goalIds are a local join computed from name+category
+        // matching and are not stored in the cloud — no point syncing them.
+        try { await Storage.put(Storage.STORES.entries, e); } catch (err) { console.error('[App] goal-link migration save failed:', err); }
       }
     }
 

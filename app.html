@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
   <link rel="stylesheet" href="styles/report-preview.css?v=1" />
   <link rel="stylesheet" href="styles/forms.css?v=2" />
-  <link rel="stylesheet" href="styles/modals.css?v=1" />
+  <link rel="stylesheet" href="styles/modals.css?v=2" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
   <link rel="stylesheet" href="styles/settings-backup.css?v=3" />
@@ -1766,6 +1766,53 @@
   </div>
 </div>
 
+<!-- ===== MODAL: SIGN-OUT — UNSYNCED CHANGES (Auto Cloud Backup off) ===== -->
+<div id="signout-unsynced-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signout-unsynced-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="signout-unsynced-title">Unsynced changes</h2>
+    </div>
+    <div class="modal-body">
+      <p id="signout-unsynced-body"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="signout-unsynced-cancel">Cancel</button>
+      <div class="modal-footer-right">
+        <button class="btn btn-secondary" id="signout-unsynced-no">No, just sign out</button>
+        <button class="btn btn-primary" id="signout-unsynced-yes">Yes, back up &amp; sign out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: SIGN-OUT — BACKUP PROGRESS ===== -->
+<div id="signout-progress-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signout-progress-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="signout-progress-title">Backing up your changes…</h2>
+    </div>
+    <div class="modal-body">
+      <p id="signout-progress-text">Backing up your changes to cloud…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: SIGN-OUT — BACKUP FAILED / RETRY ===== -->
+<div id="signout-retry-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signout-retry-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 id="signout-retry-title">Backup failed</h2>
+    </div>
+    <div class="modal-body">
+      <p id="signout-retry-text">Couldn't back up your changes — there seems to be a network issue. Try again, or sign out without backing up.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="signout-retry-skip">Sign out without backing up</button>
+      <button class="btn btn-primary" id="signout-retry-again">Try again</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: LINK ENTRY TO GOALS ===== -->
 <div id="link-goal-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="link-goal-title" style="display:none;z-index:1050">
   <div class="modal">
@@ -2269,7 +2316,7 @@
      Classic scripts run before deferred ES modules, so these globals
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
-<script src="scripts/storage.js?v=19"></script>
+<script src="scripts/storage.js?v=20"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=18"></script>
@@ -2278,7 +2325,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=12"></script>
+<script type="module" src="scripts/main.js?v=19"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

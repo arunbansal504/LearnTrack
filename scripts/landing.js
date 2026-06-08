@@ -154,6 +154,7 @@ function wireAuth() {
     try {
       await verifyOtp(_otpEmail, code);
       showStatus(statusEl, 'Signed in! Taking you to the app…', 'success');
+      localStorage.setItem('lt_just_logged_in', '1'); // tells app.html to hydrate all profiles + show default
       setTimeout(() => window.location.replace('app.html'), 800);
     } catch (err) {
       showStatus(statusEl, friendlyError(err), 'error');
@@ -186,6 +187,7 @@ function wireAuth() {
 
   googleBtn?.addEventListener('click', async () => {
     googleBtn.disabled = true; googleBtn.textContent = 'Redirecting…';
+    localStorage.setItem('lt_just_logged_in', '1'); // hydrate on return from OAuth
     try { await signInWithGoogle(); }
     catch (err) {
       showStatus(statusEl, friendlyError(err), 'error');
@@ -279,6 +281,7 @@ function wireModal() {
     try {
       await verifyOtp(modalOtpEmail, code);
       showStatus(statusEl, 'Signed in! Taking you to the app…', 'success');
+      localStorage.setItem('lt_just_logged_in', '1'); // tells app.html to hydrate all profiles + show default
       setTimeout(() => window.location.replace('app.html'), 800);
     } catch (err) {
       showStatus(statusEl, friendlyError(err), 'error');
@@ -312,6 +315,7 @@ function wireModal() {
   document.getElementById('modal-google')?.addEventListener('click', async () => {
     const btn = document.getElementById('modal-google');
     btn.disabled = true; btn.textContent = 'Redirecting…';
+    localStorage.setItem('lt_just_logged_in', '1'); // hydrate on return from OAuth
     try { await signInWithGoogle(); }
     catch (err) {
       showStatus(statusEl, friendlyError(err), 'error');

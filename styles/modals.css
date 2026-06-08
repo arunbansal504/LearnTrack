@@ -118,6 +118,8 @@
   display: flex;
   gap: var(--s-3);
   margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Linked Items Modal (deleted-log goals / deleted-goal entries) */

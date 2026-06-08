@@ -430,6 +430,11 @@ export async function loadCloudProfiles(session) {
   if (!session) return;
   const accountId = session.user.id;
 
+  // The fresh-sign-in path (core.init → hydrateAllProfilesFromCloud) already
+  // pulled every profile + data and set lt_account_owner. Skip to avoid a
+  // duplicate restore and an unwanted force-switch to default on session resume.
+  if (localStorage.getItem('lt_account_owner') === accountId) return;
+
   // If any local profile is already bound to this account, the device is set up — skip.
   const localProfiles = UserManager.getUsers();
   const anyBound = localProfiles.some(u =>
@@ -490,6 +495,10 @@ export async function loadCloudProfiles(session) {
       defaultLocalId = first.id;
     }
   }
+
+  // Mark this device as owned by the account so later boots skip re-restoring
+  // (mirrors hydrateAllProfilesFromCloud) and the isolation guard has a baseline.
+  localStorage.setItem('lt_account_owner', accountId);
 
   if (defaultLocalId) await switchUser(defaultLocalId);
 }

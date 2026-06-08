@@ -508,19 +508,24 @@ const Storage = (() => {
     }
     let imported = 0, skipped = 0, updated = 0;
 
-    // Merge entries: keep newest updatedAt
+    // Merge entries: keep newest updatedAt. Records that win the merge are
+    // enqueued to the outbox so a local restore propagates to the cloud
+    // (last-write-wins is safe — on sign-in the cloud was pulled before this
+    // import, so a winning record is by definition newer than the cloud row).
     for (const raw of entries) {
       const incoming = _sanitizeEntry(raw);
       if (!incoming) { skipped++; continue; }
       const existing = await getEntry(incoming.id);
       if (!existing) {
         await put(STORES.entries, incoming);
+        enqueueOutboxOp({ op: 'upsert', kind: 'entry', recordId: incoming.id, payload: { ...incoming } });
         imported++;
       } else {
         const incomingTs = incoming.updatedAt || incoming.createdAt || 0;
         const existingTs = existing.updatedAt  || existing.createdAt  || 0;
         if (incomingTs > existingTs) {
           await put(STORES.entries, incoming);
+          enqueueOutboxOp({ op: 'upsert', kind: 'entry', recordId: incoming.id, payload: { ...incoming } });
           updated++;
         } else {
           skipped++;
@@ -540,7 +545,10 @@ const Storage = (() => {
     for (const ach of achievements) {
       if (!ach.id) continue;
       const existing = await getAchievement(ach.id);
-      if (!existing) await put(STORES.achievements, ach);
+      if (!existing) {
+        await put(STORES.achievements, ach);
+        enqueueOutboxOp({ op: 'upsert', kind: 'achievement', recordId: ach.id, payload: { ...ach } });
+      }
     }
 
     // Merge preferences: username and goal histories always restore from backup;
@@ -559,16 +567,20 @@ const Storage = (() => {
       }
     }
 
-    // Merge goals: keep newest updatedAt
+    // Merge goals: keep newest updatedAt (winners enqueued for cloud propagation)
     for (const incoming of goals) {
       if (!incoming.id) continue;
       const existing = await getGoal(incoming.id);
       if (!existing) {
         await put(STORES.goals, incoming);
+        enqueueOutboxOp({ op: 'upsert', kind: 'goal', recordId: incoming.id, payload: { ...incoming } });
       } else {
         const incomingTs = incoming.updatedAt || incoming.createdAt || 0;
         const existingTs = existing.updatedAt  || existing.createdAt  || 0;
-        if (incomingTs > existingTs) await put(STORES.goals, incoming);
+        if (incomingTs > existingTs) {
+          await put(STORES.goals, incoming);
+          enqueueOutboxOp({ op: 'upsert', kind: 'goal', recordId: incoming.id, payload: { ...incoming } });
+        }
       }
     }
 

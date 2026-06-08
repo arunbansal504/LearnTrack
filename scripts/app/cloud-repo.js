@@ -67,7 +67,7 @@ export function cloudToEntry(row) {
                        .map(r => ({ label: r.title || '', url: r.url || '' })),
     createdAt:       row.created_at_ms    || null,
     updatedAt:       row.updated_at ? new Date(row.updated_at).getTime() : null,
-    goalIds:         [],   // entry_goals fetched separately; seed as empty for now
+    goalIds:         [],   // computed locally by migrateGoalLinks; not stored in cloud
   };
 }
 

@@ -167,7 +167,10 @@ export async function drainOutbox({ manual = false } = {}) {
 // Fetch records written by other devices since the last successful pull
 // and merge them into the local IndexedDB using last-write-wins.
 
-export async function pullDeltas({ manual = false, force = false } = {}) {
+// `silent` skips the post-pull state refresh + re-render — used by the login
+// hydrate, which pulls every profile in turn before the app is shown and lets
+// core.init load+render the default profile once at the end.
+export async function pullDeltas({ manual = false, force = false, silent = false } = {}) {
   if (!canRun({ manual })) return;
   const sb  = await getClient();
   const pid = cloudProfileId();
@@ -254,10 +257,35 @@ export async function pullDeltas({ manual = false, force = false } = {}) {
     }
   }
 
+  // --- Achievements --------------------------------------------
+  // The achievements table has no updated_at, so a watermark delta can't apply.
+  // Only fetch them on a forced/manual pull (full restore on sign-in / "Restore
+  // from cloud") to avoid a full-table read on every 30s tick. Upserts are
+  // idempotent (keyPath 'id'), so re-pulling is harmless.
+  if (force || manual) {
+    const { data: achRows, error: aErr } = await sb
+      .from('achievements')
+      .select('achievement_id, earned_at')
+      .eq('profile_id', pid);
+
+    if (aErr) { console.warn('[SyncEngine] pullDeltas achievements error:', aErr.message); }
+    else if (achRows?.length) {
+      for (const row of achRows) {
+        const local    = Repo.cloudToAchievement(row);
+        const existing  = await Storage.getAchievement(local.id);
+        if (!existing) {
+          // Low-level put avoids re-enqueuing an outbox op for each pulled badge.
+          await Storage.put(Storage.STORES.achievements, local);
+          changed = true;
+        }
+      }
+    }
+  }
+
   // Advance watermark after a successful (even partial) pull
   Repo.setSyncWatermark(localProfileId(), aid, pullTime);
 
-  if (changed) await refreshState();
+  if (changed && !silent) await refreshState();
 }
 
 /* ---- Scheduled drain (debounced) ------------------------------ */
