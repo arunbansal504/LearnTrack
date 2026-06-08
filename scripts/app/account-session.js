@@ -104,18 +104,16 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
     return UserManager.getActiveId();
   }
 
-  // Drop the auto-created empty "Me" placeholder if it's the lone local profile.
-  // Read its DB directly — this runs before core.init loads any data into state.
-  const curUsers  = UserManager.getUsers();
-  const curActive = UserManager.getActiveId();
-  if (curUsers.length === 1 && curUsers[0].name === 'Me') {
-    let empty = false;
-    try {
-      await Storage.init(curActive);
-      const [e, g] = await Promise.all([Storage.getAllEntries(), Storage.getAllGoals()]);
-      empty = e.length === 0 && g.length === 0;
-    } catch { empty = false; }
-    if (empty) UserManager.deleteUser(curActive);
+  // Stash orphan local profiles (no cloud mapping for this account) so they
+  // don't appear in the profile page while logged in. Their data is preserved;
+  // clearLocalAccountData restores them when the user signs out.
+  const allLocalUsers = UserManager.getUsers();
+  const orphanUsers   = allLocalUsers.filter(u => !Repo.getCloudProfileId(u.id, accountId));
+  if (orphanUsers.length) {
+    localStorage.setItem('lt_offline_profiles', JSON.stringify(orphanUsers));
+    UserManager.saveUsers(allLocalUsers.filter(u => Repo.getCloudProfileId(u.id, accountId)));
+  } else {
+    localStorage.removeItem('lt_offline_profiles');
   }
 
   const total = cloudProfiles.length;
@@ -221,6 +219,17 @@ export async function clearLocalAccountData(accountId) {
   localStorage.removeItem('lt_active_user');
   localStorage.removeItem(ACCOUNT_OWNER_KEY);
   if (accountId) localStorage.removeItem(`lt_default_profile_${accountId}`);
+
+  // Restore profiles that were created while not signed in (stashed at login).
+  // Their IndexedDB data was never touched, so they resume intact.
+  const stashedJson = localStorage.getItem('lt_offline_profiles');
+  if (stashedJson) {
+    try {
+      const stashed = JSON.parse(stashedJson);
+      if (Array.isArray(stashed) && stashed.length) UserManager.saveUsers(stashed);
+    } catch { /* ignore */ }
+    localStorage.removeItem('lt_offline_profiles');
+  }
 
   // Reset in-memory state so nothing leaks into the next session.
   state.entries   = [];
