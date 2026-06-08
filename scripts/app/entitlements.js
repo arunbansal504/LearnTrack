@@ -23,6 +23,13 @@ const FREE_KEYS = new Set([
 ]);
 
 export async function loadEntitlements() {
+  // TEMP: bypass login grants full access
+  if (localStorage.getItem('lt_skip_auth')) {
+    state.tier         = 'family';
+    state.entitlements = null;
+    return;
+  }
+
   const session = state.syncSession;
   if (!session) {
     state.tier         = 'free';

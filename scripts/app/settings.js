@@ -11,6 +11,23 @@ import { getCloudProfileId } from './cloud-repo.js';
 import * as Sync from './sync.js';
 import * as Auth from './auth.js';
 
+  /* ---- Theme → accent pairings -------------------- */
+  // Themed environments have a natural accent; neutral themes (light/dark) leave the user's accent unchanged.
+  const THEME_ACCENTS = {
+    midnight: '#38bdf8',
+    solarized:'#2aa198',
+    forest:   '#a3e635',
+    sunset:   '#fb923c',
+    ocean:    '#22d3ee',
+    mocha:    '#c2410c',
+    nord:     '#88c0d0',
+    dracula:  '#ff79c6',
+    lavender: '#7c3aed',
+    crimson:  '#ff6b6b',
+    aura:     '#a855f7',
+    mint:     '#059669',
+  };
+
   /* ---- SETTINGS PAGE ------------------------------- */
 
   export function renderSettings() {
@@ -130,6 +147,18 @@ import * as Auth from './auth.js';
         state.prefs.theme = theme;
         await Storage.setPref('theme', theme);
         applyTheme(theme);
+
+        const pairedAccent = THEME_ACCENTS[theme];
+        if (pairedAccent) {
+          const isHex = pairedAccent.startsWith('#');
+          state.prefs.accent = pairedAccent;
+          state.prefs.customAccentHex = isHex ? pairedAccent : null;
+          await Storage.setPref('accent', pairedAccent);
+          await Storage.setPref('customAccentHex', isHex ? pairedAccent : null);
+          applyAccent(pairedAccent);
+          Charts.refreshAllCharts();
+        }
+
         renderAppearance();
         _patchCloudAppearance();
       });
@@ -627,27 +656,37 @@ import * as Auth from './auth.js';
     if (!card) return;
 
     const configured = Sync.isConfigured();
-    const signedIn   = Sync.isSignedIn() && Sync.isBound();
+    const signedIn   = Sync.isSignedIn();
 
     document.getElementById('cloud-disabled')?.classList.toggle('hidden', configured);
-    const showForm = configured && !signedIn;
-    document.getElementById('cloud-signin-form')?.classList.toggle('hidden', !showForm);
     document.getElementById('cloud-signedin')?.classList.toggle('hidden', !configured || !signedIn);
-    // Reset to step-1 email form whenever the sign-in UI becomes visible.
-    if (showForm) resetCloudAuthForm();
 
     if (configured && signedIn) {
       setEl('cloud-account-email', Sync.getAccountEmail() || '—');
       const status = Sync.getStatus();
-      const statusLabel = signedIn ? 'Signed in' : (CLOUD_STATUS_TEXT[status] || '—');
-      setEl('cloud-status-label', statusLabel);
+      setEl('cloud-status-label', CLOUD_STATUS_TEXT[status] || 'Signed in');
       const last = Sync.getLastCloudSync();
       setEl('cloud-last-sync', last ? new Date(last).toLocaleString() : 'Never');
-      // Auto Cloud Backup checkbox reflects saved preference (default: false)
       const autoEl = document.getElementById('cloud-auto-backup');
-      if (autoEl) {
-        autoEl.checked = !!state.prefs.cloudAutoBackup;
-      }
+      if (autoEl) autoEl.checked = !!state.prefs.cloudAutoBackup;
+    }
+
+    renderSidebarCloudAccount();
+  }
+
+  function renderSidebarCloudAccount() {
+    const signedIn = Sync.isSignedIn();
+    const btn      = document.getElementById('sidebar-signout-btn');
+    const welcome  = document.getElementById('sidebar-cloud-welcome');
+    const nameEl   = document.getElementById('sidebar-cloud-name');
+    if (btn)     btn.style.display     = signedIn ? '' : 'none';
+    if (welcome) welcome.style.display = signedIn ? 'block' : 'none';
+    if (signedIn && nameEl) {
+      const user     = state.syncSession?.user;
+      const provider = user?.app_metadata?.provider;
+      nameEl.textContent = provider === 'google'
+        ? (user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || '')
+        : (user?.email || '');
     }
   }
 
@@ -693,11 +732,6 @@ import * as Auth from './auth.js';
     setEl('sync-confirm-account', email || '—');
     setEl('sync-confirm-local-user', localUser || '—');
     setEl('sync-confirm-cloud-date', dateStr || 'No backup date available');
-
-    const cloudUserRow = document.getElementById('sync-confirm-cloud-user-row');
-    const cloudUser    = cloudInfo?.username || null;
-    if (cloudUserRow) cloudUserRow.style.display = cloudUser ? 'flex' : 'none';
-    if (cloudUser) setEl('sync-confirm-cloud-user', cloudUser);
 
     const confirmBtn  = document.getElementById('sync-confirm-ok');
     const skipBtn     = document.getElementById('sync-confirm-skip');
@@ -772,15 +806,23 @@ import * as Auth from './auth.js';
 
     showSyncConfirmModal({
       email:       Sync.getAccountEmail(),
-      localUser:   state.prefs.username || 'your profile',
+      localUser:   UserManager.getActive()?.name || state.prefs.username || 'your profile',
       cloudInfo,
       title:       'Sync with Cloud?',
       confirmText: 'Sync',
       onConfirm: async () => {
         if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
         try {
-          await Sync.pushSnapshot();
-          await Sync.pullSnapshot();
+          if (!await Sync.ensureManualSyncReady()) {
+            showToast('Sign in and check your connection before syncing.', 'warning');
+            return;
+          }
+          const { migrate } = await import('./migration.js');
+          const Engine = await import('./sync-engine.js');
+          await migrate();
+          await Engine.drainOutbox({ manual: true });
+          await Engine.pullDeltas({ manual: true });
+          await Sync.pushSnapshot({ manual: true });
           showToast('Cloud sync complete.', 'success');
         } catch {
           showToast('Sync failed — check your connection.', 'error');
@@ -801,14 +843,20 @@ import * as Auth from './auth.js';
 
     showSyncConfirmModal({
       email:       Sync.getAccountEmail(),
-      localUser:   state.prefs.username || 'your profile',
+      localUser:   UserManager.getActive()?.name || state.prefs.username || 'your profile',
       cloudInfo,
       title:       'Restore from Cloud?',
       confirmText: 'Restore',
       onConfirm: async () => {
         try {
-          const r = await Sync.pullSnapshot({ force: true });
-          showToast(r.applied ? 'Restored from cloud.' : 'Nothing newer in the cloud.', r.applied ? 'success' : 'info');
+          if (!await Sync.ensureManualSyncReady()) {
+            showToast('Sign in and check your connection before restoring.', 'warning');
+            return;
+          }
+          const Engine = await import('./sync-engine.js');
+          await Engine.pullDeltas({ manual: true });
+          const r = await Sync.pullSnapshot({ force: true, manual: true });
+          showToast(r.applied ? 'Restored from cloud.' : 'Restore checked cloud for updates.', r.applied ? 'success' : 'info');
         } catch {
           showToast('Restore failed — check your connection.', 'error');
         } finally {
@@ -828,6 +876,9 @@ import * as Auth from './auth.js';
         Sync.signOut();
         showToast('Signed out of cloud sync.', 'info');
         renderCloudSyncCard();
+        // After signing out, redirect back to the landing page so the user
+        // can re-authenticate or read the onboarding content.
+        setTimeout(() => { window.location.replace('landing.html'); }, 400);
       }
     );
   }
@@ -1033,24 +1084,11 @@ import * as Auth from './auth.js';
       browseInput.value = ''; // reset so same file can be picked again
     });
 
-    // Cloud Sync card — OTP flow
-    document.getElementById('cloud-send-otp-btn')?.addEventListener('click', sendOtp);
-    document.getElementById('cloud-email')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendOtp(); } });
-    document.getElementById('cloud-verify-otp-btn')?.addEventListener('click', verifyOtp);
-    document.getElementById('cloud-otp-code')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); verifyOtp(); } });
-    document.getElementById('cloud-otp-back-btn')?.addEventListener('click', () => showOtpStep(1));
-    document.getElementById('cloud-resend-otp-btn')?.addEventListener('click', () => {
-      showOtpStep(1);
-      const emailEl = document.getElementById('cloud-email');
-      if (emailEl) emailEl.value = _otpEmail;
-    });
-    document.getElementById('cloud-google-btn')?.addEventListener('click', async () => {
-      try { await Auth.signInWithGoogle(); }
-      catch (err) { showCloudAuthStatus(Auth.friendlyAuthError(err), 'error'); }
-    });
+    // Cloud Sync card actions
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
-    document.getElementById('cloud-signout-btn')?.addEventListener('click', cloudSignOut);
+    // Sidebar sign-out button
+    document.getElementById('sidebar-signout-btn')?.addEventListener('click', cloudSignOut);
     const autoChk = document.getElementById('cloud-auto-backup');
     if (autoChk) {
       autoChk.addEventListener('change', (e) => {

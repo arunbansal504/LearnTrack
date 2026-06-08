@@ -163,6 +163,26 @@ export function cloudToAchievement(row) {
   };
 }
 
+/* ==== Pref mappers ============================================== */
+
+// Produce the row that goes into the `profile_prefs` Supabase table.
+export function prefToCloudRow(pref, profileId, accountId) {
+  return {
+    profile_id: profileId,
+    account_id: accountId,
+    key:        pref.key,
+    value:      pref.value,
+    updated_at: pref.updatedAt
+                  ? new Date(pref.updatedAt).toISOString()
+                  : new Date().toISOString(),
+  };
+}
+
+// Convert a `profile_prefs` row back to a local { key, value } pair.
+export function cloudToPref(row) {
+  return { key: row.key, value: row.value };
+}
+
 /* ==== LocalStorage helpers ====================================== */
 
 // Cloud profile UUID (from the `profiles` table) mapped to a local profile ID + account.

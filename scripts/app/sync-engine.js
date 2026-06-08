@@ -42,9 +42,9 @@ function localProfileId() { return UserManager.getActiveId() || 'default'; }
 function accountId()      { return state.syncSession?.user?.id || null; }
 function cloudProfileId() { return Repo.getCloudProfileId(localProfileId(), accountId()); }
 
-function canRun() {
+function canRun({ manual = false } = {}) {
   return (
-    state.prefs?.cloudAutoBackup === true &&
+    (manual || state.prefs?.cloudAutoBackup === true) &&
     !!state.syncSession          &&
     !!cloudProfileId()           &&
     navigator.onLine
@@ -71,8 +71,8 @@ async function refreshState() {
 // Ops that succeed are removed from the outbox; failures are left in place
 // and retried on the next drain (outbox is durable across page reloads).
 
-export async function drainOutbox() {
-  if (!canRun()) return;
+export async function drainOutbox({ manual = false } = {}) {
+  if (!canRun({ manual })) return;
   const ops = await Storage.getAllOutboxOps();
   if (!ops.length) return;
 
@@ -145,6 +145,13 @@ export async function drainOutbox() {
             .upsert(row, { onConflict: 'profile_id,achievement_id' });
           if (error) throw error;
         }
+
+      } else if (op.kind === 'pref') {
+        if (op.op === 'upsert') {
+          const row = Repo.prefToCloudRow(op.payload, pid, aid);
+          const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
+          if (error) throw error;
+        }
       }
 
       // Success — remove from outbox
@@ -160,12 +167,12 @@ export async function drainOutbox() {
 // Fetch records written by other devices since the last successful pull
 // and merge them into the local IndexedDB using last-write-wins.
 
-export async function pullDeltas() {
-  if (!canRun()) return;
+export async function pullDeltas({ manual = false, force = false } = {}) {
+  if (!canRun({ manual })) return;
   const sb  = await getClient();
   const pid = cloudProfileId();
   const aid = accountId();
-  const wm  = Repo.getSyncWatermark(localProfileId(), aid) || '1970-01-01T00:00:00.000Z';
+  const wm  = (!force && Repo.getSyncWatermark(localProfileId(), aid)) || '1970-01-01T00:00:00.000Z';
 
   // Snapshot the pull time BEFORE the query so concurrent writes aren't lost.
   const pullTime = new Date().toISOString();
@@ -182,16 +189,12 @@ export async function pullDeltas() {
   else if (entryRows?.length) {
     for (const row of entryRows) {
       if (row.deleted_at) {
-        // Tombstone: move to deletedEntries, remove from live
-        const live = await Storage.getEntry(row.id);
-        if (live) {
-          await Storage.put(Storage.STORES.deletedEntries, {
-            ...Repo.cloudToEntry(row),
-            deletedAt: new Date(row.deleted_at).getTime(),
-          });
-          await Storage.remove(Storage.STORES.entries, row.id);
-          changed = true;
-        }
+        await Storage.put(Storage.STORES.deletedEntries, {
+          ...Repo.cloudToEntry(row),
+          deletedAt: new Date(row.deleted_at).getTime(),
+        });
+        await Storage.remove(Storage.STORES.entries, row.id);
+        changed = true;
         continue;
       }
       const local = Repo.cloudToEntry(row);
@@ -216,15 +219,12 @@ export async function pullDeltas() {
   else if (goalRows?.length) {
     for (const row of goalRows) {
       if (row.deleted_at) {
-        const liveGoal = await Storage.getGoal(row.id);
-        if (liveGoal) {
-          await Storage.put(Storage.STORES.deletedGoals, {
-            ...Repo.cloudToGoal(row),
-            deletedAt: new Date(row.deleted_at).getTime(),
-          });
-          await Storage.remove(Storage.STORES.goals, row.id);
-          changed = true;
-        }
+        await Storage.put(Storage.STORES.deletedGoals, {
+          ...Repo.cloudToGoal(row),
+          deletedAt: new Date(row.deleted_at).getTime(),
+        });
+        await Storage.remove(Storage.STORES.goals, row.id);
+        changed = true;
         continue;
       }
       const local = Repo.cloudToGoal(row);
@@ -235,6 +235,22 @@ export async function pullDeltas() {
         await Storage.put(Storage.STORES.goals, local);
         changed = true;
       }
+    }
+  }
+
+  // --- Prefs ---------------------------------------------------
+  const { data: prefRows, error: pErr } = await sb
+    .from('profile_prefs')
+    .select('key, value')
+    .eq('profile_id', pid)
+    .gt('updated_at', wm);
+
+  if (pErr) { console.warn('[SyncEngine] pullDeltas prefs error:', pErr.message); }
+  else if (prefRows?.length) {
+    for (const row of prefRows) {
+      // Use low-level put to avoid re-enqueuing an outbox op for each pulled pref.
+      await Storage.put(Storage.STORES.preferences, { key: row.key, value: row.value });
+      changed = true;
     }
   }
 

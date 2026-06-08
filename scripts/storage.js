@@ -27,6 +27,9 @@ const Storage = (() => {
   let _useLocalStorage = false;
   let _mutationHook = null; // set by sync-engine so it can react to local writes
 
+  // Prefs that are purely device-local and must never be pushed to the cloud.
+  const PREF_NO_SYNC = new Set(['lastBackupDate']);
+
   /* ---- Outbox: enqueue a pending cloud-sync op ------ */
   // Each op: { op, kind, recordId, payload, queuedAt }
   // id is auto-assigned by IndexedDB (autoIncrement). Fire-and-forget; failures are non-fatal.
@@ -236,6 +239,9 @@ const Storage = (() => {
 
   async function setPref(key, value) {
     await put(STORES.preferences, { key, value });
+    if (!PREF_NO_SYNC.has(key)) {
+      enqueueOutboxOp({ op: 'upsert', kind: 'pref', recordId: key, payload: { key, value, updatedAt: Date.now() } });
+    }
   }
 
   async function getAllPrefs() {

@@ -79,6 +79,12 @@ import { setEl } from './utils.js';
       }
     });
 
+    const logoBtn = document.getElementById('logo-home-btn');
+    if (logoBtn) {
+      logoBtn.addEventListener('click', () => window.location.href = 'landing.html');
+      logoBtn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') window.location.href = 'landing.html'; });
+    }
+
     document.getElementById('daily-quote-chip')?.addEventListener('click', () => {
       setEl('daily-quote-text', Insights.getRandomQuote());
     });

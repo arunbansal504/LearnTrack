@@ -2,9 +2,9 @@
    sync.js — Cloud backup / restore + cross-device sync (Supabase).
 
    Local-first: IndexedDB stays the source of truth. This module
-   pushes/pulls a WHOLE-PROFILE SNAPSHOT (the same blob produced by
-   Storage.exportAll / consumed by Storage.importAll) to a per-account
-   row in Supabase, reusing the existing newest-wins merge.
+   manages auth, device metadata, and push/pull coordination. All
+   actual data transfer goes through the normalized tables via
+   sync-engine.js (entries, goals, achievements, profile_prefs).
 
    Design notes:
    • The Supabase client is loaded LAZILY (dynamic import from CDN) only
@@ -12,21 +12,20 @@
      signed-out users never pay a network/JS cost.
    • All sync metadata (device id, last-synced rev, account binding) is
      kept in localStorage keyed by the active PROFILE — never in prefs —
-     so it stays device-local and never pollutes the synced snapshot.
+     so it stays device-local and never pollutes synced data.
    • "One account = one profile": every push/pull is gated on the active
      profile being bound to the currently signed-in account, so switching
      to an unbound profile behaves as signed-out and cannot leak data.
+   • pullSnapshot delegates to sync-engine.pullDeltas; pushSnapshot writes
+     only metadata (rev, device_id, profile_username) to learntrack_snapshots.
 
    Ambient globals (Storage) are read inside functions only, per the
    project's module rules.
    ================================================================ */
 
-import { state, CLOUD_PUSH_DEBOUNCE, DEFAULT_PREFS } from './state.js';
+import { state, CLOUD_PUSH_DEBOUNCE } from './state.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from './sync-config.js';
-import { UserManager } from './users.js';
-import { checkAchievements } from './achievements.js';
-import { renderPage, updateSidebarUser } from './nav.js';
-import { applyAccent, applyCompact, applyTheme } from './widgets.js';
+import { UserManager, loadCloudProfiles } from './users.js';
 
 const SUPABASE_ESM = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const SB_AUTH_STORAGE_KEY = 'lt_sb_auth';      // where supabase-js persists the session
@@ -124,32 +123,31 @@ function canSync() {
 }
 export { canSync, isBound, isConfigured };
 
-/* ---- Snapshot push / pull -------------------------------------- */
-
-// Build the snapshot blob, embedding live in-memory prefs so defaults that were
-// never explicitly persisted are still captured (mirrors backupCurrentProfile).
-async function buildSnapshot() {
-  const backup = await Storage.exportAll();
-  const { lastBackupDate: _drop, compact: _compact, ...exportedPrefs } = backup.data.preferences;
-  backup.data.preferences = {
-    ...exportedPrefs,
-    username:           state.prefs.username,
-    dailyGoalMin:       state.prefs.dailyGoalMin,
-    monthlyGoalHr:      state.prefs.monthlyGoalHr,
-    goalHistory:        state.prefs.goalHistory || [],
-    monthlyGoalHistory: state.prefs.monthlyGoalHistory || [],
-  };
-  return backup;
+export async function ensureManualSyncReady() {
+  if (!isConfigured() || !navigator.onLine) return false;
+  if (!state.syncSession) {
+    const sb = await getClient();
+    const { data: { session } } = await sb.auth.getSession();
+    state.syncSession = session || null;
+  }
+  if (!state.syncSession) return false;
+  setBoundAccount(state.syncSession.user.id);
+  return true;
 }
 
-export async function pushSnapshot() {
-  if (!canSync()) return { pushed: false };
-  const sb   = await getClient();
-  const blob = await buildSnapshot();
-  const rev  = Date.now();
+/* ---- Snapshot push / pull -------------------------------------- */
+
+
+export async function pushSnapshot({ manual = false } = {}) {
+  if (manual) {
+    if (!await ensureManualSyncReady()) return { pushed: false, reason: 'not-ready' };
+  } else if (!canSync()) {
+    return { pushed: false };
+  }
+  const sb  = await getClient();
+  const rev = Date.now();
   const { error } = await sb.from(SNAPSHOT_TABLE).upsert({
     user_id:          state.syncSession.user.id,
-    data:             blob,
     rev,
     device_id:        getDeviceId(),
     app_version:      APP_VERSION,
@@ -164,43 +162,16 @@ export async function pushSnapshot() {
 // Pull the cloud snapshot and merge it locally if it is newer than what we last
 // synced and was written by a different device. `force` ignores those checks
 // (used for sign-in convergence and the manual "Restore from cloud" action).
-export async function pullSnapshot({ force = false } = {}) {
-  if (!canSync()) return { applied: false };
-  const sb = await getClient();
-  const { data, error } = await sb
-    .from(SNAPSHOT_TABLE)
-    .select('data, rev, device_id')
-    .eq('user_id', state.syncSession.user.id)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return { applied: false };           // nothing in the cloud yet
-
-  const isNewer = (data.rev || 0) > getLastSyncedRev();
-  const isOwn   = data.device_id === getDeviceId();
-  if (!force && (!isNewer || isOwn)) {
-    if (isNewer) setLastSynced(data.rev);          // own write — just advance the marker
+export async function pullSnapshot({ force = false, manual = false } = {}) {
+  if (manual) {
+    if (!await ensureManualSyncReady()) return { applied: false, reason: 'not-ready' };
+  } else if (!canSync()) {
     return { applied: false };
   }
-
-  await Storage.importAll(data.data);
-  await refreshAfterPull();
-  setLastSynced(data.rev || Date.now());
+  const engine = await getEngine();
+  if (!engine) return { applied: false };
+  await engine.pullDeltas({ manual: true, force });
   return { applied: true };
-}
-
-// Re-load in-memory state from IndexedDB and re-render after a merge
-// (mirrors the refresh block used by settings.js importFile).
-async function refreshAfterPull() {
-  state.entries   = await Storage.getAllEntries();
-  state.earnedAch = await Storage.getAllAchievements();
-  state.goals     = await Storage.getAllGoals();
-  state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
-  await checkAchievements();
-  applyTheme(state.prefs.theme);
-  applyAccent(state.prefs.accent);
-  applyCompact(state.prefs.compact);
-  renderPage(state.currentPage);
-  updateSidebarUser();
 }
 
 /* ---- Debounced auto-push (called from triggerAutoBackup) -------- */
@@ -229,7 +200,7 @@ export async function signOut() {
 // Fetch cloud snapshot metadata without importing it.
 // Returns { updatedAt, rev, username } if a snapshot exists, null otherwise.
 export async function peekCloudSnapshot() {
-  if (!canSync()) return null;
+  if (!await ensureManualSyncReady()) return null;
   try {
     const sb = await getClient();
     const { data, error } = await sb
@@ -246,8 +217,8 @@ export async function peekCloudSnapshot() {
 export async function syncAfterSignIn() {
   setStatus('syncing');
   try {
-    await pullSnapshot({ force: true });
-    await pushSnapshot();
+    const pulled = await pullSnapshot();
+    if (pulled.reason !== 'profile-mismatch') await pushSnapshot();
     setStatus('synced');
   } catch (err) {
     console.warn('[Sync] sign-in sync failed:', err);
@@ -329,6 +300,15 @@ export async function initSync() {
     // automatically when detectSessionInUrl is true (the default).
     const { data: { session } } = await sb.auth.getSession();
     state.syncSession = session || null;
+    // If a session exists but this profile hasn't been bound to an account yet,
+    // auto-bind it so redirects from the landing page produce an expected
+    // signed-in state in the Settings → Backup & Restore card.
+    try {
+      if (state.syncSession && !getBoundAccount()) {
+        setBoundAccount(state.syncSession.user.id);
+        emitChange();
+      }
+    } catch (e) { /* non-fatal */ }
 
     // Load entitlements on boot if signed in so UI reflects the correct tier.
     if (state.syncSession) {
@@ -346,9 +326,20 @@ export async function initSync() {
       import('./nav.js').then(({ navigateTo }) => navigateTo('dashboard')).catch(() => {});
     }
 
-    sb.auth.onAuthStateChange((_event, s) => {
+    // On first login to a new device, fetch all cloud profiles and create them locally
+    // before the sync engine starts, so data is pulled for the correct profile.
+    if (state.syncSession) {
+      await loadCloudProfiles(state.syncSession).catch(e =>
+        console.warn('[Sync] loadCloudProfiles failed:', e)
+      );
+    }
+
+    sb.auth.onAuthStateChange(async (_event, s) => {
       state.syncSession = s || null;
       if (s) {
+        // Restore cloud profiles on a new device before starting the sync engine.
+        await loadCloudProfiles(s).catch(e => console.warn('[Sync] loadCloudProfiles failed:', e));
+        try { if (!getBoundAccount()) setBoundAccount(s.user.id); } catch (e) { /* ignore */ }
         getEngine().then(e => e?.startEngine()).catch(() => {});
         // Load entitlements (appearance_options + subscription tier) so
         // UI gating (themes/accents) updates immediately after sign-in.
@@ -358,8 +349,11 @@ export async function initSync() {
           .catch(() => {});
         if (canSync()) {
           setStatus('syncing');
-          pullSnapshot({ force: true })
-            .then(() => pushSnapshot())
+          pullSnapshot()
+            .then(result => {
+              if (result.reason === 'profile-mismatch') return result;
+              return pushSnapshot();
+            })
             .then(() => setStatus('synced'))
             .catch(err => {
               console.warn('[Sync] auth state sync failed:', err);
@@ -379,8 +373,8 @@ export async function initSync() {
 
     if (canSync()) {
       setStatus('syncing');
-      await pullSnapshot({ force: true });
-      await pushSnapshot();
+      const pulled = await pullSnapshot();
+      if (pulled.reason !== 'profile-mismatch') await pushSnapshot();
       setStatus('synced');
     } else {
       setStatus('signed-out');

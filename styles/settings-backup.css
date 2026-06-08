@@ -114,6 +114,16 @@
 .theme-preview--dark     { background: linear-gradient(135deg, #0f0f13 50%, #1e1e2a 50%); }
 .theme-preview--midnight { background: linear-gradient(135deg, #070b14 50%, #111a2e 50%); }
 .theme-preview--solarized{ background: linear-gradient(135deg, #eee8d5 50%, #fdf6e3 50%); }
+.theme-preview--forest   { background: linear-gradient(135deg, #080f09 50%, #122116 50%); }
+.theme-preview--sunset   { background: linear-gradient(135deg, #120812 50%, #251428 50%); }
+.theme-preview--ocean    { background: linear-gradient(135deg, #060d18 50%, #0f1c30 50%); }
+.theme-preview--mocha    { background: linear-gradient(135deg, #e8dfd5 50%, #f8f2ec 50%); }
+.theme-preview--nord     { background: linear-gradient(135deg, #2e3440 50%, #3b4252 50%); }
+.theme-preview--dracula  { background: linear-gradient(135deg, #21222c 50%, #282a36 50%); }
+.theme-preview--lavender { background: linear-gradient(135deg, #e5e0f0 50%, #f4f1fc 50%); }
+.theme-preview--crimson  { background: linear-gradient(135deg, #1a0b10 50%, #23101a 50%); }
+.theme-preview--aura     { background: linear-gradient(135deg, #130e2c 50%, #1a1438 50%); }
+.theme-preview--mint     { background: linear-gradient(135deg, #dceee4 50%, #f0faf4 50%); }
 
 .theme-option-label {
   font-size: 11px;

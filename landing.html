@@ -17,7 +17,7 @@
   <!-- Design tokens (shared with the app) -->
   <link rel="stylesheet" href="styles/tokens.css?v=1" />
   <!-- Landing-specific styles -->
-  <link rel="stylesheet" href="styles/landing.css?v=1" />
+  <link rel="stylesheet" href="styles/landing.css?v=5" />
 </head>
 <body>
 
@@ -30,7 +30,7 @@
     </a>
     <div class="l-nav-actions">
       <button id="landing-theme-toggle" class="l-btn l-btn-ghost" aria-label="Toggle theme">🌙</button>
-      <a href="app.html" class="l-btn l-btn-secondary">Sign in</a>
+      <button type="button" id="nav-signin-btn" class="l-btn l-btn-secondary">Sign in</button>
     </div>
   </div>
 </nav>
@@ -49,42 +49,290 @@
       LearnTrack helps you log what you study, hit your academic goals, and stay motivated — all in one beautifully organized place.
     </p>
 
-    <!-- Auth entry form -->
-    <div class="l-hero-auth">
-      <!-- Step 1: email -->
-      <div id="landing-step1">
-        <div class="l-hero-auth-row">
-          <input type="email" id="landing-email" placeholder="Enter your email" autocomplete="email" aria-label="Email address" />
-          <button type="button" id="landing-send-otp" class="l-btn l-btn-primary">Get started</button>
-        </div>
-        <div class="l-hero-divider">or</div>
-        <button type="button" id="landing-google" class="l-btn l-btn-google l-btn-full">
-          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          </svg>
-          Continue with Google
-        </button>
-        <p class="l-hero-note">Free to start · No password required · Your data stays on your device</p>
-      </div>
-
-      <!-- Step 2: OTP code -->
-      <div id="landing-step2" class="l-otp-step2">
-        <p>We sent a code to <strong id="landing-otp-email-display"></strong>. Enter it below.</p>
-        <input type="text" id="landing-otp-code" placeholder="12345678" maxlength="8"
-               inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
-               aria-label="Verification code" />
-        <button type="button" id="landing-verify-otp" class="l-btn l-btn-primary l-btn-full">Verify &amp; Continue</button>
-        <div style="display:flex;justify-content:center;gap:16px;font-size:0.875rem">
-          <button type="button" id="landing-otp-back" class="l-btn l-btn-ghost">← Back</button>
-          <button type="button" id="landing-resend-otp" class="l-btn l-btn-ghost">Resend code</button>
-        </div>
-      </div>
-
-      <div id="landing-auth-status" class="l-auth-status" role="alert"></div>
+    <!-- Hero CTAs -->
+    <div class="l-hero-cta">
+      <button type="button" class="l-btn l-btn-primary l-btn-lg" id="hero-get-started">Get started free →</button>
+      <button type="button" class="l-btn l-btn-secondary l-btn-lg" id="hero-signin-link">Sign in</button>
     </div>
+    <div class="l-hero-trust">
+      <span class="l-hero-trust-item">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Free to start
+      </span>
+      <span class="l-hero-trust-sep" aria-hidden="true">·</span>
+      <span class="l-hero-trust-item">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        No password required
+      </span>
+      <span class="l-hero-trust-sep" aria-hidden="true">·</span>
+      <span class="l-hero-trust-item">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Data stays on your device
+      </span>
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <button type="button" id="landing-skip-login" style="background:none;border:none;color:var(--text-muted,#888);font-size:0.8rem;cursor:pointer;text-decoration:underline;padding:4px 8px">
+        Continue without login →
+      </button>
+    </div>
+  </div>
+
+  <!-- Dashboard preview mockup -->
+  <div class="l-preview-wrap" aria-hidden="true">
+    <div class="l-preview-frame">
+      <div class="l-preview-chrome">
+        <div class="l-preview-chrome-dots"><i></i><i></i><i></i></div>
+        <div class="l-preview-chrome-bar">🔒 learntrack.app/dashboard</div>
+      </div>
+      <div class="l-preview-shell">
+
+        <!-- Sidebar -->
+        <aside class="l-preview-sidebar">
+          <div class="l-preview-logo">
+            <span>🎯</span>
+            <div><div class="l-preview-logo-title">LearnTrack</div><div class="l-preview-logo-sub">Your Learning OS</div></div>
+          </div>
+          <div class="l-preview-user">
+            <div class="l-preview-avatar">A</div>
+            <div class="l-preview-user-info">
+              <div class="l-preview-username">Arun</div>
+              <div class="l-preview-xpbar"><div class="l-preview-xpfill" id="pv-sidebar-xp" style="width:0%"></div></div>
+              <div class="l-preview-xp-text">1,240 / 2,000 XP · Lv 8</div>
+            </div>
+          </div>
+          <div class="l-preview-streak-chip">🔥 <strong>42</strong> day streak</div>
+          <nav class="l-preview-nav">
+            <div class="l-preview-navitem l-preview-navitem--active" data-nav="dashboard" tabindex="-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+            </div>
+            <div class="l-preview-navitem" data-nav="log" tabindex="-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Daily Log
+            </div>
+            <div class="l-preview-navitem" data-nav="calendar" tabindex="-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar
+            </div>
+            <div class="l-preview-navitem" data-nav="goals" tabindex="-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Goals
+            </div>
+            <div class="l-preview-navitem" data-nav="achievements" tabindex="-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Achievements
+            </div>
+          </nav>
+        </aside>
+
+        <!-- Views container -->
+        <div class="l-preview-main">
+
+          <!-- ── DASHBOARD ── -->
+          <div class="l-preview-view" data-view="dashboard">
+            <div class="l-preview-page-header">
+              <div>
+                <div class="l-preview-page-title">Dashboard</div>
+                <div class="l-preview-page-sub">Good morning, Arun! Ready to learn?</div>
+              </div>
+              <div class="l-preview-header-right">
+                <div class="l-preview-clock" id="pv-clock">10:42 AM</div>
+                <button class="l-preview-add-btn" id="pv-add-btn" tabindex="-1">+ Add Entry</button>
+              </div>
+            </div>
+            <div class="l-preview-stats">
+              <div class="l-preview-stat">
+                <div class="l-preview-stat-icon">⏱️</div>
+                <div class="l-preview-stat-val" data-val="284" data-suffix="h">0h</div>
+                <div class="l-preview-stat-lbl">Total Hours</div>
+                <div class="l-preview-stat-trend l-preview-trend-up">↑ 12h this week</div>
+              </div>
+              <div class="l-preview-stat l-preview-stat--hl">
+                <div class="l-preview-stat-icon">🔥</div>
+                <div class="l-preview-stat-val" data-val="42">0</div>
+                <div class="l-preview-stat-lbl">Day Streak</div>
+                <div class="l-preview-stat-trend">Longest: 56 days</div>
+              </div>
+              <div class="l-preview-stat">
+                <div class="l-preview-stat-icon">📝</div>
+                <div class="l-preview-stat-val" data-val="317">0</div>
+                <div class="l-preview-stat-lbl">Entries</div>
+              </div>
+              <div class="l-preview-stat">
+                <div class="l-preview-stat-icon">🎯</div>
+                <div class="l-preview-stat-val" data-val="87" data-suffix="%">0%</div>
+                <div class="l-preview-stat-lbl">Consistency</div>
+              </div>
+              <div class="l-preview-stat">
+                <div class="l-preview-stat-icon">⚡</div>
+                <div class="l-preview-stat-val" data-val="8">0</div>
+                <div class="l-preview-stat-lbl">Level</div>
+                <div class="l-preview-xpbar" style="margin-top:4px"><div class="l-preview-xpfill" id="pv-stat-xp" style="width:0%"></div></div>
+                <div class="l-preview-xp-text">1,240 / 2,000 XP</div>
+              </div>
+            </div>
+            <!-- Daily goal row -->
+            <div class="l-preview-goal-row">
+              <div class="l-preview-goal-card">
+                <div class="l-preview-goal-ring-wrap">
+                  <svg class="l-preview-ring-svg" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r="22" class="l-preview-ring-bg"/>
+                    <circle cx="28" cy="28" r="22" class="l-preview-ring-fill" id="pv-ring-fill"
+                      stroke-dasharray="138.2" stroke-dashoffset="138.2"
+                      transform="rotate(-90 28 28)"/>
+                  </svg>
+                  <div class="l-preview-ring-pct" id="pv-ring-pct">0%</div>
+                </div>
+                <div class="l-preview-goal-info">
+                  <div class="l-preview-goal-label">Daily Goal</div>
+                  <div class="l-preview-goal-nums">70 / 100 min</div>
+                  <div class="l-preview-goal-status">Almost there · 30 min to go</div>
+                  <div class="l-preview-week-dots">
+                    <div class="l-pv-dot l-pv-dot--hit">M</div>
+                    <div class="l-pv-dot l-pv-dot--hit">T</div>
+                    <div class="l-pv-dot l-pv-dot--part">W</div>
+                    <div class="l-pv-dot l-pv-dot--hit">T</div>
+                    <div class="l-pv-dot l-pv-dot--miss">F</div>
+                    <div class="l-pv-dot l-pv-dot--hit">S</div>
+                    <div class="l-pv-dot l-pv-dot--part l-pv-dot--today">S</div>
+                  </div>
+                </div>
+              </div>
+              <div class="l-preview-today-card">
+                <div class="l-preview-today-label">Today</div>
+                <div class="l-preview-today-time">1h 10m</div>
+                <div class="l-preview-today-meta">3 sessions logged</div>
+                <div class="l-preview-today-top">⭐ JavaScript Promises</div>
+              </div>
+            </div>
+            <!-- Bottom: week bars + activity -->
+            <div class="l-preview-bottom">
+              <div class="l-preview-widget">
+                <div class="l-preview-widget-hdr">
+                  <span class="l-preview-widget-title">This Week</span>
+                  <span class="l-preview-widget-period">Jun 2 – Jun 8</span>
+                </div>
+                <div class="l-preview-week-big">18h 30m</div>
+                <div class="l-preview-week-meta">12 entries</div>
+                <div class="l-preview-bars" id="pv-bars">
+                  <div class="l-preview-barcol" data-hours="3.2h"><div class="l-preview-bar" data-h="42" style="height:0"></div><span>M</span></div>
+                  <div class="l-preview-barcol" data-hours="5.8h"><div class="l-preview-bar" data-h="58" style="height:0"></div><span>T</span></div>
+                  <div class="l-preview-barcol" data-hours="3.5h"><div class="l-preview-bar" data-h="35" style="height:0"></div><span>W</span></div>
+                  <div class="l-preview-barcol" data-hours="4.5h"><div class="l-preview-bar" data-h="45" style="height:0"></div><span>T</span></div>
+                  <div class="l-preview-barcol" data-hours="2.0h"><div class="l-preview-bar" data-h="20" style="height:0"></div><span>F</span></div>
+                  <div class="l-preview-barcol" data-hours="4.8h"><div class="l-preview-bar" data-h="48" style="height:0"></div><span>S</span></div>
+                  <div class="l-preview-barcol" data-hours="1h 10m"><div class="l-preview-bar l-preview-bar--today" data-h="29" style="height:0"></div><span>S</span></div>
+                </div>
+              </div>
+              <div class="l-preview-widget l-preview-widget--wide">
+                <div class="l-preview-widget-hdr"><span class="l-preview-widget-title">Recent Activity</span></div>
+                <div class="l-preview-entries">
+                  <div class="l-preview-entry"><div class="l-preview-entry-dot" style="background:#6c63ff"></div><div class="l-preview-entry-body"><div class="l-preview-entry-topic">JavaScript Promises &amp; Async/Await</div><div class="l-preview-entry-meta">Programming · 2h 30m · Today</div></div><span class="l-preview-diff l-preview-diff--hard">Hard</span></div>
+                  <div class="l-preview-entry"><div class="l-preview-entry-dot" style="background:#4ecdc4"></div><div class="l-preview-entry-body"><div class="l-preview-entry-topic">System Design Fundamentals</div><div class="l-preview-entry-meta">CS Concepts · 1h 45m · Yesterday</div></div><span class="l-preview-diff l-preview-diff--medium">Med</span></div>
+                  <div class="l-preview-entry"><div class="l-preview-entry-dot" style="background:#f7b731"></div><div class="l-preview-entry-body"><div class="l-preview-entry-topic">React Hooks Deep Dive</div><div class="l-preview-entry-meta">Programming · 1h 15m · Yesterday</div></div><span class="l-preview-diff l-preview-diff--medium">Med</span></div>
+                  <div class="l-preview-entry"><div class="l-preview-entry-dot" style="background:#2ed573"></div><div class="l-preview-entry-body"><div class="l-preview-entry-topic">Linear Algebra Review</div><div class="l-preview-entry-meta">Math · 45m · 2 days ago</div></div><span class="l-preview-diff l-preview-diff--easy">Easy</span></div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /dashboard -->
+
+          <!-- ── DAILY LOG ── -->
+          <div class="l-preview-view" data-view="log" style="display:none">
+            <div class="l-preview-page-header">
+              <div><div class="l-preview-page-title">Daily Log</div><div class="l-preview-page-sub">317 entries · Track every learning session</div></div>
+              <button class="l-preview-add-btn" tabindex="-1">+ Add Entry</button>
+            </div>
+            <div class="l-preview-log-toolbar">
+              <div class="l-preview-search-box">🔍 Search topics, categories...</div>
+              <div class="l-preview-chips">
+                <span class="l-preview-chip l-preview-chip--active">All</span>
+                <span class="l-preview-chip">Programming</span>
+                <span class="l-preview-chip">Math</span>
+                <span class="l-preview-chip">CS Concepts</span>
+              </div>
+            </div>
+            <div class="l-preview-log-list">
+              <div class="l-preview-log-row l-preview-log-hdr"><span>Date</span><span>Topic</span><span>Category</span><span>Duration</span><span></span></div>
+              <div class="l-preview-log-row"><span class="l-pvlog-date">Jun 8</span><span class="l-pvlog-topic">JavaScript Promises &amp; Async/Await</span><span class="l-pvlog-cat">Programming</span><span class="l-pvlog-dur">2h 30m</span><span class="l-preview-diff l-preview-diff--hard">Hard</span></div>
+              <div class="l-preview-log-row"><span class="l-pvlog-date">Jun 7</span><span class="l-pvlog-topic">System Design Fundamentals</span><span class="l-pvlog-cat">CS Concepts</span><span class="l-pvlog-dur">1h 45m</span><span class="l-preview-diff l-preview-diff--medium">Med</span></div>
+              <div class="l-preview-log-row"><span class="l-pvlog-date">Jun 7</span><span class="l-pvlog-topic">React Hooks Deep Dive</span><span class="l-pvlog-cat">Programming</span><span class="l-pvlog-dur">1h 15m</span><span class="l-preview-diff l-preview-diff--medium">Med</span></div>
+              <div class="l-preview-log-row"><span class="l-pvlog-date">Jun 6</span><span class="l-pvlog-topic">Linear Algebra Review</span><span class="l-pvlog-cat">Math</span><span class="l-pvlog-dur">45m</span><span class="l-preview-diff l-preview-diff--easy">Easy</span></div>
+              <div class="l-preview-log-row"><span class="l-pvlog-date">Jun 5</span><span class="l-pvlog-topic">Binary Trees &amp; Graph Algorithms</span><span class="l-pvlog-cat">Programming</span><span class="l-pvlog-dur">2h</span><span class="l-preview-diff l-preview-diff--hard">Hard</span></div>
+            </div>
+          </div><!-- /log -->
+
+          <!-- ── CALENDAR ── -->
+          <div class="l-preview-view" data-view="calendar" style="display:none">
+            <div class="l-preview-page-header">
+              <div><div class="l-preview-page-title">Calendar</div><div class="l-preview-page-sub">Your learning activity at a glance</div></div>
+            </div>
+            <div class="l-preview-cal-nav">
+              <button class="l-preview-cal-arr" tabindex="-1">←</button>
+              <span class="l-preview-cal-month">June 2026</span>
+              <button class="l-preview-cal-arr" tabindex="-1">→</button>
+            </div>
+            <div class="l-preview-cal-grid">
+              <div class="l-pvcal-dh">M</div><div class="l-pvcal-dh">T</div><div class="l-pvcal-dh">W</div><div class="l-pvcal-dh">T</div><div class="l-pvcal-dh">F</div><div class="l-pvcal-dh">S</div><div class="l-pvcal-dh">S</div>
+              <div class="l-pvcal-day l-pvcal-med">1</div><div class="l-pvcal-day l-pvcal-high">2</div><div class="l-pvcal-day l-pvcal-high">3</div><div class="l-pvcal-day l-pvcal-med">4</div><div class="l-pvcal-day l-pvcal-low">5</div><div class="l-pvcal-day l-pvcal-med">6</div><div class="l-pvcal-day l-pvcal-high">7</div>
+              <div class="l-pvcal-day l-pvcal-today">8</div><div class="l-pvcal-day l-pvcal-future">9</div><div class="l-pvcal-day l-pvcal-future">10</div><div class="l-pvcal-day l-pvcal-future">11</div><div class="l-pvcal-day l-pvcal-future">12</div><div class="l-pvcal-day l-pvcal-future">13</div><div class="l-pvcal-day l-pvcal-future">14</div>
+              <div class="l-pvcal-day l-pvcal-future">15</div><div class="l-pvcal-day l-pvcal-future">16</div><div class="l-pvcal-day l-pvcal-future">17</div><div class="l-pvcal-day l-pvcal-future">18</div><div class="l-pvcal-day l-pvcal-future">19</div><div class="l-pvcal-day l-pvcal-future">20</div><div class="l-pvcal-day l-pvcal-future">21</div>
+              <div class="l-pvcal-day l-pvcal-future">22</div><div class="l-pvcal-day l-pvcal-future">23</div><div class="l-pvcal-day l-pvcal-future">24</div><div class="l-pvcal-day l-pvcal-future">25</div><div class="l-pvcal-day l-pvcal-future">26</div><div class="l-pvcal-day l-pvcal-future">27</div><div class="l-pvcal-day l-pvcal-future">28</div>
+              <div class="l-pvcal-day l-pvcal-future">29</div><div class="l-pvcal-day l-pvcal-future">30</div>
+            </div>
+            <div class="l-preview-cal-legend">
+              <span class="l-pvcal-lg l-pvcal-low"></span> Light &nbsp;
+              <span class="l-pvcal-lg l-pvcal-med"></span> Medium &nbsp;
+              <span class="l-pvcal-lg l-pvcal-high"></span> Heavy
+            </div>
+          </div><!-- /calendar -->
+
+          <!-- ── GOALS ── -->
+          <div class="l-preview-view" data-view="goals" style="display:none">
+            <div class="l-preview-page-header">
+              <div><div class="l-preview-page-title">Academic Goals</div><div class="l-preview-page-sub">3 active goals · Track your progress</div></div>
+              <button class="l-preview-add-btn" tabindex="-1">+ New Goal</button>
+            </div>
+            <div class="l-preview-goals-list">
+              <div class="l-preview-goal-item">
+                <div class="l-preview-goal-top"><span class="l-preview-goal-icon">📚</span><div class="l-preview-goal-details"><div class="l-preview-goal-name">Complete DSA Course</div><div class="l-preview-goal-type">Checklist · 36 / 50 sessions</div></div><span class="l-preview-goal-pct">72%</span></div>
+                <div class="l-preview-goal-bar-track"><div class="l-pv-gbar" data-w="72" style="width:0%"></div></div>
+                <div class="l-preview-goal-footer">Due Jun 30 · On track ✓</div>
+              </div>
+              <div class="l-preview-goal-item">
+                <div class="l-preview-goal-top"><span class="l-preview-goal-icon">⚛️</span><div class="l-preview-goal-details"><div class="l-preview-goal-name">Master React Ecosystem</div><div class="l-preview-goal-type">Time goal · 110h / 200h</div></div><span class="l-preview-goal-pct">55%</span></div>
+                <div class="l-preview-goal-bar-track"><div class="l-pv-gbar" data-w="55" style="width:0%"></div></div>
+                <div class="l-preview-goal-footer">No deadline · 90h remaining</div>
+              </div>
+              <div class="l-preview-goal-item">
+                <div class="l-preview-goal-top"><span class="l-preview-goal-icon">🏆</span><div class="l-preview-goal-details"><div class="l-preview-goal-name">AWS Solutions Architect</div><div class="l-preview-goal-type">Exam · Jun 30 · 22 days left</div></div><span class="l-preview-goal-pct" style="color:#f7b731">⚠ 22d</span></div>
+                <div class="l-preview-goal-bar-track"><div class="l-pv-gbar l-pv-gbar--warn" data-w="68" style="width:0%"></div></div>
+                <div class="l-preview-goal-footer">Readiness: 68% · Increase daily practice</div>
+              </div>
+            </div>
+          </div><!-- /goals -->
+
+          <!-- ── ACHIEVEMENTS ── -->
+          <div class="l-preview-view" data-view="achievements" style="display:none">
+            <div class="l-preview-page-header">
+              <div><div class="l-preview-page-title">Achievements</div><div class="l-preview-page-sub">Level 8 · Dedicated Learner · 1,240 XP</div></div>
+            </div>
+            <div class="l-preview-ach-xp">
+              <div class="l-preview-ach-level">Level <span>8</span></div>
+              <div class="l-preview-ach-xpbar-wrap">
+                <div class="l-preview-xpbar" style="height:6px;border-radius:3px"><div class="l-preview-xpfill" id="pv-ach-xp" style="width:0%"></div></div>
+                <div class="l-preview-ach-xp-label">1,240 / 2,000 XP to Level 9</div>
+              </div>
+            </div>
+            <div class="l-preview-ach-grid">
+              <div class="l-preview-ach-badge l-preview-ach-earned"><div class="l-preview-ach-icon">🔥</div><div class="l-preview-ach-name">On Fire</div><div class="l-preview-ach-desc">30-day streak</div></div>
+              <div class="l-preview-ach-badge l-preview-ach-earned"><div class="l-preview-ach-icon">📚</div><div class="l-preview-ach-name">Centurion</div><div class="l-preview-ach-desc">100 entries logged</div></div>
+              <div class="l-preview-ach-badge l-preview-ach-earned"><div class="l-preview-ach-icon">⏰</div><div class="l-preview-ach-name">Time Lord</div><div class="l-preview-ach-desc">100 hours logged</div></div>
+              <div class="l-preview-ach-badge l-preview-ach-earned"><div class="l-preview-ach-icon">🎯</div><div class="l-preview-ach-name">Consistent</div><div class="l-preview-ach-desc">80% consistency</div></div>
+              <div class="l-preview-ach-badge l-preview-ach-locked"><div class="l-preview-ach-icon">🌟</div><div class="l-preview-ach-name">Legend</div><div class="l-preview-ach-desc">100-day streak</div></div>
+              <div class="l-preview-ach-badge l-preview-ach-locked"><div class="l-preview-ach-icon">💎</div><div class="l-preview-ach-name">Diamond</div><div class="l-preview-ach-desc">500 hours logged</div></div>
+            </div>
+          </div><!-- /achievements -->
+
+        </div><!-- /l-preview-main -->
+      </div><!-- /l-preview-shell -->
+    </div><!-- /l-preview-frame -->
+    <div class="l-preview-fade" aria-hidden="true"></div>
+    <div class="l-preview-bar-tip" id="pv-bar-tip"></div>
   </div>
 </section>
 
@@ -342,6 +590,40 @@
   </div>
 </footer>
 
-<script type="module" src="scripts/landing.js?v=1"></script>
+<!-- ===== SIGN-IN MODAL ===== -->
+<div id="signin-modal" class="l-modal-overlay" role="dialog" aria-modal="true" aria-label="Sign in" style="display:none">
+  <div class="l-modal-box">
+    <button id="signin-modal-close" class="l-modal-close" aria-label="Close">✕</button>
+    <div class="l-modal-logo">🎯</div>
+    <h2 class="l-modal-title">Sign in to LearnTrack</h2>
+
+    <!-- Step 1: email + Google -->
+    <div id="modal-step1">
+      <input type="email" id="modal-email" class="l-modal-input" placeholder="Enter your email" autocomplete="email" />
+      <button type="button" id="modal-send-otp" class="l-btn l-btn-primary l-btn-full" style="margin-top:10px">Send Code</button>
+      <div class="l-hero-divider" style="margin:16px 0">or</div>
+      <button type="button" id="modal-google" class="l-btn l-btn-google l-btn-full">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- Step 2: OTP code -->
+    <div id="modal-step2" style="display:none">
+      <p class="l-modal-otp-note">We sent a code to <strong id="modal-otp-email-display"></strong>. Enter it below:</p>
+      <input type="text" id="modal-otp-code" class="l-modal-input" placeholder="12345678" maxlength="8"
+             inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
+      <button type="button" id="modal-verify-otp" class="l-btn l-btn-primary l-btn-full" style="margin-top:10px">Verify &amp; Sign In</button>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:0.875rem">
+        <button type="button" id="modal-otp-back" class="l-btn l-btn-ghost">← Back</button>
+        <button type="button" id="modal-resend-otp" class="l-btn l-btn-ghost">Resend code</button>
+      </div>
+    </div>
+
+    <div id="modal-auth-status" class="l-auth-status" style="margin-top:12px" role="alert"></div>
+  </div>
+</div>
+
+<script type="module" src="scripts/landing.js?v=3"></script>
 </body>
 </html>

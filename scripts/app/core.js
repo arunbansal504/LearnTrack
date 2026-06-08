@@ -10,6 +10,7 @@ import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './util
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
 import { initSync, queueCloudPush } from './sync.js';
 import { getClient } from './sync.js';
+import { loadEntitlements } from './entitlements.js';
 
   /* ---- Initialization ------------------------------ */
 
@@ -46,17 +47,31 @@ import { getClient } from './sync.js';
     // Bypass if: auth callback in URL (OTP / OAuth redirect), or running on localhost (dev).
     const hasStoredSession = !!localStorage.getItem('lt_sb_auth');
     const hasAuthCallback  = /[?#](access_token|code|error)=/.test(window.location.search + window.location.hash);
-    const isLocalhost      = /^localhost(:\d+)?$/.test(window.location.hostname);
-    if (!hasStoredSession && !hasAuthCallback && !isLocalhost) {
+    const skipAuth         = !!localStorage.getItem('lt_skip_auth'); // TEMP: bypass login
+    if (!hasStoredSession && !hasAuthCallback && !skipAuth) {
       window.location.replace('landing.html');
       return;
     }
-    // If there is a stored session, confirm it's still valid (async, non-blocking for init).
+    // If there is a stored session, confirm it's still valid before continuing.
+    // This blocks startup briefly but prevents bypassing the auth gate by
+    // typing `app.html` directly when the session is invalid.
     if (hasStoredSession && !hasAuthCallback) {
-      getClient().then(sb => sb.auth.getSession().then(({ data: { session } }) => {
-        if (!session && !isLocalhost) window.location.replace('landing.html');
-      })).catch(() => {});
+      try {
+        const sb = await getClient();
+          const { data: { session } } = await sb.auth.getSession();
+          if (!session) {
+            window.location.replace('landing.html');
+            return;
+          }
+      } catch (err) {
+          // On error (network/other) treat as unauthenticated for security.
+          window.location.replace('landing.html');
+          return;
+      }
     }
+
+    // Set tier early so every page render sees the correct entitlements from the start
+    await loadEntitlements();
 
     // Ensure at least one user profile exists (auto-create on first launch)
     let users = UserManager.getUsers();
@@ -343,7 +358,7 @@ import { getClient } from './sync.js';
 
     if (!folderName) {
       // No folder configured — always show warning, never show auto-backup status
-      setWarn('Backup off', 'Set up folder', 'Backup not configured — click to set up');
+      setWarn('Local Backup off', 'Set up folder', 'Local backup not configured — click to set up');
       if (el) el.style.display = 'none';
       return;
     }

@@ -30,21 +30,21 @@
   <!-- Stylesheets -->
   <!-- main.css was split into the ordered files below. They MUST load in this order
        (and before dashboard.css / animations.css) so the cascade is unchanged. -->
-  <link rel="stylesheet" href="styles/tokens.css?v=2" />
+  <link rel="stylesheet" href="styles/tokens.css?v=4" />
   <link rel="stylesheet" href="styles/base.css?v=1" />
-  <link rel="stylesheet" href="styles/layout.css?v=1" />
+  <link rel="stylesheet" href="styles/layout.css?v=2" />
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
   <link rel="stylesheet" href="styles/report-preview.css?v=1" />
-  <link rel="stylesheet" href="styles/forms.css?v=1" />
+  <link rel="stylesheet" href="styles/forms.css?v=2" />
   <link rel="stylesheet" href="styles/modals.css?v=1" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
-  <link rel="stylesheet" href="styles/settings-backup.css?v=2" />
+  <link rel="stylesheet" href="styles/settings-backup.css?v=3" />
   <link rel="stylesheet" href="styles/calendar.css?v=1" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
   <link rel="stylesheet" href="styles/chrome.css?v=1" />
   <link rel="stylesheet" href="styles/responsive.css?v=1" />
-  <link rel="stylesheet" href="styles/profiles-users.css?v=1" />
+  <link rel="stylesheet" href="styles/profiles-users.css?v=2" />
   <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
   <link rel="stylesheet" href="styles/timer.css?v=1" />
   <link rel="stylesheet" href="styles/goals.css?v=1" />
@@ -72,7 +72,7 @@
   <!-- SIDEBAR -->
   <aside id="sidebar" class="sidebar" role="navigation" aria-label="Main navigation">
     <div class="sidebar-header">
-      <div class="logo" data-page="dashboard" role="button" tabindex="0" aria-label="Go to Dashboard" style="cursor:pointer;">
+      <div class="logo" id="logo-home-btn" role="button" tabindex="0" aria-label="Go to home" style="cursor:pointer;">
         <div class="logo-icon">🎯</div>
         <div class="logo-text">
           <span class="logo-title">LearnTrack</span>
@@ -96,6 +96,9 @@
           <button class="user-switch-btn" id="user-switch-btn" title="Switch Profile" aria-label="Switch Profile">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
           </button>
+        </div>
+        <div id="sidebar-cloud-welcome" style="display:none;font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">
+          <span id="sidebar-cloud-name"></span>
         </div>
         <div class="user-xp-bar">
           <div class="xp-bar-fill" id="sidebar-xp-bar" style="width:0%"></div>
@@ -160,6 +163,10 @@
       <button type="button" class="nav-item" data-page="backup">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
         <span class="nav-label">Backup</span>
+      </button>
+      <button type="button" class="nav-item nav-signout-btn" id="sidebar-signout-btn" style="display:none">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="nav-label">Sign Out</span>
       </button>
     </nav>
 
@@ -1241,6 +1248,46 @@
                   <span class="theme-preview theme-preview--solarized"></span>
                   <span class="theme-option-label">Solarized <span class="lock-badge" aria-hidden="true">🔒</span></span>
                 </button>
+                <button class="theme-option" data-theme="forest" aria-label="Forest theme">
+                  <span class="theme-preview theme-preview--forest"></span>
+                  <span class="theme-option-label">Forest <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="sunset" aria-label="Sunset theme">
+                  <span class="theme-preview theme-preview--sunset"></span>
+                  <span class="theme-option-label">Sunset <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="ocean" aria-label="Ocean theme">
+                  <span class="theme-preview theme-preview--ocean"></span>
+                  <span class="theme-option-label">Ocean <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="mocha" aria-label="Mocha theme">
+                  <span class="theme-preview theme-preview--mocha"></span>
+                  <span class="theme-option-label">Mocha <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="nord" aria-label="Nord theme">
+                  <span class="theme-preview theme-preview--nord"></span>
+                  <span class="theme-option-label">Nord <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="dracula" aria-label="Dracula theme">
+                  <span class="theme-preview theme-preview--dracula"></span>
+                  <span class="theme-option-label">Dracula <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="lavender" aria-label="Lavender theme">
+                  <span class="theme-preview theme-preview--lavender"></span>
+                  <span class="theme-option-label">Lavender <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="crimson" aria-label="Crimson theme">
+                  <span class="theme-preview theme-preview--crimson"></span>
+                  <span class="theme-option-label">Crimson <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="aura" aria-label="Aura theme">
+                  <span class="theme-preview theme-preview--aura"></span>
+                  <span class="theme-option-label">Aura <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
+                <button class="theme-option" data-theme="mint" aria-label="Mint theme">
+                  <span class="theme-preview theme-preview--mint"></span>
+                  <span class="theme-option-label">Mint <span class="lock-badge" aria-hidden="true">🔒</span></span>
+                </button>
               </div>
             </div>
 
@@ -1349,57 +1396,11 @@
           <div class="backup-card-icon">☁️</div>
           <div class="backup-card-content">
             <h2>Cloud Sync</h2>
-            <p>Sign in to back up this profile to the cloud and sync it across your devices. Your data stays on this device too — the cloud is a safety net.</p>
+            <p>Your data is backed up to the cloud and synced across your devices automatically.</p>
 
             <!-- Not configured for this build -->
             <div id="cloud-disabled" class="backup-configure-prompt hidden">
               <span class="configure-warning-text">⚠️ Cloud sync isn’t set up for this build yet.</span>
-            </div>
-
-            <!-- Signed out: two-step OTP + Google (step toggled by JS) -->
-            <div id="cloud-signin-form" class="cloud-auth-form hidden" style="max-width:380px">
-
-              <!-- Step 1: enter email -->
-              <div id="cloud-otp-step1">
-                <div class="form-group" style="margin-bottom:var(--s-3)">
-                  <label for="cloud-email">Email address</label>
-                  <input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email" />
-                </div>
-                <div class="backup-actions" style="margin-bottom:var(--s-3)">
-                  <button type="button" class="btn btn-primary" id="cloud-send-otp-btn">Send Code</button>
-                </div>
-                <div style="display:flex;align-items:center;gap:var(--s-3);margin-bottom:var(--s-3)">
-                  <hr style="flex:1;border:none;border-top:1px solid var(--border-2)" />
-                  <span style="font-size:12px;color:var(--text-3)">or</span>
-                  <hr style="flex:1;border:none;border-top:1px solid var(--border-2)" />
-                </div>
-                <button type="button" class="btn btn-secondary" id="cloud-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:var(--s-2)">
-                  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-                  Continue with Google
-                </button>
-              </div>
-
-              <!-- Step 2: enter OTP code -->
-              <div id="cloud-otp-step2" class="hidden">
-                <p style="margin:0 0 var(--s-3);font-size:var(--text-sm);color:var(--text-2)">
-                  We sent a code to <strong id="cloud-otp-email-display"></strong>. Enter it below:
-                </p>
-                <div class="form-group" style="margin-bottom:var(--s-3)">
-                  <label for="cloud-otp-code">Verification code</label>
-                  <input type="text" id="cloud-otp-code" placeholder="12345678" maxlength="8"
-                         inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
-                </div>
-                <div class="backup-actions" style="margin-bottom:var(--s-2)">
-                  <button type="button" class="btn btn-primary" id="cloud-verify-otp-btn">Verify &amp; Sign In</button>
-                  <button type="button" class="btn btn-ghost" id="cloud-otp-back-btn">Back</button>
-                </div>
-                <p style="font-size:12px;color:var(--text-3);margin:0">
-                  Didn't receive it?
-                  <button type="button" id="cloud-resend-otp-btn" class="btn btn-ghost" style="padding:0 4px;font-size:12px;height:auto;min-height:0;color:var(--accent-text)">Resend code</button>
-                </p>
-              </div>
-
-              <div class="import-status" id="cloud-auth-status" style="display:none;margin-top:var(--s-3)"></div>
             </div>
 
             <!-- Signed in -->
@@ -1418,7 +1419,6 @@
               <div class="backup-actions">
                 <button class="btn btn-primary" id="cloud-sync-now-btn">Sync Now</button>
                 <button class="btn btn-secondary" id="cloud-restore-btn">Restore from Cloud</button>
-                <button class="btn btn-ghost" id="cloud-signout-btn">Sign Out</button>
               </div>
             </div>
           </div>
@@ -1738,8 +1738,7 @@
     <div class="modal-body">
       <div class="backup-info" style="margin-bottom:var(--s-3)">
         <div class="backup-info-row"><span>Account:</span><strong id="sync-confirm-account">—</strong></div>
-        <div class="backup-info-row" id="sync-confirm-cloud-user-row"><span>Cloud username:</span><strong id="sync-confirm-cloud-user">—</strong></div>
-        <div class="backup-info-row"><span>Local username:</span><strong id="sync-confirm-local-user">—</strong></div>
+<div class="backup-info-row"><span>Profile:</span><strong id="sync-confirm-local-user">—</strong></div>
         <div class="backup-info-row"><span>Cloud backup:</span><strong id="sync-confirm-cloud-date">—</strong></div>
       </div>
       <p style="font-size:var(--text-sm);color:var(--text-muted)">Your local data will be merged with the cloud backup. In case of conflicts, the most recently edited version wins.</p>
@@ -2279,7 +2278,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=11"></script>
+<script type="module" src="scripts/main.js?v=12"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

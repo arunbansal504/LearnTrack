@@ -454,3 +454,20 @@
   color: var(--warning-text);
 }
 
+/* ---- Default profile indicator -------------------- */
+.profile-default-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.12);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  border: 1px solid rgba(245,158,11,0.3);
+  display: inline-block;
+}
+
+.user-action-btn--star { color: var(--text-3); }
+.user-action-btn--star:hover { color: #f59e0b; background: rgba(245,158,11,0.1); }
+.user-action-btn--star.is-default { color: #f59e0b; cursor: default; }
+.user-action-btn--star.is-default:hover { background: none; }
+
