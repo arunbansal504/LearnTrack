@@ -23,25 +23,8 @@ const FREE_KEYS = new Set([
 ]);
 
 export async function loadEntitlements() {
-  // TEMP: bypass login grants full access to features, but still reads the
-  // real profile_limit from the DB when a session exists (so manual DB changes
-  // are always reflected). Falls back to 12 only when there is no session.
-  if (localStorage.getItem('lt_skip_auth')) {
-    state.tier         = 'family';
-    state.entitlements = null;
-    const bypassSession = state.syncSession;
-    if (!bypassSession) { state.profileLimit = 12; return; }
-    try {
-      const sb = await getClient();
-      const { data } = await sb.from('subscriptions').select('profile_limit').eq('account_id', bypassSession.user.id).maybeSingle();
-      state.profileLimit = data?.profile_limit ?? 12;
-    } catch { state.profileLimit = 12; }
-    return;
-  }
-
-  // Use the cached session when available. If it hasn't been populated yet
-  // (e.g. loadEntitlements runs before initSync sets state.syncSession),
-  // ask the Supabase client directly so we always load the real subscription.
+  // Resolve the real session first — a signed-in user must never be routed
+  // through the bypass path even if lt_skip_auth is still in localStorage.
   let session = state.syncSession;
   if (!session) {
     try {
@@ -49,7 +32,17 @@ export async function loadEntitlements() {
       const { data } = await sb.auth.getSession();
       session = data?.session ?? null;
       if (session) state.syncSession = session;
-    } catch { /* offline or client not ready — fall through to signed-out path */ }
+    } catch { /* offline or client not ready — fall through */ }
+  }
+
+  // TEMP: bypass login grants full access only when there is genuinely no
+  // session (dev / offline use). A real signed-in session always takes
+  // priority so the bypass can never inflate the tier for a logged-in user.
+  if (!session && localStorage.getItem('lt_skip_auth')) {
+    state.tier         = 'family';
+    state.entitlements = null;
+    state.profileLimit = 12;
+    return;
   }
 
   if (!session) {
