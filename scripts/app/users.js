@@ -412,12 +412,26 @@ export const UserManager = (() => {
             const accountId = state.syncSession.user.id;
             const cloudPid  = getCloudProfileId(uid, accountId);
             if (cloudPid) {
+              const pushRename = async () => {
+                const pending = localStorage.getItem(`lt_pending_rename_${cloudPid}`);
+                if (!pending) return;
+                try {
+                  const { getClient } = await import('./sync.js');
+                  const sb = await getClient();
+                  await sb.from('profiles').update({ name: pending }).eq('id', cloudPid);
+                  localStorage.removeItem(`lt_pending_rename_${cloudPid}`);
+                } catch { /* leave for next reconnect or hydration */ }
+              };
               import('./sync.js').then(async ({ getClient }) => {
                 try {
                   const sb = await getClient();
                   await sb.from('profiles').update({ name: newName }).eq('id', cloudPid);
+                  localStorage.removeItem(`lt_pending_rename_${cloudPid}`);
                 } catch (err) {
                   console.warn('[Users] Cloud profile rename failed:', err);
+                  localStorage.setItem(`lt_pending_rename_${cloudPid}`, newName);
+                  // Push as soon as connectivity returns (same session, no re-hydration needed).
+                  window.addEventListener('online', pushRename, { once: true });
                 }
               }).catch(() => {});
             }

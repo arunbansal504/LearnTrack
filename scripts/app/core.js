@@ -93,7 +93,11 @@ import { loadEntitlements, canUse } from './entitlements.js';
     // Fresh sign-in (landing → app, or OAuth return): eagerly pull every cloud
     // profile's full data into IndexedDB and open the default profile, before
     // the app shell renders. hydrate owns the lt_just_logged_in flag lifecycle.
-    const justLoggedIn = localStorage.getItem('lt_just_logged_in') === '1' || hasAuthCallback;
+    // Session present but no account owner = incomplete offline sign-out; re-hydrate.
+    const sessionExistsButOwnerCleared = hasStoredSession && !localStorage.getItem('lt_account_owner');
+    const justLoggedIn = localStorage.getItem('lt_just_logged_in') === '1'
+      || hasAuthCallback
+      || sessionExistsButOwnerCleared;
     if (justLoggedIn) {
       try {
         const sb = await getClient();

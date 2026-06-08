@@ -206,6 +206,22 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
       }
     } catch { /* non-fatal */ }
 
+    // Apply a rename that was saved offline (cloud update failed, then sign-out
+    // wiped lt_users before connectivity returned). The key survives clearLocalAccountData
+    // because it is keyed by cloud UUID, not local profile id.
+    const pendingRename = localStorage.getItem(`lt_pending_rename_${cp.id}`);
+    if (pendingRename && pendingRename !== cp.name) {
+      const _users = UserManager.getUsers();
+      const _idx   = _users.findIndex(u => u.id === localId);
+      if (_idx >= 0) { _users[_idx].name = pendingRename; UserManager.saveUsers(_users); }
+      try {
+        const { getClient: _gc } = await import('./sync.js');
+        const _sb = await _gc();
+        await _sb.from('profiles').update({ name: pendingRename }).eq('id', cp.id);
+        localStorage.removeItem(`lt_pending_rename_${cp.id}`);
+      } catch { /* leave key; will retry on next hydration */ }
+    }
+
     if (cp.is_default) {
       defaultLocalId = localId;
       localStorage.setItem(`lt_default_profile_${accountId}`, cp.id);
