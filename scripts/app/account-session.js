@@ -129,10 +129,12 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
   // clearLocalAccountData restores them when the user signs out.
   // This runs BEFORE the empty-cloud check so that even a brand-new account
   // doesn't accidentally inherit locally-created profiles.
+  let stashedOrphans = false;
   {
     const allLocalUsers = UserManager.getUsers();
     const orphanUsers   = allLocalUsers.filter(u => !Repo.getCloudProfileId(u.id, accountId));
     if (orphanUsers.length) {
+      stashedOrphans = true;
       localStorage.setItem('lt_offline_profiles', JSON.stringify(orphanUsers));
       UserManager.saveUsers(allLocalUsers.filter(u => Repo.getCloudProfileId(u.id, accountId)));
       // If the active profile was just stashed, clear the pointer so core.init
@@ -162,7 +164,11 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
     // Reuse an already-mapped local profile, else create one.
     let localId = findLocalIdForCloud(cp.id, accountId);
     if (!localId) {
-      const u = UserManager.createUser(cp.name);
+      // Mirror core.init: when offline/guest profiles were stashed above, 'default'
+      // (→ LearnTrackDB) is still owned by a stashed profile's data. Force a fresh
+      // timestamp id so this cloud profile opens an empty LearnTrackDB_u<ts> instead
+      // of inheriting the stashed orphan's database.
+      const u = UserManager.createUser(cp.name, { noDefault: stashedOrphans });
       if (cp.color) {
         const users = UserManager.getUsers();
         const idx   = users.findIndex(x => x.id === u.id);

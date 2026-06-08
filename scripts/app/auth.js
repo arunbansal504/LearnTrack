@@ -53,8 +53,25 @@ export async function verifyEmailOtp(email, token) {
 
   if (session) {
     state.syncSession = session;
-    setBoundAccount(session.user.id);
-    console.log('[Auth] OTP verified, session set for user', session.user.id);
+    const accountId = session.user.id;
+
+    // Determine if this account has been set up on this device before.
+    // If not (first-ever sign-in, or signing into a different account), trigger
+    // the full hydration flow via a page reload — the same path the landing page
+    // uses. This ensures orphan local profiles get stashed and a fresh cloud
+    // profile is created, rather than silently binding the active offline profile
+    // to the cloud account and merging its data into the signed-in user.
+    const isKnownAccount =
+      localStorage.getItem('lt_account_owner') === accountId ||
+      UserManager.getUsers().some(u => localStorage.getItem(`lt_sync_account_${u.id}`) === accountId);
+
+    if (!isKnownAccount) {
+      localStorage.setItem('lt_just_logged_in', '1');
+      window.location.reload();
+      return { ...data, session };
+    }
+
+    setBoundAccount(accountId);
     setSyncStatus('synced');
     document.dispatchEvent(new CustomEvent('lt-sync-changed'));
   }

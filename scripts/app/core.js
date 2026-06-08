@@ -116,7 +116,11 @@ import { loadEntitlements, canUse } from './entitlements.js';
     // Ensure at least one user profile exists (auto-create on first launch)
     let users = UserManager.getUsers();
     if (users.length === 0) {
-      const first = UserManager.createUser('Me');
+      // If offline profiles were stashed during sign-in hydration, 'default' is already
+      // claimed by the stashed profile's database. Force a timestamp ID so this new
+      // cloud profile opens a fresh LearnTrackDB_u<ts> instead of inheriting old data.
+      const hasStashedOrphans = !!localStorage.getItem('lt_offline_profiles');
+      const first = UserManager.createUser('Me', { noDefault: hasStashedOrphans });
       UserManager.setActiveId(first.id);
       users = [first];
       // Push to cloud immediately if the user is already signed in.

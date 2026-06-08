@@ -55,10 +55,12 @@ export const UserManager = (() => {
     const id = getActiveId();
     return id ? (getUsers().find(u => u.id === id) || null) : null;
   }
-  function createUser(name) {
+  function createUser(name, { noDefault = false } = {}) {
     const users = getUsers();
-    // First user ever gets id 'default' → maps to the original LearnTrackDB (backwards compat)
-    const id    = users.length === 0 ? 'default' : `u${Date.now()}`;
+    // First user ever gets id 'default' → maps to the original LearnTrackDB (backwards compat).
+    // noDefault is set on first sign-in when offline profiles were stashed: 'default' is already
+    // claimed by the stashed profile's database so the new cloud profile must use a fresh DB.
+    const id    = (users.length === 0 && !noDefault) ? 'default' : `u${Date.now()}`;
     const color = COLORS[users.length % COLORS.length];
     const user  = { id, name: name.trim() || 'Learner', color, createdAt: Date.now() };
     users.push(user);
