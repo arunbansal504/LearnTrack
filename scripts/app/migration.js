@@ -22,7 +22,7 @@
    Ambient global: Storage (loaded as a classic script before main.js).
    ================================================================ */
 
-import { state } from './state.js';
+import { state, DEFAULT_PREFS } from './state.js';
 import { UserManager, createCloudProfileRow } from './users.js';
 import { getClient } from './sync.js';
 import {
@@ -33,6 +33,7 @@ import {
   goalToCloudRow,
   goalMilestonesToCloud,
   achievementToCloudRow,
+  categoriesToCloudRows,
 } from './cloud-repo.js';
 
 const CHUNK_SIZE = 100;
@@ -98,10 +99,17 @@ export async function migrate() {
     achievements.map(a => achievementToCloudRow(a, cloudProfileId, accountId)),
     'profile_id,achievement_id');
 
-  // 8. Stamp sync watermark so the first pull skips what we just pushed
+  // 8. Categories — delete-then-insert (no stable local UUID)
+  const cats   = state.prefs.categories     || DEFAULT_PREFS.categories;
+  const colors = state.prefs.categoryColors || {};
+  const catRows = categoriesToCloudRows(cats, colors, cloudProfileId, accountId);
+  await sb.from('categories').delete().eq('profile_id', cloudProfileId);
+  if (catRows.length) await _insertChunked(sb, 'categories', catRows);
+
+  // 9. Stamp sync watermark so the first pull skips what we just pushed
   setSyncWatermark(localProfileId, accountId, new Date().toISOString());
 
-  // 9. Mark fully migrated
+  // 10. Mark fully migrated
   localStorage.setItem(migrationKey(localProfileId, accountId), '1');
 }
 

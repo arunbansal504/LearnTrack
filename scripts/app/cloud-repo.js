@@ -163,6 +163,28 @@ export function cloudToAchievement(row) {
   };
 }
 
+/* ==== Category mappers ========================================== */
+
+// Produce the rows that go into the `categories` Supabase table.
+export function categoriesToCloudRows(names, colors, profileId, accountId) {
+  return (names || []).map((name, i) => ({
+    profile_id: profileId,
+    account_id: accountId,
+    name,
+    color:      (colors && colors[name]) || null,
+    sort_order: i,
+  }));
+}
+
+// Convert `categories` rows back to { names: string[], colors: { [name]: hex } }.
+export function cloudToCategories(rows) {
+  const sorted = [...(rows || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  return {
+    names:  sorted.map(r => r.name),
+    colors: Object.fromEntries(sorted.filter(r => r.color).map(r => [r.name, r.color])),
+  };
+}
+
 /* ==== Pref mappers ============================================== */
 
 // Produce the row that goes into the `profile_prefs` Supabase table.

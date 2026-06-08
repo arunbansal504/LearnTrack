@@ -631,7 +631,7 @@ import { capitalise, safeHref, showToast } from './utils.js';
 
     // Ensure every category in this report has a stable, unique color before rendering.
     if (ensureCategoryColors(catSorted.map(([cat]) => cat))) {
-      Storage.setPref('categoryColors', state.prefs.categoryColors);
+      Storage.saveCategories(state.prefs.categories || [], state.prefs.categoryColors);
     }
 
     // Category rows

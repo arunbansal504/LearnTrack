@@ -152,6 +152,20 @@ export async function drainOutbox({ manual = false } = {}) {
           const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
           if (error) throw error;
         }
+
+      } else if (op.kind === 'categories') {
+        if (op.op === 'replace-all') {
+          // payload is either { names, colors } (new) or string[] (legacy outbox op)
+          const names  = Array.isArray(op.payload) ? op.payload : (op.payload.names  || []);
+          const colors = Array.isArray(op.payload) ? {}         : (op.payload.colors || {});
+          const { error: delErr } = await sb.from('categories').delete().eq('profile_id', pid);
+          if (delErr) throw delErr;
+          const rows = Repo.categoriesToCloudRows(names, colors, pid, aid);
+          if (rows.length) {
+            const { error: insErr } = await sb.from('categories').insert(rows);
+            if (insErr) throw insErr;
+          }
+        }
       }
 
       // Success — remove from outbox
@@ -255,6 +269,21 @@ export async function pullDeltas({ manual = false, force = false, silent = false
       await Storage.put(Storage.STORES.preferences, { key: row.key, value: row.value });
       changed = true;
     }
+  }
+
+  // --- Categories (no updated_at column — always fetch all for profile) -----
+  const { data: catRows, error: catErr } = await sb
+    .from('categories')
+    .select('name, sort_order')
+    .eq('profile_id', pid)
+    .order('sort_order');
+
+  if (catErr) { console.warn('[SyncEngine] pullDeltas categories error:', catErr.message); }
+  else if (catRows?.length) {
+    const { names, colors } = Repo.cloudToCategories(catRows);
+    await Storage.put(Storage.STORES.preferences, { key: 'categories',     value: names  });
+    await Storage.put(Storage.STORES.preferences, { key: 'categoryColors', value: colors });
+    changed = true;
   }
 
   // --- Achievements --------------------------------------------

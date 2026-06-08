@@ -28,7 +28,8 @@ const Storage = (() => {
   let _mutationHook = null; // set by sync-engine so it can react to local writes
 
   // Prefs that are purely device-local and must never be pushed to the cloud.
-  const PREF_NO_SYNC = new Set(['lastBackupDate']);
+  // categoryColors is synced via the `categories` table (color column), not profile_prefs.
+  const PREF_NO_SYNC = new Set(['lastBackupDate', 'categoryColors']);
 
   /* ---- Outbox: enqueue a pending cloud-sync op ------ */
   // Each op: { op, kind, recordId, payload, queuedAt }
@@ -239,9 +240,19 @@ const Storage = (() => {
 
   async function setPref(key, value) {
     await put(STORES.preferences, { key, value });
-    if (!PREF_NO_SYNC.has(key)) {
+    if (key === 'categories') {
+      enqueueOutboxOp({ op: 'replace-all', kind: 'categories', recordId: 'categories', payload: value });
+    } else if (!PREF_NO_SYNC.has(key)) {
       enqueueOutboxOp({ op: 'upsert', kind: 'pref', recordId: key, payload: { key, value, updatedAt: Date.now() } });
     }
+  }
+
+  // Saves category names + color map together, syncing both to the `categories`
+  // cloud table in one op (avoids two separate outbox entries racing each other).
+  async function saveCategories(names, colors) {
+    await put(STORES.preferences, { key: 'categories', value: names });
+    await put(STORES.preferences, { key: 'categoryColors', value: colors || {} });
+    enqueueOutboxOp({ op: 'replace-all', kind: 'categories', recordId: 'categories', payload: { names, colors: colors || {} } });
   }
 
   async function getAllPrefs() {
@@ -705,6 +716,7 @@ const Storage = (() => {
     // Preferences
     getPref,
     setPref,
+    saveCategories,
     getAllPrefs,
     // Backup log
     addBackupLog,

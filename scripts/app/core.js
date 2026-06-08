@@ -171,7 +171,7 @@ import { loadEntitlements, canUse } from './entitlements.js';
       }
       // Backfill a stable, unique color for every existing category (Report screen).
       if (ensureCategoryColors(state.prefs.categories || [])) {
-        await Storage.setPref('categoryColors', state.prefs.categoryColors);
+        await Storage.saveCategories(state.prefs.categories || [], state.prefs.categoryColors);
       }
       // Migration: time-goal progress moved from name+category matching to explicit
       // entry↔goal links. Auto-link the entries that previously matched so existing

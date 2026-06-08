@@ -638,7 +638,7 @@ import * as Auth from './auth.js';
         const moved = arr.splice(dragIdx, 1)[0];
         arr.splice(i, 0, moved);
         state.prefs.categories = arr;
-        await Storage.setPref('categories', arr);
+        await Storage.saveCategories(arr, state.prefs.categoryColors || {});
         renderCategories();
         populateCategorySelects();
       });
@@ -732,7 +732,7 @@ import * as Auth from './auth.js';
           const moved = arr.splice(fromIdx, 1)[0];
           arr.splice(targetIdx, 0, moved);
           state.prefs.categories = arr;
-          await Storage.setPref('categories', arr);
+          await Storage.saveCategories(arr, state.prefs.categoryColors || {});
           renderCategories();
           populateCategorySelects();
         }
@@ -782,7 +782,7 @@ import * as Auth from './auth.js';
   // a color for any category that doesn't have one yet.
   export function getCategoryColor(cat) {
     if (!(state.prefs.categoryColors && state.prefs.categoryColors[cat])) {
-      if (ensureCategoryColors([cat])) Storage.setPref('categoryColors', state.prefs.categoryColors);
+      if (ensureCategoryColors([cat])) Storage.saveCategories(state.prefs.categories || [], state.prefs.categoryColors);
     }
     return state.prefs.categoryColors[cat];
   }
@@ -796,8 +796,7 @@ import * as Auth from './auth.js';
     cats.push(val);
     state.prefs.categories = cats;
     ensureCategoryColors(cats);                          // assign a unique color to the new category
-    await Storage.setPref('categories', cats);
-    await Storage.setPref('categoryColors', state.prefs.categoryColors);
+    await Storage.saveCategories(cats, state.prefs.categoryColors);
     if (input) input.value = '';
     renderCategories();
     populateCategorySelects();
@@ -806,7 +805,7 @@ import * as Auth from './auth.js';
   export async function deleteCategory(cat) {
     const cats = (state.prefs.categories || []).filter(c => c !== cat);
     state.prefs.categories = cats;
-    await Storage.setPref('categories', cats);
+    await Storage.saveCategories(cats, state.prefs.categoryColors || {});
     renderCategories();
     populateCategorySelects();
   }
