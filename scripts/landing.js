@@ -79,7 +79,7 @@ function friendlyError(err) {
     return 'That code is incorrect or has expired.';
   if (m.includes('rate limit') || m.includes('too many'))
     return 'Too many attempts — please wait a minute.';
-  if (m.includes('fetch') || m.includes('network'))
+  if (m.includes('failed to fetch') || m.includes('network'))
     return 'Network error — check your connection.';
   return err?.message || 'Something went wrong. Please try again.';
 }

@@ -264,7 +264,16 @@ export async function pullDeltas({ manual = false, force = false, silent = false
 
   if (pErr) { console.warn('[SyncEngine] pullDeltas prefs error:', pErr.message); }
   else if (prefRows?.length) {
+    // LWW for prefs: if a local change is pending in the outbox for a key, the local
+    // value is newer than what was last pushed — skip the cloud overwrite so the user's
+    // in-progress change (e.g. a theme/accent they just picked) isn't clobbered by a
+    // background TOKEN_REFRESHED pull before the outbox has had a chance to drain.
+    const outboxOps       = await Storage.getAllOutboxOps();
+    const pendingPrefKeys = new Set(
+      outboxOps.filter(op => op.kind === 'pref' && op.op === 'upsert').map(op => op.recordId)
+    );
     for (const row of prefRows) {
+      if (pendingPrefKeys.has(row.key)) continue; // local pending change wins
       // Use low-level put to avoid re-enqueuing an outbox op for each pulled pref.
       await Storage.put(Storage.STORES.preferences, { key: row.key, value: row.value });
       changed = true;

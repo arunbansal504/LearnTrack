@@ -1223,6 +1223,27 @@ import * as Auth from './auth.js';
       state.prefs.cloudAutoBackup = false;
       if (autoChk) autoChk.checked = false;
       try { await Storage.setPref('cloudAutoBackup', false); } catch {}
+
+      // Push directly to profile_prefs BEFORE stopping the engine.
+      // The outbox drain requires cloudAutoBackup===true to run, and stopEngine() cancels
+      // the drain timer immediately after — so the outbox op would never be flushed.
+      // Without this push, sign-out deletes the local DB and re-login force-pulls
+      // cloudAutoBackup:true from cloud, making the checkbox re-appear as checked.
+      if (Sync.isSignedIn() && state.syncSession) {
+        try {
+          const sb  = await Sync.getClient();
+          const aid = state.syncSession.user.id;
+          const lid = UserManager.getActive()?.id || 'default';
+          const pid = getCloudProfileId(lid, aid);
+          if (pid) {
+            await sb.from('profile_prefs').upsert(
+              { profile_id: pid, account_id: aid, key: 'cloudAutoBackup', value: false, updated_at: new Date().toISOString() },
+              { onConflict: 'profile_id,key' }
+            );
+          }
+        } catch { /* non-critical */ }
+      }
+
       import('./sync-engine.js').then(mod => { mod.stopEngine?.(); }).catch(() => {});
       showToast('Cloud backup disabled.', 'info');
     }
@@ -1269,10 +1290,11 @@ import * as Auth from './auth.js';
     await Storage.setPref('themeAccentOverrides', overrides);
   }
 
-  /* Patch the cloud profiles row when theme/accent changes.
-     Fires and forgets — non-critical; only runs when cloud backup is on. */
+  /* Patch the cloud profiles row and profile_prefs when theme/accent changes.
+     Fires and forgets — non-critical; runs whenever signed in (not gated on cloudAutoBackup
+     so appearance prefs survive re-login even without Auto Cloud Backup enabled). */
   async function _patchCloudAppearance() {
-    if (!state.prefs.cloudAutoBackup || !Sync.isSignedIn()) return;
+    if (!Sync.isSignedIn()) return;
     const session = state.syncSession;
     if (!session) return;
     const accountId      = session.user.id;
@@ -1281,12 +1303,27 @@ import * as Auth from './auth.js';
     const cloudProfileId = getCloudProfileId(localProfileId, accountId);
     if (!cloudProfileId) return;
     try {
-      const sb = await Sync.getClient();
+      const sb             = await Sync.getClient();
+      const theme          = state.prefs.theme          || 'dark';
+      const accent         = state.prefs.accent         || 'purple';
+      const customAccentHex = state.prefs.customAccentHex || null;
+      const now            = new Date().toISOString();
+
+      // Update display columns on the profiles row
       await sb.from('profiles').update({
-        theme:             state.prefs.theme             || 'dark',
-        accent:            state.prefs.accent            || 'purple',
-        custom_accent_hex: state.prefs.customAccentHex   || null,
+        theme,
+        accent,
+        custom_accent_hex: customAccentHex,
       }).eq('id', cloudProfileId).eq('account_id', accountId);
+
+      // Push directly to profile_prefs so appearance prefs survive forced re-login pulls.
+      // This is a direct push (bypasses the outbox) so it works regardless of whether
+      // Auto Cloud Backup is enabled — appearance settings should always follow the user.
+      await sb.from('profile_prefs').upsert([
+        { profile_id: cloudProfileId, account_id: accountId, key: 'theme',            value: theme,            updated_at: now },
+        { profile_id: cloudProfileId, account_id: accountId, key: 'accent',           value: accent,           updated_at: now },
+        { profile_id: cloudProfileId, account_id: accountId, key: 'customAccentHex',  value: customAccentHex,  updated_at: now },
+      ], { onConflict: 'profile_id,key' });
     } catch { /* non-critical */ }
   }
 
