@@ -251,14 +251,51 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
    LOGOUT — clear this account's data, keep local backup (req 3)
    ================================================================ */
 
-// Wipes every local profile's IndexedDB + per-profile metadata for this
-// account. Preserves the local backup folder handle (LearnTrackHandles DB),
-// `lt_backupFolderName`, `lt_backup_skipped`, `lt_device_id`, `lt_landing_theme`
-// so the user's local JSON backups stay intact and usable.
+// Wipes the IndexedDB + per-profile metadata for ONLY the profiles linked to
+// `accountId` (or the recorded account owner when called with a null id, e.g.
+// an expired-session sign-out). Orphan profiles and profiles belonging to any
+// other account are left completely untouched — this is highly critical to
+// avoid data loss. Preserves the local backup folder handle (LearnTrackHandles
+// DB), `lt_backupFolderName`, `lt_backup_skipped`, `lt_device_id`,
+// `lt_landing_theme` so the user's local JSON backups stay intact and usable.
 export async function clearLocalAccountData(accountId) {
-  const users = UserManager.getUsers();
+  // Resolve the account being torn down. Falling back to the recorded owner
+  // keeps the null-id sign-out path (session expired) scoped instead of wiping
+  // everything in lt_users.
+  const owner = accountId || getAccountOwner();
 
-  for (const u of users) {
+  // Test accounts: never delete browser data. Their profiles stay in lt_users
+  // so hydrateAllProfilesFromCloud's orphan-stash logic can hide them while a
+  // real account is active and restore them on real-account sign-out. Only
+  // reset in-memory state and the session ownership marker.
+  if (owner && owner.startsWith('test:')) {
+    localStorage.removeItem(ACCOUNT_OWNER_KEY);
+    state.entries   = [];
+    state.goals     = [];
+    state.earnedAch = [];
+    state.prefs     = { ...DEFAULT_PREFS };
+    state.syncSession = null;
+    state.badgeQueue.length = 0;
+    state.badgeShowing      = false;
+    clearTimeout(state.autoBackupTimer);
+    clearTimeout(state.cloudPushTimer);
+    try { Storage.close(); } catch { /* ignore */ }
+    return;
+  }
+
+  // A profile is linked to `owner` if it has a cloud mapping for that account,
+  // or it was bound to that account (lt_sync_account_<id>). Either signal alone
+  // is sufficient — both are written for every account-owned profile.
+  const isLinked = (u) => !!owner && (
+    !!Repo.getCloudProfileId(u.id, owner) ||
+    localStorage.getItem(`lt_sync_account_${u.id}`) === owner
+  );
+
+  const users  = UserManager.getUsers();
+  const mine   = users.filter(isLinked);    // delete these
+  const others = users.filter(u => !isLinked(u)); // preserve these (orphans / other accounts)
+
+  for (const u of mine) {
     const dbName = u.id === 'default' ? 'LearnTrackDB' : `LearnTrackDB_${u.id}`;
     try { indexedDB.deleteDatabase(dbName); } catch { /* ignore */ }
 
@@ -271,30 +308,41 @@ export async function clearLocalAccountData(accountId) {
     // the next session starts fresh and stale values don't affect comparisons.
     localStorage.removeItem(`lt_boot_pref_snap_${u.id}`);
 
-    if (accountId) {
-      const cloudPid = Repo.getCloudProfileId(u.id, accountId);
+    if (owner) {
+      const cloudPid = Repo.getCloudProfileId(u.id, owner);
       if (cloudPid) localStorage.removeItem(`lt_cloud_pref_snap_${cloudPid}`);
-      localStorage.removeItem(`lt_cloud_pid_${u.id}_${accountId}`);
-      localStorage.removeItem(`lt_sync_wm_${u.id}_${accountId}`);
-      localStorage.removeItem(`lt_migrated_${u.id}_${accountId}`);
+      localStorage.removeItem(`lt_cloud_pid_${u.id}_${owner}`);
+      localStorage.removeItem(`lt_sync_wm_${u.id}_${owner}`);
+      localStorage.removeItem(`lt_migrated_${u.id}_${owner}`);
     }
   }
 
-  localStorage.removeItem('lt_users');
-  localStorage.removeItem('lt_active_user');
-  localStorage.removeItem(ACCOUNT_OWNER_KEY);
-  if (accountId) localStorage.removeItem(`lt_default_profile_${accountId}`);
-
-  // Restore profiles that were created while not signed in (stashed at login).
-  // Their IndexedDB data was never touched, so they resume intact.
+  // Rebuild lt_users from the preserved profiles merged with any stash from
+  // login (orphans hidden while signed in). Merge (dedupe by id) covers both
+  // the happy path (orphans stashed, absent from lt_users) and the failed-stash
+  // paths (orphans never stashed, already present in `others`).
+  const byId = new Map(others.map(u => [u.id, u]));
   const stashedJson = localStorage.getItem('lt_offline_profiles');
   if (stashedJson) {
     try {
       const stashed = JSON.parse(stashedJson);
-      if (Array.isArray(stashed) && stashed.length) UserManager.saveUsers(stashed);
+      if (Array.isArray(stashed)) {
+        for (const u of stashed) { if (u && u.id && !byId.has(u.id)) byId.set(u.id, u); }
+      }
     } catch { /* ignore */ }
     localStorage.removeItem('lt_offline_profiles');
   }
+  UserManager.saveUsers([...byId.values()]);
+
+  // Only drop the active pointer if it referenced a profile we just deleted;
+  // a pointer to a preserved profile stays valid.
+  const activeId = UserManager.getActiveId();
+  if (activeId && mine.some(u => u.id === activeId)) {
+    localStorage.removeItem('lt_active_user');
+  }
+
+  localStorage.removeItem(ACCOUNT_OWNER_KEY);
+  if (owner) localStorage.removeItem(`lt_default_profile_${owner}`);
 
   // Reset in-memory state so nothing leaks into the next session.
   state.entries   = [];
