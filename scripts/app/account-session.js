@@ -267,7 +267,13 @@ export async function clearLocalAccountData(accountId) {
     ['sync_account', 'sync_rev', 'sync_at', 'last_auto_backup', 'ustats', 'goal_link_migrated']
       .forEach(s => localStorage.removeItem(`lt_${s}_${u.id}`));
 
+    // Pref snapshots used by the sign-out dirty check — clear on sign-out so
+    // the next session starts fresh and stale values don't affect comparisons.
+    localStorage.removeItem(`lt_boot_pref_snap_${u.id}`);
+
     if (accountId) {
+      const cloudPid = Repo.getCloudProfileId(u.id, accountId);
+      if (cloudPid) localStorage.removeItem(`lt_cloud_pref_snap_${cloudPid}`);
       localStorage.removeItem(`lt_cloud_pid_${u.id}_${accountId}`);
       localStorage.removeItem(`lt_sync_wm_${u.id}_${accountId}`);
       localStorage.removeItem(`lt_migrated_${u.id}_${accountId}`);
