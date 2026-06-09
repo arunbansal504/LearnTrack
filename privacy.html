@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LearnTrack Privacy Policy — what we store, where, and for how long." />
+  <meta name="theme-color" content="#6c63ff" />
+  <title>Privacy Policy — LearnTrack</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles/tokens.css?v=1" />
+  <link rel="stylesheet" href="styles/landing.css?v=8" />
+
+  <!-- Apply the visitor's saved landing theme before paint (no external JS needed). -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('lt_landing_theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* default dark */ }
+    })();
+  </script>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="l-nav" aria-label="Main navigation">
+  <div class="l-container l-nav-inner">
+    <a href="landing.html" class="l-nav-logo" aria-label="LearnTrack home">
+      <span class="l-nav-logo-icon">🎯</span>
+      LearnTrack
+    </a>
+    <div class="l-nav-actions">
+      <button id="legal-theme-toggle" class="l-btn l-btn-ghost" aria-label="Toggle theme">🌙</button>
+      <a href="landing.html" class="l-btn l-btn-secondary">Back to home</a>
+    </div>
+  </div>
+</nav>
+
+<main class="l-legal">
+  <div class="l-legal-eyebrow">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="l-legal-updated">Last updated: <span class="l-legal-ph">[EFFECTIVE DATE]</span></p>
+
+  <div class="l-legal-banner" role="note">
+    <span aria-hidden="true">⚠️</span>
+    <span><strong>Draft template — not yet legally reviewed.</strong> This document contains
+      placeholders such as <span class="l-legal-ph">[COMPANY]</span>,
+      <span class="l-legal-ph">[JURISDICTION]</span>, and
+      <span class="l-legal-ph">[CONTACT EMAIL]</span>, and one retention figure that must be
+      confirmed (see §4). Replace every placeholder and have a qualified lawyer review this page
+      before publishing or launching.</span>
+  </div>
+
+  <div class="l-legal-toc">
+    <div class="l-legal-toc-title">Contents</div>
+    <ol>
+      <li><a href="#who">Who we are</a></li>
+      <li><a href="#what">What data we collect</a></li>
+      <li><a href="#where">Where your data is stored</a></li>
+      <li><a href="#retention">How long we keep it (retention)</a></li>
+      <li><a href="#use">How we use your data</a></li>
+      <li><a href="#sharing">Who we share it with</a></li>
+      <li><a href="#rights">Your rights &amp; controls</a></li>
+      <li><a href="#storage-keys">Cookies &amp; local storage</a></li>
+      <li><a href="#children">Children's privacy</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </div>
+
+  <p>This Privacy Policy explains what data LearnTrack (the "Service"), operated by
+    <span class="l-legal-ph">[COMPANY]</span>, collects about you, where it is stored, how long it
+    is kept, and the choices you have. LearnTrack is <strong>local-first</strong>: your learning
+    data lives in your browser by default, and is only sent to the cloud if you turn on cloud
+    backup.</p>
+
+  <h2 id="who">1. Who we are</h2>
+  <p>The Service is operated by <span class="l-legal-ph">[COMPANY]</span>,
+    <span class="l-legal-ph">[COMPANY ADDRESS]</span>. For privacy questions, contact us at
+    <span class="l-legal-ph">[CONTACT EMAIL]</span>.</p>
+
+  <h2 id="what">2. What data we collect</h2>
+  <p>We collect only what is needed to run the Service:</p>
+  <table class="l-legal-table">
+    <thead>
+      <tr><th>Category</th><th>Examples</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Account &amp; sign-in</td>
+        <td>Your email address (used for passwordless one-time codes) or your Google sign-in
+          identifier; a randomly generated device identifier.</td>
+      </tr>
+      <tr>
+        <td>Learning entries</td>
+        <td>For each study session you log: topic, category, duration, difficulty,
+          <strong>mood score (1–5)</strong>, notes, resource links, and tags.</td>
+      </tr>
+      <tr>
+        <td>Goals &amp; progress</td>
+        <td>Academic goals, milestones/checklists, and links between goals and entries.</td>
+      </tr>
+      <tr>
+        <td>Achievements</td>
+        <td>Earned badges, XP, and level progress.</td>
+      </tr>
+      <tr>
+        <td>Preferences</td>
+        <td>Theme, accent color, daily/monthly goals, category list, and other in-app settings.</td>
+      </tr>
+      <tr>
+        <td>Subscription</td>
+        <td>Your plan tier, status, and profile limit (used to enforce plan features).</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>We do <strong>not</strong> ask for or require sensitive identity documents, and we do not use
+    your learning data for advertising.</p>
+
+  <h2 id="where">3. Where your data is stored</h2>
+  <h3>On your device (default)</h3>
+  <p>By default, everything you create is stored locally in your browser using <strong>IndexedDB</strong>.
+    If you have never enabled cloud backup, your learning data never leaves your device through the
+    Service. You can also export a full JSON backup or auto-back-up to a local folder you choose.</p>
+  <h3>In the cloud (opt-in)</h3>
+  <p>If you turn on <strong>Auto Cloud Backup</strong>, your entries, goals, achievements,
+    categories, and preferences are synced to our cloud database so they are backed up and available
+    across your devices. Our cloud database and authentication are provided by
+    <strong>Supabase</strong>, acting as our processor. Authentication uses passwordless email
+    one-time codes or Google sign-in. You can turn cloud backup off at any time.</p>
+
+  <h2 id="retention">4. How long we keep it (retention)</h2>
+  <ul>
+    <li><strong>Active data</strong> — kept for as long as your account exists and you use the
+      Service.</li>
+    <li><strong>Deleted entries and goals (recycle bin)</strong> — when you delete a log entry or a
+      goal, it is moved to a recycle bin and can be restored. Items in the recycle bin are
+      <strong>permanently purged after 90 days</strong>.</li>
+    <li><strong>Account deletion</strong> — when you request account deletion from the app, your
+      account is scheduled for deletion and enters a grace period of approximately
+      <span class="l-legal-ph">[~60 DAYS — CONFIRM]</span>. If you sign back in during that window,
+      the deletion is cancelled. After the window passes, your cloud data is removed.</li>
+  </ul>
+  <p>Local data stored in your browser remains on your device until you clear it, reset the app, or
+    sign out in a way that clears local account data. Local backups you exported or saved to a
+    folder are under your control and are not deleted by us.</p>
+
+  <h2 id="use">5. How we use your data</h2>
+  <ul>
+    <li>to provide the core features (logging, goals, analytics, reports, achievements);</li>
+    <li>to authenticate you and keep your account secure;</li>
+    <li>to back up and sync your data across devices when you enable cloud backup;</li>
+    <li>to enforce plan features and profile limits;</li>
+    <li>to maintain, troubleshoot, and improve the Service.</li>
+  </ul>
+
+  <h2 id="sharing">6. Who we share it with</h2>
+  <p>We do not sell your personal data. We share data only with infrastructure providers needed to
+    run the Service — principally <strong>Supabase</strong> (cloud database, authentication) and, if
+    you use it, <strong>Google</strong> sign-in — and only as needed to provide the Service. We may
+    disclose data if required by law. <span class="l-legal-ph">[ADD ANY OTHER SUB-PROCESSORS]</span></p>
+
+  <h2 id="rights">7. Your rights &amp; controls</h2>
+  <ul>
+    <li><strong>Access &amp; export</strong> — export all of your data as JSON at any time from the
+      Backup page.</li>
+    <li><strong>Correction &amp; deletion</strong> — edit or delete entries, goals, and your account
+      from within the app.</li>
+    <li><strong>Cloud opt-out</strong> — turn Auto Cloud Backup off to keep data local-only.</li>
+    <li><strong>Local reset</strong> — reset local app data from Settings.</li>
+    <li>Depending on where you live, you may have additional rights (access, portability, erasure,
+      objection). To exercise them, contact <span class="l-legal-ph">[CONTACT EMAIL]</span>.</li>
+  </ul>
+
+  <h2 id="storage-keys">8. Cookies &amp; local storage</h2>
+  <p>LearnTrack does not use advertising or tracking cookies. It does use your browser's local
+    storage and IndexedDB to function — for example, your signed-in session token and small
+    preference keys (prefixed <code>lt_</code>). These are necessary for the app to work and are not
+    used to track you across other websites.</p>
+
+  <h2 id="children">9. Children's privacy</h2>
+  <p>The Service is not directed to children under the age required for digital consent in your
+    country (<span class="l-legal-ph">[MINIMUM AGE]</span>). If you believe a child has provided us
+    personal data, contact <span class="l-legal-ph">[CONTACT EMAIL]</span> and we will take
+    appropriate steps.</p>
+
+  <h2 id="changes">10. Changes to this policy</h2>
+  <p>We may update this Privacy Policy from time to time. When we make material changes, we will
+    update the "Last updated" date above and, where appropriate, notify you.</p>
+
+  <h2 id="contact">11. Contact</h2>
+  <p>Questions about your privacy or this policy? Contact us at
+    <span class="l-legal-ph">[CONTACT EMAIL]</span>.</p>
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="l-footer">
+  <div class="l-container">
+    <nav class="l-footer-links" aria-label="Footer">
+      <a href="terms.html">Terms of Service</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="privacy.html">Privacy Policy</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="landing.html">Home</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="app.html">Open app</a>
+    </nav>
+    <p class="l-footer-copy">© 2026 LearnTrack</p>
+  </div>
+</footer>
+
+<!-- Minimal theme toggle (kept independent of the auth-laden landing.js). -->
+<script>
+  (function () {
+    var btn = document.getElementById('legal-theme-toggle');
+    if (!btn) return;
+    var sync = function () {
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    };
+    sync();
+    btn.addEventListener('click', function () {
+      var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('lt_landing_theme', next); } catch (e) {}
+      sync();
+    });
+  })();
+</script>
+
+</body>
+</html>

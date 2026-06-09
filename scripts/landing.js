@@ -470,6 +470,81 @@ function wirePreview() {
   });
 }
 
+/* ---- Scroll-reveal -------------------------------------------- */
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function wireReveal() {
+  const els = document.querySelectorAll('.l-reveal');
+  if (!els.length) return;
+
+  // Reduced motion or no IO support: just show everything immediately.
+  if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+    els.forEach(el => el.classList.add('is-visible'));
+    return;
+  }
+
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-visible');
+      obs.unobserve(entry.target);
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+
+  els.forEach(el => io.observe(el));
+}
+
+/* ---- Social-proof stat counters ------------------------------- */
+function wireSocialCounters() {
+  const strip = document.querySelector('.l-social');
+  const vals  = document.querySelectorAll('.l-social-stat-value[data-count]');
+  if (!strip || !vals.length) return;
+
+  const run = () => vals.forEach(el => {
+    const target = +el.dataset.count;
+    const suffix = el.dataset.suffix || '';
+    if (prefersReducedMotion) { el.textContent = target + suffix; return; }
+    let cur = 0;
+    const step = Math.max(1, target / 40);
+    const t = setInterval(() => {
+      cur = Math.min(cur + step, target);
+      el.textContent = Math.round(cur) + suffix;
+      if (cur >= target) clearInterval(t);
+    }, 16);
+  });
+
+  if (prefersReducedMotion || !('IntersectionObserver' in window)) { run(); return; }
+  const io = new IntersectionObserver((entries, obs) => {
+    if (!entries[0].isIntersecting) return;
+    run();
+    obs.disconnect();
+  }, { threshold: 0.4 });
+  io.observe(strip);
+}
+
+/* ---- Sticky bottom CTA bar ------------------------------------ */
+function wireStickyCta() {
+  const bar = document.getElementById('l-sticky-cta');
+  const hero = document.querySelector('.l-hero');
+  if (!bar || !hero) return;
+
+  document.getElementById('sticky-cta-btn')?.addEventListener('click', openSigninModal);
+
+  let shown = false;
+  const update = () => {
+    // Reveal once the user has scrolled roughly past the hero; hide near the top.
+    const trigger = Math.min(hero.offsetHeight - 160, window.innerHeight * 0.7);
+    const past = window.scrollY > Math.max(240, trigger);
+    if (past === shown) return;
+    shown = past;
+    bar.classList.toggle('visible', past);
+    bar.setAttribute('aria-hidden', past ? 'false' : 'true');
+  };
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+}
+
 /* ---- Boot ----------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
   wireTheme();
@@ -477,6 +552,10 @@ document.addEventListener('DOMContentLoaded', () => {
   wireModal();
   maybeRedirectToApp();
   wirePreview();
+  wireReveal();
+  wireSocialCounters();
+  wireStickyCta();
   document.getElementById('hero-get-started')?.addEventListener('click', openSigninModal);
   document.getElementById('hero-signin-link')?.addEventListener('click', openSigninModal);
+  document.getElementById('final-cta-btn')?.addEventListener('click', openSigninModal);
 });

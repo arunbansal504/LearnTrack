@@ -186,6 +186,39 @@
   transition: opacity 0.15s;
 }
 
+.sidebar-signout-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 9px 3px 7px;
+  border: none;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--text-3) 10%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: color 0.18s, background 0.18s, transform 0.12s;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.sidebar-signout-inline svg {
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+.sidebar-signout-inline:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  color: var(--danger, #ef4444);
+}
+.sidebar-signout-inline:hover svg {
+  transform: translateX(2px);
+}
+.sidebar-signout-inline:active {
+  transform: scale(0.95);
+}
+
 #sidebar-level-title:hover {
   opacity: 1;
 }

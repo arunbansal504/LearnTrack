@@ -17,7 +17,7 @@
   <!-- Design tokens (shared with the app) -->
   <link rel="stylesheet" href="styles/tokens.css?v=1" />
   <!-- Landing-specific styles -->
-  <link rel="stylesheet" href="styles/landing.css?v=5" />
+  <link rel="stylesheet" href="styles/landing.css?v=8" />
 </head>
 <body>
 
@@ -37,6 +37,9 @@
 
 <!-- ===== HERO ===== -->
 <section class="l-hero">
+  <span class="l-orb l-orb-1" aria-hidden="true"></span>
+  <span class="l-orb l-orb-2" aria-hidden="true"></span>
+  <span class="l-orb l-orb-3" aria-hidden="true"></span>
   <div class="l-container">
     <div class="l-hero-eyebrow">
       ✨ Your personal learning command center
@@ -57,7 +60,7 @@
     <div class="l-hero-trust">
       <span class="l-hero-trust-item">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Free to start
+        Free for a limited time
       </span>
       <span class="l-hero-trust-sep" aria-hidden="true">·</span>
       <span class="l-hero-trust-item">
@@ -67,7 +70,7 @@
       <span class="l-hero-trust-sep" aria-hidden="true">·</span>
       <span class="l-hero-trust-item">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Data stays on your device
+        Yours, with optional cloud sync
       </span>
     </div>
   </div>
@@ -331,22 +334,24 @@
   </div>
 </section>
 
+<div class="l-hero-bottom-bridge" aria-hidden="true"></div>
+
 <!-- ===== SOCIAL PROOF STRIP ===== -->
-<div class="l-social">
+<div class="l-social l-reveal">
   <div class="l-container">
     <p class="l-social-label">Everything you need to become a consistent learner</p>
     <div class="l-social-stats">
       <div>
-        <div class="l-social-stat-value">9</div>
+        <div class="l-social-stat-value" data-count="11">11</div>
         <div class="l-social-stat-label">pages & views</div>
       </div>
       <div>
-        <div class="l-social-stat-value">100%</div>
-        <div class="l-social-stat-label">offline-capable</div>
+        <div class="l-social-stat-value">Offline-first</div>
+        <div class="l-social-stat-label">once you're signed in</div>
       </div>
       <div>
-        <div class="l-social-stat-value">5</div>
-        <div class="l-social-stat-label">profiles per account</div>
+        <div class="l-social-stat-value" data-count="14">14</div>
+        <div class="l-social-stat-label">color themes</div>
       </div>
       <div>
         <div class="l-social-stat-value">∞</div>
@@ -359,7 +364,7 @@
 <!-- ===== FEATURE SHOWCASE ===== -->
 <section class="l-section l-features">
   <div class="l-container">
-    <div class="l-section-header">
+    <div class="l-section-header l-reveal">
       <p class="l-section-eyebrow">What's inside</p>
       <h2 class="l-section-title">Everything a serious learner needs</h2>
       <p class="l-section-subtitle">
@@ -369,7 +374,7 @@
 
     <div class="l-features-grid">
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">📊</div>
         <h3 class="l-feature-title">Analytics Dashboard</h3>
         <p class="l-feature-desc">
@@ -377,7 +382,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">📝</div>
         <h3 class="l-feature-title">Daily Learning Log</h3>
         <p class="l-feature-desc">
@@ -385,7 +390,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">🎯</div>
         <h3 class="l-feature-title">Academic Goals</h3>
         <p class="l-feature-desc">
@@ -393,7 +398,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">📅</div>
         <h3 class="l-feature-title">Calendar View</h3>
         <p class="l-feature-desc">
@@ -401,7 +406,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">🏆</div>
         <h3 class="l-feature-title">Achievements & XP</h3>
         <p class="l-feature-desc">
@@ -409,7 +414,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">📄</div>
         <h3 class="l-feature-title">PDF Monthly Reports</h3>
         <p class="l-feature-desc">
@@ -417,7 +422,7 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">⏱️</div>
         <h3 class="l-feature-title">Pomodoro Timer</h3>
         <p class="l-feature-desc">
@@ -425,19 +430,19 @@
         </p>
       </div>
 
-      <div class="l-feature-card">
-        <div class="l-feature-icon">👥</div>
-        <h3 class="l-feature-title">Multi-Profile Households</h3>
+      <div class="l-feature-card l-reveal">
+        <div class="l-feature-icon">🎨</div>
+        <h3 class="l-feature-title">Beautiful Themes</h3>
         <p class="l-feature-desc">
-          One account, up to five learner profiles. Perfect for families or students tracking multiple subjects separately.
+          Make it yours with 14 hand-crafted color themes, dark &amp; light modes, accent colors, and a compact layout — all one click away.
         </p>
       </div>
 
-      <div class="l-feature-card">
+      <div class="l-feature-card l-reveal">
         <div class="l-feature-icon">☁️</div>
         <h3 class="l-feature-title">Cloud Sync</h3>
         <p class="l-feature-desc">
-          Opt-in cloud backup keeps your data safe and synced across devices. Fully offline-first — everything works without a connection.
+          Opt-in cloud backup keeps your data safe and synced across devices. Offline-first by design — once you're signed in, everything keeps working without a connection.
         </p>
       </div>
 
@@ -448,7 +453,7 @@
 <!-- ===== PAIN POINTS → SOLUTIONS ===== -->
 <section class="l-section l-pain" id="why-learntrack">
   <div class="l-container">
-    <div class="l-section-header">
+    <div class="l-section-header l-reveal">
       <p class="l-section-eyebrow">Why LearnTrack</p>
       <h2 class="l-section-title">Sound familiar? We built the fix.</h2>
       <p class="l-section-subtitle">
@@ -458,7 +463,7 @@
 
     <div class="l-pain-list">
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">😓</div>
           <div>
@@ -475,7 +480,7 @@
         </div>
       </div>
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">🙃</div>
           <div>
@@ -492,7 +497,7 @@
         </div>
       </div>
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">😩</div>
           <div>
@@ -509,7 +514,7 @@
         </div>
       </div>
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">🗂️</div>
           <div>
@@ -526,7 +531,7 @@
         </div>
       </div>
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">😤</div>
           <div>
@@ -543,7 +548,7 @@
         </div>
       </div>
 
-      <div class="l-pain-item">
+      <div class="l-pain-item l-reveal">
         <div class="l-pain-problem">
           <div class="l-pain-problem-icon">😰</div>
           <div>
@@ -567,11 +572,11 @@
 <!-- ===== FINAL CTA ===== -->
 <section class="l-section l-cta">
   <div class="l-container">
-    <div class="l-cta-box">
+    <div class="l-cta-box l-reveal">
       <h2 class="l-cta-title">Start tracking your learning today.</h2>
-      <p class="l-cta-subtitle">Free to use · Works offline · No password required</p>
+      <p class="l-cta-subtitle">Free for a limited time · Works offline · No password required</p>
       <div class="l-cta-actions">
-        <a href="app.html" class="l-btn l-btn-primary l-btn-lg">Open the app</a>
+        <button type="button" id="final-cta-btn" class="l-btn l-btn-primary l-btn-lg">Get started free →</button>
         <a href="#why-learntrack" class="l-btn l-btn-secondary l-btn-lg">Learn more</a>
       </div>
     </div>
@@ -581,9 +586,22 @@
 <!-- ===== FOOTER ===== -->
 <footer class="l-footer">
   <div class="l-container">
-    <p>© 2026 LearnTrack &nbsp;·&nbsp; <a href="app.html">Open app</a></p>
+    <nav class="l-footer-links" aria-label="Footer">
+      <a href="terms.html">Terms of Service</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="privacy.html">Privacy Policy</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="app.html">Open app</a>
+    </nav>
+    <p class="l-footer-copy">© 2026 LearnTrack</p>
   </div>
 </footer>
+
+<!-- ===== STICKY BOTTOM CTA BAR ===== -->
+<div id="l-sticky-cta" class="l-sticky-cta" aria-hidden="true">
+  <span class="l-sticky-cta-text">Ready to track every hour? <span>Free for a limited time · no password needed.</span></span>
+  <button type="button" id="sticky-cta-btn" class="l-btn l-btn-primary">Get started free →</button>
+</div>
 
 <!-- ===== SIGN-IN MODAL ===== -->
 <div id="signin-modal" class="l-modal-overlay" role="dialog" aria-modal="true" aria-label="Sign in" style="display:none">
@@ -619,6 +637,6 @@
   </div>
 </div>
 
-<script type="module" src="scripts/landing.js?v=5"></script>
+<script type="module" src="scripts/landing.js?v=6"></script>
 </body>
 </html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LearnTrack Terms of Service." />
+  <meta name="theme-color" content="#6c63ff" />
+  <title>Terms of Service — LearnTrack</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles/tokens.css?v=1" />
+  <link rel="stylesheet" href="styles/landing.css?v=8" />
+
+  <!-- Apply the visitor's saved landing theme before paint (no external JS needed). -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('lt_landing_theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* default dark */ }
+    })();
+  </script>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="l-nav" aria-label="Main navigation">
+  <div class="l-container l-nav-inner">
+    <a href="landing.html" class="l-nav-logo" aria-label="LearnTrack home">
+      <span class="l-nav-logo-icon">🎯</span>
+      LearnTrack
+    </a>
+    <div class="l-nav-actions">
+      <button id="legal-theme-toggle" class="l-btn l-btn-ghost" aria-label="Toggle theme">🌙</button>
+      <a href="landing.html" class="l-btn l-btn-secondary">Back to home</a>
+    </div>
+  </div>
+</nav>
+
+<main class="l-legal">
+  <div class="l-legal-eyebrow">Legal</div>
+  <h1>Terms of Service</h1>
+  <p class="l-legal-updated">Last updated: <span class="l-legal-ph">[EFFECTIVE DATE]</span></p>
+
+  <div class="l-legal-banner" role="note">
+    <span aria-hidden="true">⚠️</span>
+    <span><strong>Draft template — not yet legally reviewed.</strong> This document contains
+      placeholders such as <span class="l-legal-ph">[COMPANY]</span>,
+      <span class="l-legal-ph">[JURISDICTION]</span>, and
+      <span class="l-legal-ph">[CONTACT EMAIL]</span>. Replace every placeholder and have a
+      qualified lawyer review this page before publishing or launching.</span>
+  </div>
+
+  <div class="l-legal-toc">
+    <div class="l-legal-toc-title">Contents</div>
+    <ol>
+      <li><a href="#acceptance">Acceptance of these terms</a></li>
+      <li><a href="#service">The service</a></li>
+      <li><a href="#accounts">Accounts &amp; sign-in</a></li>
+      <li><a href="#subscriptions">Plans, free period &amp; billing</a></li>
+      <li><a href="#acceptable-use">Acceptable use</a></li>
+      <li><a href="#your-content">Your content &amp; data</a></li>
+      <li><a href="#ip">Intellectual property</a></li>
+      <li><a href="#disclaimers">Disclaimers</a></li>
+      <li><a href="#liability">Limitation of liability</a></li>
+      <li><a href="#termination">Termination</a></li>
+      <li><a href="#changes">Changes to these terms</a></li>
+      <li><a href="#law">Governing law</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </div>
+
+  <p>These Terms of Service ("Terms") govern your access to and use of LearnTrack (the
+    "Service"), operated by <span class="l-legal-ph">[COMPANY]</span> ("we", "us", "our"). By
+    using the Service you agree to these Terms. If you do not agree, do not use the Service.</p>
+
+  <h2 id="acceptance">1. Acceptance of these terms</h2>
+  <p>By creating an account, signing in, or otherwise using LearnTrack, you confirm that you can
+    form a binding contract with <span class="l-legal-ph">[COMPANY]</span> and that you accept
+    these Terms and our <a href="privacy.html">Privacy Policy</a>, which is incorporated here by
+    reference.</p>
+
+  <h2 id="service">2. The service</h2>
+  <p>LearnTrack is a personal learning tracker. It lets you log study sessions, set and track
+    academic goals, view analytics and reports, earn achievements, and optionally back up and sync
+    your data to the cloud. Your learning data is stored locally in your browser by default; cloud
+    backup is an opt-in feature you can enable or disable at any time. See the
+    <a href="privacy.html">Privacy Policy</a> for details on data storage and retention.</p>
+
+  <h2 id="accounts">3. Accounts &amp; sign-in</h2>
+  <p>LearnTrack uses <strong>passwordless authentication</strong>: you sign in with a one-time code
+    sent to your email address, or via Google sign-in. You are responsible for maintaining access
+    to the email account or Google account you use to sign in, and for all activity that occurs
+    under your account. Notify us at <span class="l-legal-ph">[CONTACT EMAIL]</span> if you suspect
+    unauthorized access.</p>
+  <p>You must provide accurate information and be at least <span class="l-legal-ph">[MINIMUM AGE]</span>
+    years old (or the minimum age of digital consent in your country) to use the Service.</p>
+
+  <h2 id="subscriptions">4. Plans, free period &amp; billing</h2>
+  <p>LearnTrack is offered under different plans that may differ in features and in the number of
+    learning profiles you can create. The Service is currently offered <strong>free for a limited
+    time</strong>; we may introduce or change paid plans in the future. Where a plan limits the
+    number of profiles, that limit applies to the creation of <em>new</em> profiles only —
+    profiles you have already created remain accessible if your plan later changes.</p>
+  <p>If and when paid plans are introduced, pricing, billing cycles, renewals, and refund terms
+    will be presented to you before you are charged, and are incorporated into these Terms by
+    reference. <span class="l-legal-ph">[BILLING / REFUND TERMS]</span></p>
+
+  <h2 id="acceptable-use">5. Acceptable use</h2>
+  <p>You agree not to:</p>
+  <ul>
+    <li>use the Service for any unlawful purpose or in violation of any applicable law;</li>
+    <li>attempt to gain unauthorized access to the Service, other users' data, or our systems;</li>
+    <li>interfere with, disrupt, or place undue load on the Service or its infrastructure;</li>
+    <li>reverse engineer, resell, or misrepresent the Service except as permitted by law;</li>
+    <li>upload content that is unlawful, infringing, or harmful.</li>
+  </ul>
+
+  <h2 id="your-content">6. Your content &amp; data</h2>
+  <p>You retain ownership of the learning data and content you enter into LearnTrack. You grant us a
+    limited license to store, process, and (where you enable cloud backup) transmit that data solely
+    to operate and provide the Service to you. We do not sell your personal data. How we handle your
+    data is described in the <a href="privacy.html">Privacy Policy</a>.</p>
+
+  <h2 id="ip">7. Intellectual property</h2>
+  <p>The Service, including its software, design, branding, and content (excluding your data), is
+    owned by <span class="l-legal-ph">[COMPANY]</span> and protected by intellectual property laws.
+    These Terms do not grant you any right to our trademarks or branding.</p>
+
+  <h2 id="disclaimers">8. Disclaimers</h2>
+  <p>The Service is provided <strong>"as is" and "as available"</strong>, without warranties of any
+    kind, whether express or implied, including fitness for a particular purpose and
+    non-infringement. We do not warrant that the Service will be uninterrupted, error-free, or that
+    data will never be lost. You are responsible for keeping your own backups (for example, the
+    JSON export and local backup folder features).</p>
+
+  <h2 id="liability">9. Limitation of liability</h2>
+  <p>To the maximum extent permitted by law, <span class="l-legal-ph">[COMPANY]</span> will not be
+    liable for any indirect, incidental, special, consequential, or punitive damages, or any loss
+    of data, profits, or goodwill, arising out of or related to your use of the Service. Our total
+    liability for any claim relating to the Service is limited to
+    <span class="l-legal-ph">[LIABILITY CAP]</span>.</p>
+
+  <h2 id="termination">10. Termination</h2>
+  <p>You may stop using the Service and delete your account at any time from the app's settings.
+    Deleting your account starts a deletion process described in the
+    <a href="privacy.html">Privacy Policy</a>. We may suspend or terminate access if you breach
+    these Terms or to comply with law. Sections that by their nature should survive termination
+    (including ownership, disclaimers, and limitation of liability) will survive.</p>
+
+  <h2 id="changes">11. Changes to these terms</h2>
+  <p>We may update these Terms from time to time. When we make material changes, we will update the
+    "Last updated" date above and, where appropriate, notify you. Your continued use of the Service
+    after changes take effect constitutes acceptance of the updated Terms.</p>
+
+  <h2 id="law">12. Governing law</h2>
+  <p>These Terms are governed by the laws of <span class="l-legal-ph">[JURISDICTION]</span>, without
+    regard to its conflict-of-laws rules. Any disputes will be subject to the courts of
+    <span class="l-legal-ph">[JURISDICTION]</span>, unless otherwise required by applicable law.</p>
+
+  <h2 id="contact">13. Contact</h2>
+  <p>Questions about these Terms? Contact us at
+    <span class="l-legal-ph">[CONTACT EMAIL]</span><span class="l-legal-ph">[COMPANY ADDRESS]</span>.</p>
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="l-footer">
+  <div class="l-container">
+    <nav class="l-footer-links" aria-label="Footer">
+      <a href="terms.html">Terms of Service</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="privacy.html">Privacy Policy</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="landing.html">Home</a>
+      <span class="l-footer-sep" aria-hidden="true">·</span>
+      <a href="app.html">Open app</a>
+    </nav>
+    <p class="l-footer-copy">© 2026 LearnTrack</p>
+  </div>
+</footer>
+
+<!-- Minimal theme toggle (kept independent of the auth-laden landing.js). -->
+<script>
+  (function () {
+    var btn = document.getElementById('legal-theme-toggle');
+    if (!btn) return;
+    var sync = function () {
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    };
+    sync();
+    btn.addEventListener('click', function () {
+      var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('lt_landing_theme', next); } catch (e) {}
+      sync();
+    });
+  })();
+</script>
+
+</body>
+</html>

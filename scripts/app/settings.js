@@ -910,7 +910,7 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
   }
 
   function renderSidebarCloudAccount() {
-    const btn      = document.getElementById('sidebar-signout-btn');
+    const btn      = document.getElementById('sidebar-signout-btn-inline');
     const welcome  = document.getElementById('sidebar-cloud-welcome');
     const nameEl   = document.getElementById('sidebar-cloud-name');
 
@@ -1433,7 +1433,7 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
     // Sidebar sign-out button
-    document.getElementById('sidebar-signout-btn')?.addEventListener('click', cloudSignOut);
+    document.getElementById('sidebar-signout-btn-inline')?.addEventListener('click', cloudSignOut);
     const autoChk = document.getElementById('cloud-auto-backup');
     if (autoChk) {
       autoChk.addEventListener('change', (e) => {

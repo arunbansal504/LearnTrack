@@ -16,11 +16,16 @@ import { isTestSession } from './test-accounts.js';
 
 const TIER_ORDER = { free: 0, premium: 1, family: 2 };
 
-// Mirrors the 05_seed_appearance.sql seed — used when the catalog
+// Mirrors the appearance_options table — used when the catalog
 // hasn't been fetched yet (first load, offline, not signed in).
 const FREE_KEYS = new Set([
-  'theme:light', 'theme:dark',
-  'accent:blue', 'accent:purple',
+  'theme:light', 'theme:dark', 'theme:midnight', 'theme:solarized',
+  'theme:forest', 'theme:sunset', 'theme:ocean', 'theme:mocha',
+  'theme:nord', 'theme:dracula', 'theme:lavender', 'theme:crimson',
+  'theme:aura', 'theme:mint',
+  'accent:blue', 'accent:purple', 'accent:green', 'accent:teal',
+  'accent:orange', 'accent:rose',
+  'feature:custom_accent',
 ]);
 
 export async function loadEntitlements() {

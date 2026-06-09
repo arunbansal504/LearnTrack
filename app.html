@@ -32,7 +32,7 @@
        (and before dashboard.css / animations.css) so the cascade is unchanged. -->
   <link rel="stylesheet" href="styles/tokens.css?v=4" />
   <link rel="stylesheet" href="styles/base.css?v=1" />
-  <link rel="stylesheet" href="styles/layout.css?v=2" />
+  <link rel="stylesheet" href="styles/layout.css?v=3" />
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
   <link rel="stylesheet" href="styles/report-preview.css?v=1" />
   <link rel="stylesheet" href="styles/forms.css?v=2" />
@@ -100,6 +100,10 @@
         <div id="sidebar-cloud-welcome" style="display:none;font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">
           <span id="sidebar-cloud-name"></span>
         </div>
+        <button type="button" id="sidebar-signout-btn-inline" class="sidebar-signout-inline" style="display:none">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
         <div class="user-xp-bar">
           <div class="xp-bar-fill" id="sidebar-xp-bar" style="width:0%"></div>
         </div>
@@ -163,10 +167,6 @@
       <button type="button" class="nav-item" data-page="backup">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
         <span class="nav-label">Backup</span>
-      </button>
-      <button type="button" class="nav-item nav-signout-btn" id="sidebar-signout-btn" style="display:none">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span class="nav-label">Sign Out</span>
       </button>
     </nav>
 
