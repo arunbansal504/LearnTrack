@@ -11,6 +11,7 @@ import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setup
 import { initSync, queueCloudPush } from './sync.js';
 import { getClient } from './sync.js';
 import { loadEntitlements, canUse } from './entitlements.js';
+import { getTestSession, testAccountId } from './test-accounts.js';
 
   /* ---- Loading-overlay progress (sign-in hydrate) -- */
 
@@ -57,14 +58,47 @@ import { loadEntitlements, canUse } from './entitlements.js';
 
     // Auth gate: signed-out users go to the landing page.
     // Check cheaply via localStorage before loading the Supabase client.
-    // Bypass if: auth callback in URL (OTP / OAuth redirect), or running on localhost (dev).
+    // Allow through for: a stored Supabase session, an auth callback in the URL
+    // (OTP / OAuth redirect), or an active no-cloud test session (test-accounts.js).
     const hasStoredSession = !!localStorage.getItem('lt_sb_auth');
     const hasAuthCallback  = /[?#](access_token|code|error)=/.test(window.location.search + window.location.hash);
-    const skipAuth         = !!localStorage.getItem('lt_skip_auth'); // TEMP: bypass login
-    if (!hasStoredSession && !hasAuthCallback && !skipAuth) {
+    // A real Supabase session (or auth callback) always wins over a stale test
+    // marker, so clear it to keep cloud UI/entitlements consistent.
+    if ((hasStoredSession || hasAuthCallback) && getTestSession()) {
+      try { localStorage.removeItem('lt_test_account'); } catch { /* ignore */ }
+    }
+    const testEmail = getTestSession(); // no-cloud test account: app layer only
+    if (!hasStoredSession && !hasAuthCallback && !testEmail) {
       window.location.replace('landing.html');
       return;
     }
+
+    // No-cloud test session: never load the Supabase client, never hydrate from
+    // or write to the cloud. Scope/link the local data to the test account and
+    // isolate it from any other (real or test) account previously used here.
+    if (testEmail && !hasStoredSession && !hasAuthCallback) {
+      const tid = testAccountId(testEmail);
+      try {
+        const { getAccountOwner, setAccountOwner, clearLocalAccountData } = await import('./account-session.js');
+        const owner = getAccountOwner();
+        if (owner && owner !== tid) {
+          await clearLocalAccountData(owner);
+        }
+        setAccountOwner(tid);
+      } catch (err) {
+        console.warn('[App] test-session setup failed:', err);
+      }
+      await loadEntitlements();              // grants Family via the test branch
+      await ensureTestProfile(tid);          // create + bind a profile if none
+      const activeId = UserManager.getActiveId() || UserManager.getUsers()[0]?.id;
+      if (activeId) UserManager.setActiveId(activeId);
+      await loadAndShowApp(activeId);
+      // Reflect the test session in the cloud-sync card + sidebar (sign-out button,
+      // disabled cloud controls). initSync — which normally emits this — is skipped.
+      document.dispatchEvent(new CustomEvent('lt-sync-changed'));
+      return;
+    }
+
     // If there is a stored session, confirm it's still valid before continuing.
     // This blocks startup briefly but prevents bypassing the auth gate by
     // typing `app.html` directly when the session is invalid.
@@ -140,6 +174,22 @@ import { loadEntitlements, canUse } from './entitlements.js';
     await loadAndShowApp(activeId);
   }
 
+  // No-cloud test session: make sure at least one profile exists and every local
+  // profile is bound to the synthetic test account id (so the data is linked to
+  // the test email and never treated as an orphan).
+  async function ensureTestProfile(testAccId) {
+    let users = UserManager.getUsers();
+    if (users.length === 0) {
+      const first = UserManager.createUser('Me');
+      UserManager.setActiveId(first.id);
+      users = [first];
+    }
+    for (const u of users) {
+      const key = `lt_sync_account_${u.id}`;
+      if (localStorage.getItem(key) !== testAccId) localStorage.setItem(key, testAccId);
+    }
+  }
+
   function _syncSidebarAccentSwatches() {
     const accent = state.prefs.accent || 'purple';
     const isHex  = accent.startsWith('#');
@@ -161,6 +211,9 @@ import { loadEntitlements, canUse } from './entitlements.js';
       Storage.purgeOldDeletedGoals(DELETED_RETENTION_DAYS).catch(() => {});
       state.entries   = await Storage.getAllEntries();
       state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+      // Boot snapshot: capture pref values at session start so the sign-out dirty check
+      // can detect net-no-change (e.g. accent changed then reverted back to original).
+      try { localStorage.setItem(`lt_boot_pref_snap_${userId}`, JSON.stringify(state.prefs)); } catch { /* non-fatal */ }
       state.earnedAch = await Storage.getAllAchievements();
       state.goals     = await Storage.getAllGoals();
       // Migration: if goal history exists but has no epoch anchor, past dates fall back
@@ -214,8 +267,11 @@ import { loadEntitlements, canUse } from './entitlements.js';
     navigateTo('dashboard');
 
     // Restore any cloud session and converge data in the background — never block boot,
-    // and never throw (offline / signed-out are normal states).
-    initSync().catch(err => console.warn('[App] cloud sync init failed:', err));
+    // and never throw (offline / signed-out are normal states). Skipped entirely for
+    // no-cloud test sessions so the Supabase client is never loaded.
+    if (!getTestSession()) {
+      initSync().catch(err => console.warn('[App] cloud sync init failed:', err));
+    }
 
     setTimeout(() => {
       document.getElementById('loading-overlay').style.opacity = '0';

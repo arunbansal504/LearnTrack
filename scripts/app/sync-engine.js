@@ -79,6 +79,7 @@ export async function drainOutbox({ manual = false } = {}) {
   const sb  = await getClient();
   const pid = cloudProfileId();
   const aid = accountId();
+  const drainedPrefSnap = {}; // accumulates successfully synced pref values for snapshot
 
   for (const op of ops) {
     try {
@@ -151,6 +152,7 @@ export async function drainOutbox({ manual = false } = {}) {
           const row = Repo.prefToCloudRow(op.payload, pid, aid);
           const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
           if (error) throw error;
+          drainedPrefSnap[op.recordId] = op.payload?.value; // track for snapshot
         }
 
       } else if (op.kind === 'categories') {
@@ -174,6 +176,15 @@ export async function drainOutbox({ manual = false } = {}) {
       // Leave in outbox; the next drain (online event or ticker) will retry.
       console.warn('[SyncEngine] drain op failed, will retry:', op.kind, op.op, err?.message || err);
     }
+  }
+
+  // Persist snapshot of all successfully drained pref values so the sign-out
+  // dirty check can detect net-no-change (e.g. accent changed then reverted).
+  if (Object.keys(drainedPrefSnap).length && pid) {
+    try {
+      const existing = JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${pid}`) || '{}');
+      localStorage.setItem(`lt_cloud_pref_snap_${pid}`, JSON.stringify({ ...existing, ...drainedPrefSnap }));
+    } catch { /* non-fatal */ }
   }
 }
 
@@ -272,11 +283,20 @@ export async function pullDeltas({ manual = false, force = false, silent = false
     const pendingPrefKeys = new Set(
       outboxOps.filter(op => op.kind === 'pref' && op.op === 'upsert').map(op => op.recordId)
     );
+    const pulledPrefSnap = {};
     for (const row of prefRows) {
       if (pendingPrefKeys.has(row.key)) continue; // local pending change wins
       // Use low-level put to avoid re-enqueuing an outbox op for each pulled pref.
       await Storage.put(Storage.STORES.preferences, { key: row.key, value: row.value });
+      pulledPrefSnap[row.key] = row.value; // record confirmed cloud value
       changed = true;
+    }
+    // Update snapshot with confirmed cloud values so dirty check can compare against them.
+    if (Object.keys(pulledPrefSnap).length && pid) {
+      try {
+        const existing = JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${pid}`) || '{}');
+        localStorage.setItem(`lt_cloud_pref_snap_${pid}`, JSON.stringify({ ...existing, ...pulledPrefSnap }));
+      } catch { /* non-fatal */ }
     }
   }
 
@@ -369,6 +389,11 @@ export async function startEngine() {
     if (canRun()) {
       drainOutbox().catch(() => {});
       pullDeltas().catch(() => {});
+      // Retry any profile deletions that failed while offline.
+      const aid = accountId();
+      if (aid) import('./account-session.js')
+        .then(AS => AS.flushPendingProfileDeletes(aid))
+        .catch(() => {});
     }
   });
 

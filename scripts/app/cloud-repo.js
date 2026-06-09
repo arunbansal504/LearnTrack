@@ -230,3 +230,28 @@ export function setSyncWatermark(localProfileId, accountId, isoTimestamp) {
   if (!localProfileId || !accountId) return;
   localStorage.setItem(`lt_sync_wm_${localProfileId}_${accountId}`, isoTimestamp);
 }
+
+// Pending cloud profile deletions: when a profile is deleted locally while Auto
+// Cloud Backup is OFF (or the cloud delete failed), its cloud UUID is queued here
+// so the sign-out / enable reconcile (or the online retry) can remove the row.
+function _pendingDeletesKey(accountId) { return `lt_pending_profile_deletes_${accountId}`; }
+
+export function getPendingProfileDeletes(accountId) {
+  if (!accountId) return [];
+  try { return JSON.parse(localStorage.getItem(_pendingDeletesKey(accountId)) || '[]'); }
+  catch { return []; }
+}
+
+export function queuePendingProfileDelete(accountId, cloudProfileId) {
+  if (!accountId || !cloudProfileId) return;
+  const list = getPendingProfileDeletes(accountId);
+  if (!list.includes(cloudProfileId)) {
+    list.push(cloudProfileId);
+    localStorage.setItem(_pendingDeletesKey(accountId), JSON.stringify(list));
+  }
+}
+
+export function clearPendingProfileDeletes(accountId) {
+  if (!accountId) return;
+  localStorage.removeItem(_pendingDeletesKey(accountId));
+}

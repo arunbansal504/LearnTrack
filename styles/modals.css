@@ -544,3 +544,26 @@ span.linked-item-title {
 .resource-remove:hover { color: var(--danger-text); background: rgba(239,68,68,0.08); }
 
 
+
+/* Sign-out: per-profile backup selection list */
+.signout-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.signout-profile-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.signout-profile-row:hover { background: var(--surface-2); }
+.signout-profile-row .signout-profile-cb { margin: 0; flex: 0 0 auto; }
+.signout-profile-name { flex: 1 1 auto; font-weight: 600; }
+.signout-profile-count { flex: 0 0 auto; font-size: 0.8rem; color: var(--text-3); }

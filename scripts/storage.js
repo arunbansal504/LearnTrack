@@ -243,15 +243,29 @@ const Storage = (() => {
     if (key === 'categories') {
       enqueueOutboxOp({ op: 'replace-all', kind: 'categories', recordId: 'categories', payload: value });
     } else if (!PREF_NO_SYNC.has(key)) {
+      // Deduplicate: remove any existing outbox op for this key so change→revert
+      // leaves 1 op (the final value) instead of accumulating stale ops.
+      if (!_useLocalStorage && _db) {
+        const stale = (await idbGetAll(STORES.outbox))
+          .filter(op => op.kind === 'pref' && op.recordId === key);
+        await Promise.all(stale.map(op => idbDelete(STORES.outbox, op.id)));
+      }
       enqueueOutboxOp({ op: 'upsert', kind: 'pref', recordId: key, payload: { key, value, updatedAt: Date.now() } });
     }
   }
 
   // Saves category names + color map together, syncing both to the `categories`
   // cloud table in one op (avoids two separate outbox entries racing each other).
+  // Deduplicates the outbox: replace-all is idempotent, so stale ops are removed
+  // before adding the new one — prevents unbounded accumulation when cloudAutoBackup is OFF.
   async function saveCategories(names, colors) {
     await put(STORES.preferences, { key: 'categories', value: names });
     await put(STORES.preferences, { key: 'categoryColors', value: colors || {} });
+    if (!_useLocalStorage && _db) {
+      const stale = (await idbGetAll(STORES.outbox))
+        .filter(op => op.kind === 'categories' && op.op === 'replace-all');
+      await Promise.all(stale.map(op => idbDelete(STORES.outbox, op.id)));
+    }
     enqueueOutboxOp({ op: 'replace-all', kind: 'categories', recordId: 'categories', payload: { names, colors: colors || {} } });
   }
 

@@ -10,6 +10,7 @@ import { canUse, loadEntitlements } from './entitlements.js';
 import { getCloudProfileId } from './cloud-repo.js';
 import * as Sync from './sync.js';
 import * as Auth from './auth.js';
+import { isTestSession, getTestSession, testAccountId } from './test-accounts.js';
 
   /* ---- Theme → accent pairings -------------------- */
   // Themed environments have a natural accent; neutral themes (light/dark) leave the user's accent unchanged.
@@ -826,7 +827,7 @@ import * as Auth from './auth.js';
 
   export function renderBackup() {
     const activeUser = UserManager.getActive();
-    const filename   = getBackupFilename(activeUser);
+    const filename   = getBackupFilename(activeUser, currentAccountEmail());
     const folderName = localStorage.getItem('lt_backupFolderName');
 
     setEl('backup-entries-count',  state.entries.length);
@@ -875,6 +876,20 @@ import * as Auth from './auth.js';
     const card = document.getElementById('cloud-sync-card');
     if (!card) return;
 
+    // No-cloud test account: cloud sync is unavailable. Show a disabled state and
+    // make sure no cloud controls are interactive.
+    if (isTestSession()) {
+      document.getElementById('cloud-disabled')?.classList.remove('hidden');
+      document.getElementById('cloud-signedin')?.classList.add('hidden');
+      const disabledMsg = document.getElementById('cloud-disabled-msg');
+      if (disabledMsg) disabledMsg.textContent =
+        'Cloud backup is unavailable for test accounts. Your data stays in this browser.';
+      const autoEl = document.getElementById('cloud-auto-backup');
+      if (autoEl) { autoEl.checked = false; autoEl.disabled = true; }
+      renderSidebarCloudAccount();
+      return;
+    }
+
     const configured = Sync.isConfigured();
     const signedIn   = Sync.isSignedIn();
 
@@ -895,10 +910,21 @@ import * as Auth from './auth.js';
   }
 
   function renderSidebarCloudAccount() {
-    const signedIn = Sync.isSignedIn();
     const btn      = document.getElementById('sidebar-signout-btn');
     const welcome  = document.getElementById('sidebar-cloud-welcome');
     const nameEl   = document.getElementById('sidebar-cloud-name');
+
+    // No-cloud test account: no real session, but still show the sign-out control
+    // and the test email so the user can end the local session.
+    const testEmail = getTestSession();
+    if (testEmail) {
+      if (btn)     btn.style.display     = '';
+      if (welcome) welcome.style.display = 'block';
+      if (nameEl)  nameEl.textContent    = testEmail;
+      return;
+    }
+
+    const signedIn = Sync.isSignedIn();
     if (btn)     btn.style.display     = signedIn ? '' : 'none';
     if (welcome) welcome.style.display = signedIn ? 'block' : 'none';
     if (signedIn && nameEl) {
@@ -1118,9 +1144,37 @@ import * as Auth from './auth.js';
     `).join('');
   }
 
-  export function getBackupFilename(user) {
+  export function getBackupFilename(user, email) {
     const safeName = (user?.name || 'profile').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    if (email) {
+      const safeEmail = email.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      return `learntrack-backup-${safeEmail}-${safeName}.json`;
+    }
     return `learntrack-backup-${safeName}.json`;
+  }
+
+  /* ---- Account-linked local backups (req 4) ---------------------- */
+  // The id/email of the account that owns the current session — a real Supabase
+  // account, or the synthetic id for a no-cloud test account.
+  function currentAccountId() {
+    if (state.syncSession?.user?.id) return state.syncSession.user.id;
+    const t = getTestSession();
+    return t ? testAccountId(t) : null;
+  }
+  function currentAccountEmail() {
+    if (state.syncSession?.user?.email) return state.syncSession.user.email;
+    return getTestSession() || null;
+  }
+
+  // Decide whether a backup file may be loaded under the current account.
+  // Files stamped with a DIFFERENT account are rejected; unstamped (legacy) files
+  // are allowed and adopt the current account on the next backup.
+  function backupAccountAllowed(backup) {
+    const fileAccount = backup?.accountId || null;
+    if (!fileAccount) return { ok: true };                  // legacy / unlinked
+    if (fileAccount === currentAccountId()) return { ok: true };
+    const who = backup?.accountEmail ? ` (${backup.accountEmail})` : '';
+    return { ok: false, message: `This backup belongs to a different account${who}. Sign in with that account to restore it.` };
   }
 
   // Retrieve stored handle and ensure permission is granted.
@@ -1216,6 +1270,19 @@ import * as Auth from './auth.js';
       state.prefs.cloudAutoBackup = true;
       if (autoChk) autoChk.checked = true;
       try { await Storage.setPref('cloudAutoBackup', true); } catch {}
+
+      // Push the ACTIVE profile's structure (name/colour/appearance/default) and
+      // flush any deletions queued while backup was off, so the cloud matches local.
+      try {
+        const aid = state.syncSession?.user?.id;
+        const lid = UserManager.getActive()?.id;
+        if (aid && lid) {
+          const AS = await import('./account-session.js');
+          await AS.reconcileProfileStructure(lid, aid);
+          await AS.flushPendingProfileDeletes(aid);
+        }
+      } catch (err) { console.warn('[CloudBackup] reconcile on enable failed:', err); }
+
       // Activate the per-record sync engine now that a cloud profile UUID exists
       import('./sync-engine.js').then(mod => { mod.startEngine?.(); }).catch(() => {});
       showToast('Cloud backup enabled.', 'success');
@@ -1254,8 +1321,12 @@ import * as Auth from './auth.js';
 
   async function downloadBackupJson() {
     const activeUser = UserManager.getActive();
-    const filename   = getBackupFilename(activeUser);
+    const filename   = getBackupFilename(activeUser, currentAccountEmail());
     const backup     = await Storage.exportAll();
+    // Stamp the owning account (req 4) so it can only be restored under that account.
+    backup.accountId    = currentAccountId();
+    backup.accountEmail = currentAccountEmail();
+    backup.profileName  = activeUser?.name || null;
     const { lastBackupDate: _drop, compact: _compact, ...exportedPrefs } = backup.data.preferences;
     backup.data.preferences = {
       ...exportedPrefs,
@@ -1291,9 +1362,12 @@ import * as Auth from './auth.js';
   }
 
   /* Patch the cloud profiles row and profile_prefs when theme/accent changes.
-     Fires and forgets — non-critical; runs whenever signed in (not gated on cloudAutoBackup
-     so appearance prefs survive re-login even without Auto Cloud Backup enabled). */
+     Fires and forgets — non-critical. Local-first: only pushes in real time when
+     Auto Cloud Backup is ON for this profile. When OFF, the local Storage.setPref
+     calls still enqueue `pref` outbox ops, so the change is captured by the
+     enable / sign-out backup drain instead. */
   async function _patchCloudAppearance() {
+    if (!state.prefs.cloudAutoBackup) return;
     if (!Sync.isSignedIn()) return;
     const session = state.syncSession;
     if (!session) return;
@@ -1348,6 +1422,13 @@ import * as Auth from './auth.js';
       browseInput.value = ''; // reset so same file can be picked again
     });
 
+    document.getElementById('import-override-cancel')?.addEventListener('click', hideOverrideBanner);
+    document.getElementById('import-override-confirm')?.addEventListener('click', () => {
+      const fn = _pendingOverride;
+      hideOverrideBanner();
+      if (fn) fn().catch(err => showImportStatus('Import failed: ' + err.message, 'error'));
+    });
+
     // Cloud Sync card actions
     document.getElementById('cloud-sync-now-btn')?.addEventListener('click', cloudSyncNow);
     document.getElementById('cloud-restore-btn')?.addEventListener('click', cloudRestore);
@@ -1356,6 +1437,7 @@ import * as Auth from './auth.js';
     const autoChk = document.getElementById('cloud-auto-backup');
     if (autoChk) {
       autoChk.addEventListener('change', (e) => {
+        if (isTestSession()) { autoChk.checked = false; return; } // cloud disabled for test accounts
         const enabling = !!e.target.checked;
         // Revert the checkbox immediately — the modal re-applies it on confirm
         autoChk.checked = !enabling;
@@ -1391,10 +1473,14 @@ import * as Auth from './auth.js';
     }
 
     const activeUser = UserManager.getActive();
-    const filename   = getBackupFilename(activeUser);
+    const filename   = getBackupFilename(activeUser, currentAccountEmail());
 
     try {
       const backup = await Storage.exportAll();
+      // Stamp the owning account so the file can only be restored under that account.
+      backup.accountId    = currentAccountId();
+      backup.accountEmail = currentAccountEmail();
+      backup.profileName  = activeUser?.name || null;
       // Always embed current in-memory profile data so defaults are captured even if never explicitly saved
       const { lastBackupDate: _dropped, compact: _compact, ...exportedPrefs } = backup.data.preferences;
       backup.data.preferences = {
@@ -1430,7 +1516,7 @@ import * as Auth from './auth.js';
 
   export async function loadBackupForProfile() {
     const activeUser = UserManager.getActive();
-    const filename   = getBackupFilename(activeUser);
+    const filename   = getBackupFilename(activeUser, currentAccountEmail());
 
     // Firefox / Safari — folder access unavailable
     if (!window.showDirectoryPicker) {
@@ -1463,6 +1549,65 @@ import * as Auth from './auth.js';
     }
   }
 
+  // Executes the actual browse-import after validation passes (or override is confirmed).
+  async function _doBrowseImport(backup, file) {
+    const existingEntries = await Storage.getAllEntries();
+    const users = UserManager.getUsers();
+    const isFirstTime = existingEntries.length === 0
+      && users.length <= 1
+      && (users[0]?.name || '').toLowerCase() === 'me';
+
+    if (isFirstTime) {
+      const result = await Storage.importAll(backup);
+      state.entries   = await Storage.getAllEntries();
+      state.earnedAch = await Storage.getAllAchievements();
+      state.goals     = await Storage.getAllGoals();
+      state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+      await checkAchievements();
+
+      // Restore profile name (preferred) then fall back to username pref.
+      const restoredName = backup.profileName || state.prefs.username;
+      if (restoredName) {
+        const activeUser = UserManager.getActive();
+        if (activeUser) UserManager.updateUser(activeUser.id, restoredName);
+      }
+
+      applyTheme(state.prefs.theme);
+      applyAccent(state.prefs.accent);
+      applyCompact(state.prefs.compact);
+      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
+      showImportStatus(`✅ Imported ${result.imported} entries into your profile.${skipNote}`, 'success');
+      await Storage.addBackupLog({ type: 'import', label: `Browsed & imported: ${file.name}` });
+    } else {
+      const importedName = backup.profileName || backup.data.preferences?.username || file.name.replace(/\.json$/i, '');
+      const duplicate = UserManager.getUsers().find(u => u.name.toLowerCase() === importedName.toLowerCase());
+      if (duplicate) {
+        showImportStatus(`A profile named "${duplicate.name}" already exists. Rename or delete it first.`, 'error');
+        return;
+      }
+      const newUser = UserManager.createUser(importedName);
+      await switchUser(newUser.id, importedName);
+
+      const result = await Storage.importAll(backup);
+      state.entries   = await Storage.getAllEntries();
+      state.earnedAch = await Storage.getAllAchievements();
+      state.goals     = await Storage.getAllGoals();
+      state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+      await checkAchievements();
+
+      applyTheme(state.prefs.theme);
+      applyAccent(state.prefs.accent);
+      applyCompact(state.prefs.compact);
+      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
+      showImportStatus(`✅ Created profile "${importedName}" with ${result.imported} imported entries.${skipNote}`, 'success');
+      await Storage.addBackupLog({ type: 'import', label: `Browsed & imported as new profile: ${file.name}` });
+    }
+
+    renderPage(state.currentPage);
+    updateSidebarUser();
+    renderBackup();
+  }
+
   export async function browseImportFile(file) {
     if (!file.name.endsWith('.json')) {
       showImportStatus('Only JSON backup files are supported.', 'error');
@@ -1487,63 +1632,50 @@ import * as Auth from './auth.js';
       return;
     }
 
-    const existingEntries = await Storage.getAllEntries();
-    const users = UserManager.getUsers();
-    const isFirstTime = existingEntries.length === 0
-      && users.length <= 1
-      && (users[0]?.name || '').toLowerCase() === 'me';
-
-    if (isFirstTime) {
-      // First launch — replace the default profile with what's in the file
-      const result = await Storage.importAll(backup);
-      state.entries   = await Storage.getAllEntries();
-      state.earnedAch = await Storage.getAllAchievements();
-      state.goals     = await Storage.getAllGoals();
-      state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
-      await checkAchievements();
-
-      // Sync UserManager name with imported username
-      const importedName = state.prefs.username;
-      if (importedName) {
-        const activeUser = UserManager.getActive();
-        if (activeUser) UserManager.updateUser(activeUser.id, importedName);
-      }
-
-      applyTheme(state.prefs.theme);
-      applyAccent(state.prefs.accent);
-      applyCompact(state.prefs.compact);
-      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
-      showImportStatus(`✅ Imported ${result.imported} entries into your profile.${skipNote}`, 'success');
-      await Storage.addBackupLog({ type: 'import', label: `Browsed & imported: ${file.name}` });
-    } else {
-      // Existing data — create a new profile for the imported data and switch to it
-      const importedName = backup.data.preferences?.username || file.name.replace(/\.json$/i, '');
-      const duplicate = UserManager.getUsers().find(u => u.name.toLowerCase() === importedName.toLowerCase());
-      if (duplicate) {
-        showImportStatus(`A profile named "${duplicate.name}" already exists. Rename or delete it first.`, 'error');
-        return;
-      }
-      const newUser = UserManager.createUser(importedName);
-      await switchUser(newUser.id, importedName);
-
-      // Now import into this fresh profile
-      const result = await Storage.importAll(backup);
-      state.entries   = await Storage.getAllEntries();
-      state.earnedAch = await Storage.getAllAchievements();
-      state.goals     = await Storage.getAllGoals();
-      state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
-      await checkAchievements();
-
-      applyTheme(state.prefs.theme);
-      applyAccent(state.prefs.accent);
-      applyCompact(state.prefs.compact);
-      const skipNote = result.skipped > 0 ? ` (${result.skipped} invalid skipped)` : '';
-      showImportStatus(`✅ Created profile "${importedName}" with ${result.imported} imported entries.${skipNote}`, 'success');
-      await Storage.addBackupLog({ type: 'import', label: `Browsed & imported as new profile: ${file.name}` });
+    const allowed = backupAccountAllowed(backup);
+    if (!allowed.ok) {
+      const who = backup.accountEmail ? ` (${backup.accountEmail})` : '';
+      showOverrideBanner(
+        `This backup belongs to a different account${who}. If you recently changed your email address, click 'Import anyway' to recover your data.`,
+        () => _doBrowseImport(backup, file)
+      );
+      return;
     }
+
+    await _doBrowseImport(backup, file);
+  }
+
+  // Executes the actual folder-load import after validation passes (or override is confirmed).
+  async function _doFolderImport(backup, file) {
+    const result = await Storage.importAll(backup);
+
+    state.entries   = await Storage.getAllEntries();
+    state.earnedAch = await Storage.getAllAchievements();
+    state.goals     = await Storage.getAllGoals();
+    state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
+    await checkAchievements();
+
+    // Restore the profile name stored in the backup.
+    if (backup.profileName) {
+      const activeUser = UserManager.getActive();
+      if (activeUser) UserManager.updateUser(activeUser.id, backup.profileName);
+    }
+
+    applyTheme(state.prefs.theme);
+    applyAccent(state.prefs.accent);
+    applyCompact(state.prefs.compact);
+
+    const goalNote = result.prefsRestored > 0 ? ' Goal history restored.' : '';
+    showImportStatus(
+      `✅ Imported ${result.imported} new entries, ${result.updated} updated, ${result.skipped} skipped.${goalNote}`,
+      'success'
+    );
+
+    await Storage.addBackupLog({ type: 'import', label: `Imported from ${file.name} (${result.imported} new)` });
 
     renderPage(state.currentPage);
     updateSidebarUser();
+    showToast('Backup restored successfully!', 'success');
     renderBackup();
   }
 
@@ -1556,12 +1688,11 @@ import * as Auth from './auth.js';
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const raw    = e.target.result;
+        const raw = e.target.result;
         if (!raw || raw.trim() === '') { showImportStatus('Empty backup file.', 'error'); return; }
 
         const backup = JSON.parse(raw);
 
-        // Validate structure
         if (!backup.version || !backup.appName || !backup.data) {
           showImportStatus('Invalid backup file format.', 'error');
           return;
@@ -1571,30 +1702,17 @@ import * as Auth from './auth.js';
           return;
         }
 
-        const result = await Storage.importAll(backup);
+        const allowed = backupAccountAllowed(backup);
+        if (!allowed.ok) {
+          const who = backup.accountEmail ? ` (${backup.accountEmail})` : '';
+          showOverrideBanner(
+            `This backup belongs to a different account${who}. If you recently changed your email address, click 'Import anyway' to recover your data.`,
+            () => _doFolderImport(backup, file)
+          );
+          return;
+        }
 
-        // Refresh in-memory state including profile prefs
-        state.entries   = await Storage.getAllEntries();
-        state.earnedAch = await Storage.getAllAchievements();
-        state.goals     = await Storage.getAllGoals();
-        state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
-        await checkAchievements();
-        applyTheme(state.prefs.theme);
-        applyAccent(state.prefs.accent);
-        applyCompact(state.prefs.compact);
-
-        const goalNote = result.prefsRestored > 0 ? ' Goal history restored.' : '';
-        showImportStatus(
-          `✅ Imported ${result.imported} new entries, ${result.updated} updated, ${result.skipped} skipped.${goalNote}`,
-          'success'
-        );
-
-        await Storage.addBackupLog({ type: 'import', label: `Imported from ${file.name} (${result.imported} new)` });
-
-        renderPage(state.currentPage);
-        updateSidebarUser();
-        showToast('Backup restored successfully!', 'success');
-        renderBackup();
+        await _doFolderImport(backup, file);
       } catch (err) {
         if (err instanceof SyntaxError) {
           showImportStatus('Corrupted backup file (invalid JSON).', 'error');
@@ -1610,10 +1728,30 @@ import * as Auth from './auth.js';
   export function showImportStatus(message, type) {
     const el = document.getElementById('import-status');
     if (!el) return;
+    hideOverrideBanner();
     el.style.display = 'block';
     el.className     = `import-status ${type}`;
     el.textContent   = message;
     if (type === 'success') {
       setTimeout(() => { el.style.display = 'none'; }, 6000);
     }
+  }
+
+  // Pending "import anyway" callback — set when an account mismatch is shown.
+  let _pendingOverride = null;
+
+  function showOverrideBanner(message, executeFn) {
+    _pendingOverride = executeFn;
+    const banner = document.getElementById('import-override-banner');
+    const msg    = document.getElementById('import-override-msg');
+    const status = document.getElementById('import-status');
+    if (status) status.style.display = 'none';
+    if (msg)    msg.textContent = message;
+    if (banner) banner.style.display = 'block';
+  }
+
+  function hideOverrideBanner() {
+    _pendingOverride = null;
+    const banner = document.getElementById('import-override-banner');
+    if (banner) banner.style.display = 'none';
   }

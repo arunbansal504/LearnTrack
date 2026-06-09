@@ -3,9 +3,10 @@ import { state, DEFAULT_PREFS } from './state.js';
 import { init, triggerAutoBackup, updateSidebarBackupStatus } from './core.js';
 import { navigateTo, updateSidebarUser } from './nav.js';
 import { getBackupFilename } from './settings.js';
+import { getTestSession } from './test-accounts.js';
 import { _closeModal, _openModal, escapeHtml, showConfirm, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
-import { setCloudProfileId, getCloudProfileId } from './cloud-repo.js';
+import { setCloudProfileId, getCloudProfileId, queuePendingProfileDelete } from './cloud-repo.js';
 
 // Fallback used before entitlements are loaded (offline / not signed in).
 const FREE_PROFILE_LIMIT = 1;
@@ -17,7 +18,6 @@ export function getProfileLimit() {
   return state.profileLimit ?? FREE_PROFILE_LIMIT;
 }
 export function canCreateProfile() {
-  if (localStorage.getItem('lt_skip_auth')) return true;
   return UserManager.getUsers().length < getProfileLimit();
 }
 
@@ -161,18 +161,24 @@ export const UserManager = (() => {
 
       const user = UserManager.createUser(name); // optimistic local-first create
 
-      try {
-        await createCloudProfileRow(user);
-      } catch (err) {
-        if (err.message === 'profile_limit_reached') {
-          // Server rejected — roll back the local profile we just created
-          UserManager.deleteUser(user.id);
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create'; }
-          showToast('Profile limit reached. Upgrade your plan for more profiles.', 'error');
-          return;
+      // Local-first: only create the cloud row in real time when Auto Cloud Backup
+      // is ON for the active profile. Otherwise the new profile stays local and is
+      // reconciled to the cloud on sign-out backup (or when Auto Cloud Backup is
+      // enabled for it).
+      if (state.prefs.cloudAutoBackup) {
+        try {
+          await createCloudProfileRow(user);
+        } catch (err) {
+          if (err.message === 'profile_limit_reached') {
+            // Server rejected — roll back the local profile we just created
+            UserManager.deleteUser(user.id);
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create'; }
+            showToast('Profile limit reached. Upgrade your plan for more profiles.', 'error');
+            return;
+          }
+          // Any other error (network / offline) — profile stays local; reconcile later
+          console.warn('[Users] Cloud profile row creation skipped:', err?.message || err);
         }
-        // Any other error (network / offline) — profile stays local; migration or next sync will create the cloud row
-        console.warn('[Users] Cloud profile row creation skipped:', err?.message || err);
       }
 
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create'; }
@@ -401,17 +407,23 @@ export const UserManager = (() => {
           if (!newName) { showToast('Name cannot be empty', 'warning'); return; }
           const duplicate = UserManager.getUsers().find(u => u.id !== uid && u.name.toLowerCase() === newName.toLowerCase());
           if (duplicate) { showToast(`A profile named "${duplicate.name}" already exists.`, 'warning'); return; }
-          const oldUser     = UserManager.getUsers().find(u => u.id === uid);
-          const oldFilename = getBackupFilename(oldUser);
+          const oldUser        = UserManager.getUsers().find(u => u.id === uid);
+          const _accountEmail  = state.syncSession?.user?.email || getTestSession() || null;
+          const oldFilename    = getBackupFilename(oldUser, _accountEmail);
           UserManager.updateUser(uid, newName);
           if (uid === UserManager.getActiveId()) {
             triggerAutoBackup();
           }
-          // Sync the renamed name to the cloud profiles table
+          // Sync the renamed name to the cloud profiles table.
+          // Local-first: only push in real time when Auto Cloud Backup is ON.
+          // When OFF, record the new name under lt_pending_rename_<cloudPid> so the
+          // sign-out / enable reconcile (and the online retry) can push it later.
           if (state.syncSession) {
             const accountId = state.syncSession.user.id;
             const cloudPid  = getCloudProfileId(uid, accountId);
-            if (cloudPid) {
+            if (cloudPid && !state.prefs.cloudAutoBackup) {
+              localStorage.setItem(`lt_pending_rename_${cloudPid}`, newName);
+            } else if (cloudPid) {
               const pushRename = async () => {
                 const pending = localStorage.getItem(`lt_pending_rename_${cloudPid}`);
                 if (!pending) return;
@@ -475,16 +487,24 @@ export const UserManager = (() => {
           localStorage.removeItem(`lt_sync_wm_${userId}_${accountId}`);
         }
 
-        // Delete the profile row from Supabase so it doesn't persist in the cloud
+        // Delete the profile row from Supabase so it doesn't persist in the cloud.
+        // Local-first: only delete in real time when Auto Cloud Backup is ON. When
+        // OFF, queue the cloud id in lt_pending_profile_deletes_<accountId> so the
+        // sign-out / enable reconcile (and the online retry) removes it later.
         if (cloudPid && state.syncSession) {
-          import('./sync.js').then(async ({ getClient }) => {
-            try {
-              const sb = await getClient();
-              await sb.from('profiles').delete().eq('id', cloudPid);
-            } catch (err) {
-              console.warn('[Users] Cloud profile delete failed:', err);
-            }
-          }).catch(() => {});
+          if (state.prefs.cloudAutoBackup) {
+            import('./sync.js').then(async ({ getClient }) => {
+              try {
+                const sb = await getClient();
+                await sb.from('profiles').delete().eq('id', cloudPid);
+              } catch (err) {
+                console.warn('[Users] Cloud profile delete failed:', err);
+                queuePendingProfileDelete(accountId, cloudPid);
+              }
+            }).catch(() => {});
+          } else {
+            queuePendingProfileDelete(accountId, cloudPid);
+          }
         }
 
         showToast(`Profile "${user.name}" deleted`, 'info');
@@ -587,6 +607,18 @@ export async function setDefaultProfile(localUserId) {
   if (!state.syncSession) { showToast('Sign in to set a default profile', 'warning'); return; }
   const accountId = state.syncSession.user.id;
   let cloudPid = getCloudProfileId(localUserId, accountId);
+  const name   = UserManager.getUsers().find(u => u.id === localUserId)?.name || 'Profile';
+
+  // Local-first: when Auto Cloud Backup is OFF, never touch the cloud. Record the
+  // choice locally — by cloud id if known, else by local id — so the sign-out /
+  // enable reconcile applies is_default later.
+  if (!state.prefs.cloudAutoBackup) {
+    if (cloudPid) localStorage.setItem(`lt_default_profile_${accountId}`, cloudPid);
+    else          localStorage.setItem(`lt_pending_default_${accountId}`, localUserId);
+    showToast(`"${name}" set as default — will sync when backed up`, 'success');
+    renderUsersManagement();
+    return;
+  }
 
   // Profile predates cloud sync — create its cloud row on demand before proceeding.
   if (!cloudPid) {
@@ -602,6 +634,7 @@ export async function setDefaultProfile(localUserId) {
     }
   }
   if (!cloudPid) { showToast('Profile not yet synced to cloud', 'warning'); return; }
+
   try {
     const { getClient } = await import('./sync.js');
     const sb = await getClient();
@@ -609,7 +642,6 @@ export async function setDefaultProfile(localUserId) {
     const { error } = await sb.from('profiles').update({ is_default: true }).eq('id', cloudPid);
     if (error) throw error;
     localStorage.setItem(`lt_default_profile_${accountId}`, cloudPid);
-    const name = UserManager.getUsers().find(u => u.id === localUserId)?.name || 'Profile';
     showToast(`"${name}" is now your default profile on all devices`, 'success');
     renderUsersManagement();
   } catch (err) {

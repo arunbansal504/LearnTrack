@@ -141,7 +141,9 @@ export async function ensureManualSyncReady() {
 export async function pushSnapshot({ manual = false } = {}) {
   if (manual) {
     if (!await ensureManualSyncReady()) return { pushed: false, reason: 'not-ready' };
-  } else if (!canSync()) {
+  } else if (!canSync() || !state.prefs.cloudAutoBackup) {
+    // Local-first: automatic snapshot writes only happen when Auto Cloud Backup
+    // is ON. Manual pushes (sign-out backup, "Sync now") still go through above.
     return { pushed: false };
   }
   const sb  = await getClient();
@@ -177,6 +179,7 @@ export async function pullSnapshot({ force = false, manual = false } = {}) {
 /* ---- Debounced auto-push (called from triggerAutoBackup) -------- */
 
 export function queueCloudPush() {
+  if (!state.prefs.cloudAutoBackup) return; // local-first: no auto push when OFF
   if (!canSync()) return;
   clearTimeout(state.cloudPushTimer);
   state.cloudPushTimer = setTimeout(() => {

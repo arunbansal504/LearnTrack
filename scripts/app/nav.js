@@ -232,7 +232,8 @@ import { setEl } from './utils.js';
     const stats   = Analytics.calculateTotalStats(state.entries);
     const totalXP = Rewards.calculateTotalXP(state.entries, streak, state.prefs.dailyGoalMin, state.prefs.goalHistory, state.earnedAch);
     const lvInfo  = Rewards.getLevelInfo(totalXP);
-    const name    = state.prefs.username || 'Learner';
+    const activeUser = UserManager.getActive();
+    const name    = activeUser?.name || state.prefs.username || 'Learner';
 
     setEl('sidebar-username', name);
     setEl('sidebar-level', lvInfo.level);
@@ -245,7 +246,6 @@ import { setEl } from './utils.js';
     setEl('sidebar-xp-text', `${lvInfo.xpIntoLevel} / ${lvInfo.xpNeededForNext || '∞'} XP`);
 
     // Tint avatar with user's color
-    const activeUser = UserManager.getActive();
     const avatar = document.getElementById('user-avatar');
     if (avatar && activeUser?.color) avatar.style.background = activeUser.color;
 

@@ -4,6 +4,8 @@
    Supabase is loaded lazily (same CDN + config as app).
    ================================================================ */
 
+import { isTestAccount, startTestSession } from './app/test-accounts.js';
+
 const SUPABASE_URL      = 'https://codeflqdchbhsdjbuhqw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_p4sjIxGfeoFdFYKHy3BqCQ_HQ_nM0c3';
 const SUPABASE_ESM      = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -130,6 +132,13 @@ function wireAuth() {
   sendBtn?.addEventListener('click', async () => {
     const email = emailInput?.value.trim();
     if (!email) { showStatus(statusEl, 'Enter your email address.', 'error'); return; }
+    // No-cloud test account: log straight in, never contact Supabase.
+    if (isTestAccount(email)) {
+      startTestSession(email);
+      showStatus(statusEl, 'Signed in (test mode). Taking you to the app…', 'success');
+      setTimeout(() => window.location.replace('app.html'), 400);
+      return;
+    }
     sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
     try {
       await sendOtp(email);
@@ -178,11 +187,6 @@ function wireAuth() {
     } finally {
       resendBtn.disabled = false; resendBtn.textContent = 'Resend code';
     }
-  });
-
-  document.getElementById('landing-skip-login')?.addEventListener('click', () => {
-    localStorage.setItem('lt_skip_auth', '1');
-    window.location.href = 'app.html';
   });
 
   googleBtn?.addEventListener('click', async () => {
@@ -254,6 +258,13 @@ function wireModal() {
   sendBtn?.addEventListener('click', async () => {
     const email = emailInput?.value.trim();
     if (!email) { showStatus(statusEl, 'Enter your email address.', 'error'); return; }
+    // No-cloud test account: log straight in, never contact Supabase.
+    if (isTestAccount(email)) {
+      startTestSession(email);
+      showStatus(statusEl, 'Signed in (test mode). Taking you to the app…', 'success');
+      setTimeout(() => window.location.replace('app.html'), 400);
+      return;
+    }
     sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
     try {
       await sendOtp(email);

@@ -26,8 +26,9 @@
 
 import { state, DEFAULT_PREFS } from './state.js';
 import { UserManager, createCloudProfileRow } from './users.js';
-import { showToast, _openModal, _closeModal } from './utils.js';
+import { showToast, _openModal, _closeModal, escapeHtml } from './utils.js';
 import * as Repo from './cloud-repo.js';
+import { isTestSession, endTestSession } from './test-accounts.js';
 
 const JUST_LOGGED_IN_KEY = 'lt_just_logged_in';
 const ACCOUNT_OWNER_KEY  = 'lt_account_owner';
@@ -346,31 +347,158 @@ export async function handleAccountDeletion() {
 }
 
 /* ================================================================
-   UNSYNCED-CHANGES detection + push (req 4)
+   PROFILE-STRUCTURE RECONCILE (req 1 — full reconcile on backup)
    ================================================================ */
 
-// Scan every profile's outbox for unsynced USER DATA changes.
-// Pref ops are excluded: they are pref migrations / settings backfills that
-// loadAndShowApp writes on every boot. They sync quietly (either via the
-// auto-backup engine or via the full drain when the user clicks "Yes, back up
-// & sign out"). Only entries, goals, and achievements represent data the user
-// would want to be warned about losing.
+// Push one local profile's structure (name / color / sort_order / appearance /
+// is_default) to the cloud `profiles` row, creating the row first if it doesn't
+// exist. The caller must have initialised Storage to this profile (so the
+// appearance prefs read here belong to it). Failures are logged, not thrown —
+// the surrounding drain decides overall success.
+export async function reconcileProfileStructure(localId, accountId) {
+  if (!accountId) return;
+  const user = UserManager.getUsers().find(u => u.id === localId);
+  if (!user) return;
+
+  // Ensure a cloud row exists (backfill bypasses the plan-limit trigger).
+  let cloudPid = Repo.getCloudProfileId(localId, accountId);
+  if (!cloudPid) {
+    try { await createCloudProfileRow(user, { backfill: true }); }
+    catch (err) { console.warn('[AccountSession] reconcile create failed:', err?.message || err); }
+    cloudPid = Repo.getCloudProfileId(localId, accountId);
+  }
+  if (!cloudPid) return;
+
+  const { getClient } = await import('./sync.js');
+  const sb = await getClient();
+
+  // Read this profile's appearance straight from its prefs store.
+  let theme = 'dark', accent = 'purple', customAccentHex = null;
+  try {
+    theme           = (await Storage.getPref('theme'))           || 'dark';
+    accent          = (await Storage.getPref('accent'))          || 'purple';
+    customAccentHex = (await Storage.getPref('customAccentHex')) || null;
+  } catch { /* defaults */ }
+  const sortOrder = UserManager.getUsers().findIndex(u => u.id === localId);
+
+  try {
+    await sb.from('profiles').update({
+      name: user.name, color: user.color, sort_order: sortOrder,
+      theme, accent, custom_accent_hex: customAccentHex,
+    }).eq('id', cloudPid).eq('account_id', accountId);
+  } catch (err) { console.warn('[AccountSession] reconcile update failed:', err?.message || err); }
+
+  // The current name has now been pushed — clear any pending rename marker.
+  localStorage.removeItem(`lt_pending_rename_${cloudPid}`);
+
+  // Resolve a pending default recorded by local id (profile had no cloud row yet).
+  if (localStorage.getItem(`lt_pending_default_${accountId}`) === localId) {
+    localStorage.setItem(`lt_default_profile_${accountId}`, cloudPid);
+    localStorage.removeItem(`lt_pending_default_${accountId}`);
+  }
+  // Apply is_default if this profile is the cached default.
+  if (localStorage.getItem(`lt_default_profile_${accountId}`) === cloudPid) {
+    try {
+      await sb.from('profiles').update({ is_default: false }).eq('account_id', accountId);
+      await sb.from('profiles').update({ is_default: true }).eq('id', cloudPid);
+    } catch (err) { console.warn('[AccountSession] reconcile default failed:', err?.message || err); }
+  }
+}
+
+// Delete cloud profile rows the user removed locally while Auto Cloud Backup was
+// OFF (queued in lt_pending_profile_deletes_<accountId>). Clears the queue on
+// success; leaves it for the next retry on failure.
+export async function flushPendingProfileDeletes(accountId) {
+  if (!accountId) return;
+  const ids = Repo.getPendingProfileDeletes(accountId);
+  if (!ids.length) return;
+  try {
+    const { getClient } = await import('./sync.js');
+    const sb = await getClient();
+    const { error } = await sb.from('profiles').delete().in('id', ids).eq('account_id', accountId);
+    if (error) throw error;
+    Repo.clearPendingProfileDeletes(accountId);
+  } catch (err) {
+    console.warn('[AccountSession] flushPendingProfileDeletes failed:', err?.message || err);
+  }
+}
+
+/* ================================================================
+   UNSYNCED-CHANGES detection + push (req 1 — sign-out backup)
+   ================================================================ */
+
+// Scan every profile for changes that haven't reached the cloud. A profile is
+// "dirty" if it has ANY outbox ops (entries/goals/achievements AND prefs, so
+// theme/accent/goal edits count), OR it has no cloud row yet (created locally),
+// OR a pending rename / default marker is set for it.
 export async function collectUnsyncedChanges() {
-  const activeId = UserManager.getActiveId();
+  const activeId  = UserManager.getActiveId();
+  const accountId = state.syncSession?.user?.id || null;
   const dirty = [];
   for (const u of UserManager.getUsers()) {
     try {
       await Storage.init(u.id);
-      const ops = await Storage.getAllOutboxOps();
-      const dataOps = ops.filter(op => op.kind !== 'pref');
-      if (dataOps.length) dirty.push({ id: u.id, name: u.name, count: dataOps.length });
+      const ops      = await Storage.getAllOutboxOps();
+      const cloudPid = accountId ? Repo.getCloudProfileId(u.id, accountId) : null;
+      const noCloudRow     = !cloudPid;
+      const pendingRename  = cloudPid  && !!localStorage.getItem(`lt_pending_rename_${cloudPid}`);
+      const pendingDefault = accountId && localStorage.getItem(`lt_pending_default_${accountId}`) === u.id;
+      // Exclude auto-generated housekeeping ops (categories replace-all from
+      // ensureCategoryColors on every boot — not a real user change).
+      const userOps    = ops.filter(o => !(o.kind === 'categories' && o.op === 'replace-all'));
+      const nonPrefOps = userOps.filter(o => o.kind !== 'pref');
+      const prefOps    = userOps.filter(o => o.kind === 'pref');
+
+      // Net-change detection for prefs: compare each op's current value against a
+      // known-good snapshot. Prefer the cloud snapshot (saved after each successful
+      // drain/pull); fall back to the boot snapshot (saved at session start from IDB)
+      // which works even when cloudAutoBackup has never been ON.
+      let hasPrefChange = false;
+      if (prefOps.length) {
+        const cloudSnap = cloudPid
+          ? JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${cloudPid}`) || '{}')
+          : {};
+        const bootSnap = JSON.parse(localStorage.getItem(`lt_boot_pref_snap_${u.id}`) || '{}');
+        // Boot snap covers all keys; cloud snap overrides with last-synced values.
+        // Merging means a key absent from cloud (e.g. customAccentHex never synced)
+        // still has a reference value from session start.
+        const snap = { ...bootSnap, ...cloudSnap };
+        console.log('[SignOut] pref snap check', {
+          cloudPid,
+          cloudSnapKeys: Object.keys(cloudSnap),
+          bootSnapKeys:  Object.keys(bootSnap),
+          prefOps: prefOps.map(o => ({
+            key: o.recordId,
+            opVal:   o.payload?.value,
+            snapVal: snap[o.recordId],
+            match:   JSON.stringify(snap[o.recordId]) === JSON.stringify(o.payload?.value),
+          })),
+        });
+        hasPrefChange = prefOps.some(op =>
+          !(op.recordId in snap) ||
+          JSON.stringify(snap[op.recordId]) !== JSON.stringify(op.payload?.value)
+        );
+      }
+
+      const logicalCount = nonPrefOps.length + (hasPrefChange ? 1 : 0);
+      const isDirty = logicalCount || noCloudRow || pendingRename || pendingDefault;
+      console.log('[SignOut] profile:', u.name, u.id, {
+        outboxOps:      ops.map(o => ({ kind: o.kind, op: o.op, recordId: o.recordId })),
+        noCloudRow,
+        pendingRename:  pendingRename  ? localStorage.getItem(`lt_pending_rename_${cloudPid}`) : false,
+        pendingDefault: pendingDefault ? localStorage.getItem(`lt_pending_default_${accountId}`) : false,
+        isDirty,
+      });
+      if (isDirty) {
+        dirty.push({ id: u.id, name: u.name, count: logicalCount || 1 });
+      }
     } catch { /* skip an unreadable profile */ }
   }
   if (activeId) { try { await Storage.init(activeId); } catch { /* ignore */ } }
   return dirty;
 }
 
-// Drain each dirty profile's outbox to the cloud. drainOutbox keys off the
+// Drain + reconcile each selected profile to the cloud. drainOutbox keys off the
 // ACTIVE profile id + the Storage singleton, so we set both together, then
 // restore the original active profile in `finally`.
 export async function syncAllProfilesToCloud(accountId, dirty, onProgress) {
@@ -385,11 +513,8 @@ export async function syncAllProfilesToCloud(accountId, dirty, onProgress) {
       UserManager.setActiveId(p.id);
       await Storage.init(p.id);
 
-      // A profile that predates cloud sync needs its cloud row before draining.
-      if (!Repo.getCloudProfileId(p.id, accountId)) {
-        const localUser = UserManager.getUsers().find(x => x.id === p.id);
-        if (localUser) await createCloudProfileRow(localUser, { backfill: true });
-      }
+      // Full reconcile: ensure the cloud row + push name/color/appearance/default.
+      await reconcileProfileStructure(p.id, accountId);
 
       await Engine.drainOutbox({ manual: true });
       const remaining = await Storage.getAllOutboxOps();
@@ -398,6 +523,8 @@ export async function syncAllProfilesToCloud(accountId, dirty, onProgress) {
       done++;
       if (onProgress) onProgress(done, dirty.length);
     }
+    // Remove cloud rows for profiles deleted locally while backup was off.
+    await flushPendingProfileDeletes(accountId);
     try { await Sync.pushSnapshot({ manual: true }); } catch { /* metadata only */ }
   } finally {
     if (originalActiveId) {
@@ -448,6 +575,16 @@ async function pruneStaleOutboxAfterPull() {
    ================================================================ */
 
 export async function handleSignOut() {
+  // No-cloud test account: just end the local session and return to the landing
+  // page. Keep all browser data (IndexedDB, lt_users, account owner + per-profile
+  // bindings) so re-login with the same test email resumes exactly where they
+  // left off. No cloud modal — nothing was ever pushed to the cloud.
+  if (isTestSession()) {
+    endTestSession();
+    window.location.replace('landing.html');
+    return;
+  }
+
   const accountId = state.syncSession?.user?.id || null;
 
   // Check for unsynced USER DATA across all profiles.
@@ -461,16 +598,19 @@ export async function handleSignOut() {
   }
   if (!dirty.length) { await finalizeSignOut(accountId); return; }
 
-  const choice = await showUnsyncedModal(dirty);
-  if (choice === 'cancel') return;                  // stay signed in (req 4: Cancel/Esc)
+  const { choice, selectedIds } = await showUnsyncedModal(dirty);
+  if (choice === 'cancel') return;                  // stay signed in (Cancel/Esc)
   if (choice === 'no')     { await finalizeSignOut(accountId); return; } // sign out, no push
-  await runSyncThenSignOut(accountId, dirty);        // 'yes'
+  // 'yes' — back up only the profiles the user ticked.
+  const selected = dirty.filter(d => selectedIds.includes(d.id));
+  if (!selected.length) { await finalizeSignOut(accountId); return; }
+  await runSyncThenSignOut(accountId, selected);
 }
 
-async function runSyncThenSignOut(accountId, dirty) {
+async function runSyncThenSignOut(accountId, selected) {
   showProgressModal();
   try {
-    await syncAllProfilesToCloud(accountId, dirty, (done, total) =>
+    await syncAllProfilesToCloud(accountId, selected, (done, total) =>
       setProgressText(`Backing up your changes to cloud… (${done}/${total})`));
     hideProgressModal();
     await finalizeSignOut(accountId);
@@ -479,8 +619,11 @@ async function runSyncThenSignOut(accountId, dirty) {
     console.warn('[AccountSession] sign-out sync failed:', err?.message || err);
     const choice = await showRetryModal();
     if (choice === 'again') {
+      // Retry only the profiles the user originally chose that are still dirty.
+      const selectedIds = selected.map(p => p.id);
       let stillDirty = [];
-      try { stillDirty = await collectUnsyncedChanges(); } catch { stillDirty = dirty; }
+      try { stillDirty = (await collectUnsyncedChanges()).filter(d => selectedIds.includes(d.id)); }
+      catch { stillDirty = selected; }
       if (!stillDirty.length) { await finalizeSignOut(accountId); return; }
       await runSyncThenSignOut(accountId, stillDirty);
     } else if (choice === 'skip') {
@@ -495,21 +638,32 @@ async function runSyncThenSignOut(accountId, dirty) {
 function showUnsyncedModal(dirty) {
   return new Promise(resolve => {
     const modal  = document.getElementById('signout-unsynced-modal');
-    const body   = document.getElementById('signout-unsynced-body');
+    const intro  = document.getElementById('signout-unsynced-intro');
+    const list   = document.getElementById('signout-unsynced-list');
     const yesBtn = document.getElementById('signout-unsynced-yes');
     const noBtn  = document.getElementById('signout-unsynced-no');
     const cancel = document.getElementById('signout-unsynced-cancel');
-    if (!modal || !yesBtn || !noBtn || !cancel) { resolve('no'); return; }
+    if (!modal || !list || !yesBtn || !noBtn || !cancel) { resolve({ choice: 'no', selectedIds: [] }); return; }
 
     const totalCount = dirty.reduce((s, p) => s + p.count, 0);
-    const names = dirty.map(p => p.name).join(', ');
-    if (body) {
-      body.textContent =
-        `You have ${totalCount} unsynced change${totalCount === 1 ? '' : 's'} ` +
-        `across ${dirty.length} profile${dirty.length === 1 ? '' : 's'} ` +
-        `(${names}) that haven't been backed up to the cloud yet. ` +
-        `Sync these changes before signing out?`;
+    if (intro) {
+      intro.textContent =
+        `You have ${totalCount} unsynced change${totalCount === 1 ? '' : 's'} that ` +
+        `haven't been backed up to the cloud. Choose which profiles to back up ` +
+        `before signing out — unticked profiles will sign out without backing up.`;
     }
+
+    // Build a checked checkbox row per dirty profile.
+    list.innerHTML = dirty.map(p => `
+      <label class="signout-profile-row">
+        <input type="checkbox" class="signout-profile-cb" value="${escapeHtml(p.id)}" checked>
+        <span class="signout-profile-name">${escapeHtml(p.name)}</span>
+        <span class="signout-profile-count">${p.count} change${p.count === 1 ? '' : 's'}</span>
+      </label>
+    `).join('');
+
+    const selectedIds = () =>
+      Array.from(list.querySelectorAll('.signout-profile-cb:checked')).map(cb => cb.value);
 
     modal.style.display = 'flex';
     _openModal(modal);
@@ -524,12 +678,12 @@ function showUnsyncedModal(dirty) {
       document.removeEventListener('keydown', onKey);
       resolve(result);
     }
-    function onYes()    { cleanup('yes'); }
-    function onNo()     { cleanup('no'); }
-    function onCancel() { cleanup('cancel'); }
+    function onYes()    { cleanup({ choice: 'yes', selectedIds: selectedIds() }); }
+    function onNo()     { cleanup({ choice: 'no',  selectedIds: [] }); }
+    function onCancel() { cleanup({ choice: 'cancel', selectedIds: [] }); }
     function onKey(e) {
-      if (e.key === 'Escape') { e.preventDefault(); cleanup('cancel'); }
-      if (e.key === 'Enter')  { e.preventDefault(); cleanup('yes'); }
+      if (e.key === 'Escape') { e.preventDefault(); cleanup({ choice: 'cancel', selectedIds: [] }); }
+      if (e.key === 'Enter')  { e.preventDefault(); cleanup({ choice: 'yes', selectedIds: selectedIds() }); }
     }
     yesBtn.addEventListener('click', onYes);
     noBtn.addEventListener('click', onNo);

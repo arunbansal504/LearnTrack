@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
   <link rel="stylesheet" href="styles/report-preview.css?v=1" />
   <link rel="stylesheet" href="styles/forms.css?v=2" />
-  <link rel="stylesheet" href="styles/modals.css?v=2" />
+  <link rel="stylesheet" href="styles/modals.css?v=3" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
   <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
@@ -1406,7 +1406,7 @@
 
             <!-- Not configured for this build -->
             <div id="cloud-disabled" class="backup-configure-prompt hidden">
-              <span class="configure-warning-text">⚠️ Cloud sync isn’t set up for this build yet.</span>
+              <span class="configure-warning-text" id="cloud-disabled-msg">⚠️ Cloud sync isn’t set up for this build yet.</span>
             </div>
 
             <!-- Signed in -->
@@ -1527,6 +1527,13 @@
               <input type="file" id="browse-backup-input" accept=".json" style="display:none" />
             </div>
             <div class="import-status" id="import-status" style="display:none"></div>
+            <div class="import-override-banner" id="import-override-banner" style="display:none">
+              <p id="import-override-msg"></p>
+              <div class="import-override-actions">
+                <button class="btn btn-secondary btn-sm" id="import-override-cancel">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="import-override-confirm">Import anyway</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1798,13 +1805,14 @@
       <h2 id="signout-unsynced-title">Unsynced changes</h2>
     </div>
     <div class="modal-body">
-      <p id="signout-unsynced-body"></p>
+      <p id="signout-unsynced-intro"></p>
+      <div id="signout-unsynced-list" class="signout-profile-list"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="signout-unsynced-cancel">Cancel</button>
       <div class="modal-footer-right">
-        <button class="btn btn-secondary" id="signout-unsynced-no">No, just sign out</button>
-        <button class="btn btn-primary" id="signout-unsynced-yes">Yes, back up &amp; sign out</button>
+        <button class="btn btn-secondary" id="signout-unsynced-no">Sign out without backing up</button>
+        <button class="btn btn-primary" id="signout-unsynced-yes">Back up selected &amp; sign out</button>
       </div>
     </div>
   </div>
@@ -2341,7 +2349,7 @@
      Classic scripts run before deferred ES modules, so these globals
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
-<script src="scripts/storage.js?v=20"></script>
+<script src="scripts/storage.js?v=21"></script>
 <script src="scripts/analytics.js?v=16"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=18"></script>
@@ -2350,7 +2358,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=34"></script>
+<script type="module" src="scripts/main.js?v=38"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

@@ -417,6 +417,18 @@
 
 .import-status.success { background: rgba(16,185,129,0.1); color: var(--success-text); }
 .import-status.error   { background: rgba(239,68,68,0.1);  color: var(--danger-text); }
+.import-status.info    { background: rgba(99,102,241,0.08); color: var(--text-secondary); }
+
+.import-override-banner {
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  color: var(--text-primary);
+}
+.import-override-banner p { margin: 0 0 var(--s-2); font-weight: 500; }
+.import-override-actions { display: flex; gap: var(--s-2); justify-content: flex-end; flex-wrap: wrap; }
 
 .backup-history-list {
   display: flex;

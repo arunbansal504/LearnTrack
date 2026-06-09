@@ -12,6 +12,7 @@
 
 import { state } from './state.js';
 import { getClient } from './sync.js';
+import { isTestSession } from './test-accounts.js';
 
 const TIER_ORDER = { free: 0, premium: 1, family: 2 };
 
@@ -23,8 +24,17 @@ const FREE_KEYS = new Set([
 ]);
 
 export async function loadEntitlements() {
-  // Resolve the real session first — a signed-in user must never be routed
-  // through the bypass path even if lt_skip_auth is still in localStorage.
+  // No-cloud test account: grant Family locally and NEVER load the Supabase
+  // client (cloud must never be referred for a test session). Checked first so
+  // a test session can't be downgraded by a stray getSession() call.
+  if (isTestSession() && !state.syncSession) {
+    state.tier         = 'family';
+    state.entitlements = null;
+    state.profileLimit = 12;
+    return;
+  }
+
+  // Resolve the real session first.
   let session = state.syncSession;
   if (!session) {
     try {
@@ -33,16 +43,6 @@ export async function loadEntitlements() {
       session = data?.session ?? null;
       if (session) state.syncSession = session;
     } catch { /* offline or client not ready — fall through */ }
-  }
-
-  // TEMP: bypass login grants full access only when there is genuinely no
-  // session (dev / offline use). A real signed-in session always takes
-  // priority so the bypass can never inflate the tier for a logged-in user.
-  if (!session && localStorage.getItem('lt_skip_auth')) {
-    state.tier         = 'family';
-    state.entitlements = null;
-    state.profileLimit = 12;
-    return;
   }
 
   if (!session) {
