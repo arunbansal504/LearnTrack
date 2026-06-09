@@ -171,6 +171,16 @@ import { getTestSession, testAccountId } from './test-accounts.js';
       UserManager.setActiveId(activeId);
     }
 
+    // Eagerly prime account-session.js + auth.js into the module registry so
+    // the sign-out button works offline. For fresh-login paths account-session.js
+    // is already imported (line 141); for persistent-session loads this is the
+    // only time these modules get pre-loaded. auth.js is needed inside
+    // finalizeSignOut to do the server-side token invalidation.
+    if (hasStoredSession || state.syncSession) {
+      import('./account-session.js').catch(() => {});
+      import('./auth.js').catch(() => {});
+    }
+
     await loadAndShowApp(activeId);
   }
 

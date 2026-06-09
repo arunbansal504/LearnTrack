@@ -189,10 +189,15 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
       await Engine.pullDeltas({ manual: true, force: true, silent: true });
       // Remove stale outbox ops (cloud wrote a newer version, or pref cloud-wins).
       await pruneStaleOutboxAfterPull();
-      // Push remaining genuine local-wins to the cloud while we're online.
-      // After this the outbox should be empty for this profile, so sign-out
-      // won't prompt the user about changes they didn't make in this session.
-      await Engine.drainOutbox({ manual: true });
+      // Push remaining genuine local-wins only when the user has Auto Cloud Backup
+      // enabled. With backup OFF the outbox represents intentionally-local data;
+      // draining it here would push entries to the cloud against the user's preference.
+      // (The engine's own queueDrain / ticker will pick them up if backup is later enabled.)
+      let _backupOn = false;
+      try { _backupOn = await Storage.getPref('cloudAutoBackup'); } catch { /* ignore */ }
+      if (_backupOn === true) {
+        await Engine.drainOutbox({ manual: true });
+      }
     } catch (err) {
       console.warn('[AccountSession] pull failed for profile', cp.name, err?.message || err);
     }
@@ -258,7 +263,11 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
 // avoid data loss. Preserves the local backup folder handle (LearnTrackHandles
 // DB), `lt_backupFolderName`, `lt_backup_skipped`, `lt_device_id`,
 // `lt_landing_theme` so the user's local JSON backups stay intact and usable.
-export async function clearLocalAccountData(accountId) {
+// `keepData: true` preserves every linked profile's IndexedDB and cloud bindings
+// (no deletion loop) while still restoring stashed orphans, resetting in-memory
+// state, and ending the session-owner marker. Used by the offline / failed-push
+// sign-out paths so unsynced data survives and re-syncs on the next sign-in.
+export async function clearLocalAccountData(accountId, { keepData = false } = {}) {
   // Resolve the account being torn down. Falling back to the recorded owner
   // keeps the null-id sign-out path (session expired) scoped instead of wiping
   // everything in lt_users.
@@ -292,28 +301,30 @@ export async function clearLocalAccountData(accountId) {
   );
 
   const users  = UserManager.getUsers();
-  const mine   = users.filter(isLinked);    // delete these
-  const others = users.filter(u => !isLinked(u)); // preserve these (orphans / other accounts)
+  const mine   = users.filter(isLinked);    // owned by this account
+  const others = users.filter(u => !isLinked(u)); // orphans / other accounts
 
-  for (const u of mine) {
-    const dbName = u.id === 'default' ? 'LearnTrackDB' : `LearnTrackDB_${u.id}`;
-    try { indexedDB.deleteDatabase(dbName); } catch { /* ignore */ }
+  if (!keepData) {
+    for (const u of mine) {
+      const dbName = u.id === 'default' ? 'LearnTrackDB' : `LearnTrackDB_${u.id}`;
+      try { indexedDB.deleteDatabase(dbName); } catch { /* ignore */ }
 
-    // Exact per-profile keys (every key carries the id suffix, so the lt_
-    // prefix used by the default profile never collides with device globals).
-    ['sync_account', 'sync_rev', 'sync_at', 'last_auto_backup', 'ustats', 'goal_link_migrated']
-      .forEach(s => localStorage.removeItem(`lt_${s}_${u.id}`));
+      // Exact per-profile keys (every key carries the id suffix, so the lt_
+      // prefix used by the default profile never collides with device globals).
+      ['sync_account', 'sync_rev', 'sync_at', 'last_auto_backup', 'ustats', 'goal_link_migrated']
+        .forEach(s => localStorage.removeItem(`lt_${s}_${u.id}`));
 
-    // Pref snapshots used by the sign-out dirty check — clear on sign-out so
-    // the next session starts fresh and stale values don't affect comparisons.
-    localStorage.removeItem(`lt_boot_pref_snap_${u.id}`);
+      // Pref snapshots used by the sign-out dirty check — clear on sign-out so
+      // the next session starts fresh and stale values don't affect comparisons.
+      localStorage.removeItem(`lt_boot_pref_snap_${u.id}`);
 
-    if (owner) {
-      const cloudPid = Repo.getCloudProfileId(u.id, owner);
-      if (cloudPid) localStorage.removeItem(`lt_cloud_pref_snap_${cloudPid}`);
-      localStorage.removeItem(`lt_cloud_pid_${u.id}_${owner}`);
-      localStorage.removeItem(`lt_sync_wm_${u.id}_${owner}`);
-      localStorage.removeItem(`lt_migrated_${u.id}_${owner}`);
+      if (owner) {
+        const cloudPid = Repo.getCloudProfileId(u.id, owner);
+        if (cloudPid) localStorage.removeItem(`lt_cloud_pref_snap_${cloudPid}`);
+        localStorage.removeItem(`lt_cloud_pid_${u.id}_${owner}`);
+        localStorage.removeItem(`lt_sync_wm_${u.id}_${owner}`);
+        localStorage.removeItem(`lt_migrated_${u.id}_${owner}`);
+      }
     }
   }
 
@@ -321,7 +332,11 @@ export async function clearLocalAccountData(accountId) {
   // login (orphans hidden while signed in). Merge (dedupe by id) covers both
   // the happy path (orphans stashed, absent from lt_users) and the failed-stash
   // paths (orphans never stashed, already present in `others`).
-  const byId = new Map(others.map(u => [u.id, u]));
+  // When keepData is true, `mine` profiles are retained on-device so they must
+  // appear in lt_users too — the same account will re-link them on next sign-in.
+  const byId = keepData
+    ? new Map([...mine, ...others].map(u => [u.id, u]))
+    : new Map(others.map(u => [u.id, u]));
   const stashedJson = localStorage.getItem('lt_offline_profiles');
   if (stashedJson) {
     try {
@@ -334,10 +349,10 @@ export async function clearLocalAccountData(accountId) {
   }
   UserManager.saveUsers([...byId.values()]);
 
-  // Only drop the active pointer if it referenced a profile we just deleted;
-  // a pointer to a preserved profile stays valid.
+  // Only drop the active pointer if it referenced a profile we just deleted
+  // (keepData = retained on device, so the pointer stays valid in that case).
   const activeId = UserManager.getActiveId();
-  if (activeId && mine.some(u => u.id === activeId)) {
+  if (!keepData && activeId && mine.some(u => u.id === activeId)) {
     localStorage.removeItem('lt_active_user');
   }
 
@@ -357,12 +372,59 @@ export async function clearLocalAccountData(accountId) {
   try { Storage.close(); } catch { /* ignore */ }
 }
 
-async function finalizeSignOut(accountId) {
+// `keepLocalData: true` ends the auth session but PRESERVES this account's local
+// IndexedDB + cloud bindings — used when we couldn't confirm a cloud push (offline,
+// or a push that failed). The data syncs on the next sign-in instead of being lost.
+async function finalizeSignOut(accountId, { keepLocalData = false } = {}) {
+  // Clear the Supabase session key from localStorage immediately. This is
+  // offline-safe (no network required) and is the single flag landing.html
+  // checks to decide whether to show "Dashboard". Doing this first means the
+  // session is gone even if the module imports below fail offline.
+  try { localStorage.removeItem('lt_sb_auth'); } catch { /* ignore */ }
+
+  // Best-effort: invalidate the server-side session token and reset in-memory
+  // state. Both may fail silently when offline; the local key above already
+  // guards the auth gate.
   try { const Auth = await import('./auth.js'); await Auth.signOut(); } catch { /* ignore */ }
   try { const Sync = await import('./sync.js'); Sync.signOut(); }      catch { /* ignore */ }
-  try { await clearLocalAccountData(accountId); }
+  try { await clearLocalAccountData(accountId, { keepData: keepLocalData }); }
   catch (err) { console.warn('[AccountSession] clear on sign-out failed:', err?.message || err); }
-  window.location.replace('landing.html');
+
+  if (navigator.onLine) {
+    window.location.replace('landing.html');
+  } else {
+    // Offline: navigation would fail ("page cannot be displayed"). Show an
+    // in-page confirmation and redirect automatically when connectivity returns.
+    _showSignedOutOfflineScreen();
+  }
+}
+
+// Covers the viewport with a "signed out" acknowledgement while the user is
+// offline. Redirects to landing.html the moment connectivity is restored.
+function _showSignedOutOfflineScreen() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:10000',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'flex-direction:column', 'gap:1.25rem', 'padding:2rem',
+    'text-align:center', 'background:var(--bg,#fff)',
+  ].join(';');
+  overlay.innerHTML = `
+    <p style="font-size:2.5rem;margin:0" aria-hidden="true">✅</p>
+    <h2 style="margin:0;color:var(--text,#111)">You've been signed out</h2>
+    <p style="margin:0;color:var(--text-muted,#555);max-width:380px">
+      Your data is safe on this device and will sync automatically when you sign back in online.
+    </p>
+    <p id="_so-waiting" style="margin:0;font-size:.875rem;color:var(--text-muted,#888)">
+      Waiting for internet connection…
+    </p>
+  `;
+  document.body.appendChild(overlay);
+  window.addEventListener('online', () => {
+    const el = document.getElementById('_so-waiting');
+    if (el) el.textContent = 'Connection restored — redirecting…';
+    setTimeout(() => window.location.replace('landing.html'), 800);
+  }, { once: true });
 }
 
 /* ================================================================
@@ -641,20 +703,35 @@ export async function handleSignOut() {
 
   const accountId = state.syncSession?.user?.id || null;
 
-  // Check for unsynced USER DATA across all profiles.
-  // Pref ops (migrations, settings backfills from loadAndShowApp) are
-  // excluded — they sync quietly and should never trigger the warning modal.
-  // If the user clicks "Yes, back up & sign out", the full drain (including
-  // prefs) still runs via syncAllProfilesToCloud → drainOutbox.
+  // Detect unsynced changes ALWAYS — collectUnsyncedChanges only reads the
+  // local outbox and needs no network. The navigator.onLine gate was only
+  // needed for the subsequent push, not for detection itself.
   let dirty = [];
-  if (accountId && navigator.onLine) {
+  if (accountId) {
     try { dirty = await collectUnsyncedChanges(); } catch { dirty = []; }
   }
+
+  // Nothing pending → cloud already has everything; safe to wipe locally.
   if (!dirty.length) { await finalizeSignOut(accountId); return; }
 
+  // Offline with pending changes → we cannot push right now. Sign out but
+  // KEEP the local data on-device so it syncs automatically on next sign-in.
+  if (!navigator.onLine) {
+    let proceed = true; // safe default if the modal can't be shown
+    try {
+      proceed = await showOfflineSignOutModal(dirty);
+    } catch (err) {
+      console.warn('[AccountSession] offline modal error:', err?.message || err);
+    }
+    if (!proceed) return;                               // stay signed in
+    await finalizeSignOut(accountId, { keepLocalData: true });
+    return;
+  }
+
+  // Online with pending changes → offer the user the backup modal.
   const { choice, selectedIds } = await showUnsyncedModal(dirty);
   if (choice === 'cancel') return;                  // stay signed in (Cancel/Esc)
-  if (choice === 'no')     { await finalizeSignOut(accountId); return; } // sign out, no push
+  if (choice === 'no')     { await finalizeSignOut(accountId); return; } // explicit informed discard
   // 'yes' — back up only the profiles the user ticked.
   const selected = dirty.filter(d => selectedIds.includes(d.id));
   if (!selected.length) { await finalizeSignOut(accountId); return; }
@@ -681,13 +758,58 @@ async function runSyncThenSignOut(accountId, selected) {
       if (!stillDirty.length) { await finalizeSignOut(accountId); return; }
       await runSyncThenSignOut(accountId, stillDirty);
     } else if (choice === 'skip') {
-      await finalizeSignOut(accountId);              // sign out without backing up
+      // Push failed — keep local data so the user doesn't lose anything.
+      // The outbox will drain automatically on the next sign-in.
+      await finalizeSignOut(accountId, { keepLocalData: true });
     }
     // 'abort' (Esc) → stay signed in, data intact
   }
 }
 
 /* ---- Modals (markup in app.html) ------------------------------- */
+
+// Shown when the user clicks Sign Out while offline with pending changes.
+// Resolves true → proceed with keepLocalData sign-out; false → stay signed in.
+function showOfflineSignOutModal(dirty) {
+  return new Promise(resolve => {
+    const modal   = document.getElementById('signout-offline-modal');
+    const msgEl   = document.getElementById('signout-offline-msg');
+    const signOut = document.getElementById('signout-offline-proceed');
+    const stay    = document.getElementById('signout-offline-cancel');
+    if (!modal || !signOut || !stay) { resolve(true); return; }  // fallback: allow sign-out
+
+    const totalCount    = dirty.reduce((s, p) => s + p.count, 0);
+    const profileCount  = dirty.length;
+    if (msgEl) {
+      msgEl.textContent =
+        `${totalCount} unsynced change${totalCount === 1 ? '' : 's'} across ` +
+        `${profileCount} profile${profileCount === 1 ? '' : 's'} can't be backed up right now. ` +
+        `Your data is safe on this device and will sync automatically next time you sign in while online.`;
+    }
+
+    modal.style.display = 'flex';
+    _openModal(modal);
+    signOut.focus();
+
+    function cleanup(result) {
+      _closeModal(modal, true);
+      modal.style.display = 'none';
+      signOut.removeEventListener('click', onSignOut);
+      stay.removeEventListener('click', onStay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onSignOut() { cleanup(true);  }
+    function onStay()    { cleanup(false); }
+    function onKey(e) {
+      if (e.key === 'Enter')  { e.preventDefault(); cleanup(true);  }
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(false); }
+    }
+    signOut.addEventListener('click', onSignOut);
+    stay.addEventListener('click', onStay);
+    document.addEventListener('keydown', onKey);
+  });
+}
 
 function showUnsyncedModal(dirty) {
   return new Promise(resolve => {

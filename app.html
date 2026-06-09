@@ -1798,6 +1798,23 @@
   </div>
 </div>
 
+<!-- ===== MODAL: SIGN-OUT — OFFLINE WITH UNSYNCED CHANGES ===== -->
+<div id="signout-offline-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signout-offline-title" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3 class="modal-title" id="signout-offline-title">You're offline</h3>
+    </div>
+    <div class="modal-body">
+      <p id="signout-offline-msg" style="margin:0 0 var(--space-3)"></p>
+      <p style="margin:0;font-size:var(--text-sm);color:var(--text-muted)">You can sign back in later — your data will be waiting.</p>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;gap:var(--space-2)">
+      <button type="button" class="btn btn-ghost" id="signout-offline-cancel">Stay signed in</button>
+      <button type="button" class="btn btn-primary" id="signout-offline-proceed">Sign out (keep data on this device)</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: SIGN-OUT — UNSYNCED CHANGES (Auto Cloud Backup off) ===== -->
 <div id="signout-unsynced-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signout-unsynced-title" style="display:none">
   <div class="modal modal-sm">
@@ -2358,7 +2375,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=40"></script>
+<script type="module" src="scripts/main.js?v=43"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 
