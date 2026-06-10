@@ -72,6 +72,7 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
     if (storedBackupTs) state.lastAutoBackup = storedBackupTs;
     updateSidebarBackupStatus(false);
     setInterval(updateSidebarBackupStatus, 60000);
+    document.addEventListener('lt-sync-changed', () => updateSidebarBackupStatus(false));
 
     // Auth gate: signed-out users go to the landing page.
     // Check cheaply via localStorage before loading the Supabase client.

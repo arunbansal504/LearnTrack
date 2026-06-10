@@ -95,6 +95,14 @@ function setLastSynced(rev) {
   localStorage.setItem(pkey('sync_at'), String(state.lastCloudSync));
 }
 
+// Called by sync-engine after a successful drain/pull so the sidebar chip
+// updates immediately instead of waiting for the 60-second interval.
+export function markCloudSynced() {
+  state.lastCloudSync = Date.now();
+  localStorage.setItem(pkey('sync_at'), String(state.lastCloudSync));
+  document.dispatchEvent(new CustomEvent('lt-sync-changed'));
+}
+
 /* ---- Status + change notification ------------------------------ */
 
 function setStatus(status) {

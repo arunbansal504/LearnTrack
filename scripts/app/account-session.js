@@ -597,7 +597,10 @@ export async function collectUnsyncedChanges() {
       // remove ach: keys from local DB without any cloud sync. They will be re-pulled on
       // the next sign-in, so they are never user-data loss and must not trigger the modal.
       // A key present in curSig is a new earn (keep it); absent means it was revoked (skip).
-      const changedKeys = rawChangedKeys.filter(k => !k.startsWith('ach:') || curSig[k] !== undefined);
+      const changedKeys = rawChangedKeys.filter(k =>
+        (!k.startsWith('ach:') || curSig[k] !== undefined) &&
+        k !== 'pref:cloudAutoBackup'   // toggle is pushed directly — never counts as an unsynced change
+      );
       // All pref/settings changes (pref:*, cat:all) are grouped as one "settings change"
       // so companion writes from a single user action (e.g. accent + themeAccentOverrides)
       // don't inflate the count shown to the user.

@@ -24,7 +24,7 @@
    ================================================================ */
 
 import { state, CLOUD_PUSH_DEBOUNCE, DEFAULT_PREFS } from './state.js';
-import { getClient }   from './sync.js';
+import { getClient, markCloudSynced } from './sync.js';
 import { UserManager } from './users.js';
 import * as Repo       from './cloud-repo.js';
 import { checkAchievements } from './achievements.js';
@@ -207,6 +207,7 @@ export async function drainOutbox({ manual = false } = {}) {
   // If the queue fully flushed, local now matches the cloud — record the
   // last-synced signature for the sign-out dirty check.
   await refreshCloudSignature(pid);
+  markCloudSynced();
 }
 
 /* ---- Pull deltas ---------------------------------------------- */
@@ -358,6 +359,7 @@ export async function pullDeltas({ manual = false, force = false, silent = false
   // Local now reflects the cloud for this profile (when nothing is pending) —
   // record the last-synced signature for the sign-out dirty check.
   await refreshCloudSignature(pid);
+  markCloudSynced();
 
   if (changed && !silent) await refreshState();
 }
