@@ -9,7 +9,7 @@ import { applyAccent, applyCompact, applyTheme } from './widgets.js';
 import { setCloudProfileId, getCloudProfileId, queuePendingProfileDelete } from './cloud-repo.js';
 
 // Fallback used before entitlements are loaded (offline / not signed in).
-const FREE_PROFILE_LIMIT = 1;
+const FREE_PROFILE_LIMIT = 2;
 
 // Single source of truth for the profile cap. The limit only restricts creating
 // NEW profiles — profiles a user already owns are always usable, even when the

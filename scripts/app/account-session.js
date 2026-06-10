@@ -93,7 +93,7 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
       .then(() =>
         sb.from('subscriptions')
           .upsert(
-            { account_id: accountId, tier: 'free', status: 'active', profile_limit: 1,
+            { account_id: accountId, tier: 'free', status: 'active', profile_limit: 2,
               trial_ends_at: null },
             { onConflict: 'account_id', ignoreDuplicates: true }
           )

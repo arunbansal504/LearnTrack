@@ -55,7 +55,7 @@ export const state = {
   /* ---- Entitlements (appearance gating) ---- */
   tier:         'free',   // 'free' | 'premium' | 'family' — loaded by entitlements.js
   entitlements: null,     // Map<'kind:key', min_tier> — null = not yet fetched
-  profileLimit: 1,        // max profiles allowed by the user's subscription
+  profileLimit: 2,        // max profiles allowed by the user's subscription
 
   /* ---- Routing / misc ---- */
   currentPage:       'dashboard',
