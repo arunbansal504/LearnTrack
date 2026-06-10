@@ -12,6 +12,23 @@ import { initSync, queueCloudPush } from './sync.js';
 import { getClient } from './sync.js';
 import { loadEntitlements, canUse } from './entitlements.js';
 import { getTestSession, testAccountId } from './test-accounts.js';
+import { computeSyncSignature, setBootSignature, getBootSignature } from './cloud-repo.js';
+
+  /* ---- Banned-user guard --------------------------------- */
+
+  function isUserBanned(user) {
+    const b = user?.banned_until;
+    if (!b) return false;
+    if (b === 'infinity') return true;
+    return new Date(b) > new Date();
+  }
+
+  async function rejectBannedUser(sb) {
+    sessionStorage.setItem('lt_ban_notice', '1');
+    try { localStorage.removeItem('lt_sb_auth'); } catch { /* ignore */ }
+    try { await sb.auth.signOut(); } catch { /* ignore */ }
+    window.location.replace('landing.html');
+  }
 
   /* ---- Loading-overlay progress (sign-in hydrate) -- */
 
@@ -110,6 +127,12 @@ import { getTestSession, testAccountId } from './test-accounts.js';
             window.location.replace('landing.html');
             return;
           }
+          // getUser() hits the server — banned_until is never in the JWT cache
+          const { data: { user: liveUser }, error: userErr } = await sb.auth.getUser();
+          if (userErr || !liveUser || isUserBanned(liveUser)) {
+            await rejectBannedUser(sb);
+            return;
+          }
       } catch (err) {
           // Offline with a stored session: let the user keep working offline
           // (the persisted token is read locally). Only treat an error as
@@ -137,12 +160,24 @@ import { getTestSession, testAccountId } from './test-accounts.js';
         const sb = await getClient();
         const { data: { session } } = await sb.auth.getSession(); // also completes OAuth code exchange
         if (session) {
+          // getUser() hits the server — banned_until is never in the JWT cache
+          const { data: { user: liveUser }, error: userErr } = await sb.auth.getUser();
+          if (userErr || !liveUser || isUserBanned(liveUser)) {
+            await rejectBannedUser(sb);
+            return;
+          }
           state.syncSession = session;
           const { hydrateAllProfilesFromCloud } = await import('./account-session.js');
           const defaultId = await hydrateAllProfilesFromCloud(session, updateLoadingProgress);
           if (defaultId) UserManager.setActiveId(defaultId);
         } else {
           localStorage.removeItem('lt_just_logged_in');
+          // OAuth callback with no session while online = code exchange failed
+          // (ban, revoked token, etc.) — send back to landing, never enter the app.
+          if (navigator.onLine && hasAuthCallback) {
+            window.location.replace('landing.html');
+            return;
+          }
         }
       } catch (err) {
         console.warn('[App] sign-in hydrate failed:', err);
@@ -221,9 +256,6 @@ import { getTestSession, testAccountId } from './test-accounts.js';
       Storage.purgeOldDeletedGoals(DELETED_RETENTION_DAYS).catch(() => {});
       state.entries   = await Storage.getAllEntries();
       state.prefs     = { ...DEFAULT_PREFS, ...(await Storage.getAllPrefs()) };
-      // Boot snapshot: capture pref values at session start so the sign-out dirty check
-      // can detect net-no-change (e.g. accent changed then reverted back to original).
-      try { localStorage.setItem(`lt_boot_pref_snap_${userId}`, JSON.stringify(state.prefs)); } catch { /* non-fatal */ }
       state.earnedAch = await Storage.getAllAchievements();
       state.goals     = await Storage.getAllGoals();
       // Migration: if goal history exists but has no epoch anchor, past dates fall back
@@ -256,6 +288,26 @@ import { getTestSession, testAccountId } from './test-accounts.js';
       Storage.setPref('reminder', false);
     }
 
+    // Boot signature: capture a content signature of the whole syncable dataset
+    // *after* all boot-time housekeeping (category backfill, goal-link migration,
+    // reminder reset) so the sign-out dirty check can detect net-no-change (e.g.
+    // create-then-delete, edit-then-revert, accent changed then reverted). This is
+    // the reference for profiles that have never synced; cloud-synced profiles use
+    // the cloud signature instead (refreshed by the sync engine).
+    try {
+      // Only write the boot sig if one does not already exist for this user.
+      // The ?signout=1 redirect re-runs loadAndShowApp() in the same session;
+      // overwriting would set bootSig = curSig and make the dirty check empty.
+      const existing = getBootSignature(userId);
+      if (!existing || Object.keys(existing).length === 0) {
+        const bootSig = computeSyncSignature((await Storage.exportAll()).data);
+        setBootSignature(userId, bootSig);
+        console.log('[SignIn] boot signature captured', { userId, recordCount: Object.keys(bootSig).length, keys: Object.keys(bootSig) });
+      } else {
+        console.log('[SignIn] boot signature preserved (already set this session)', { userId, recordCount: Object.keys(existing).length });
+      }
+    } catch { /* non-fatal */ }
+
     applyTheme(state.prefs.theme);
     applyAccent(state.prefs.accent);
     applyCompact(state.prefs.compact);
@@ -276,12 +328,9 @@ import { getTestSession, testAccountId } from './test-accounts.js';
     updateSidebarUser();
     navigateTo('dashboard');
 
-    // Restore any cloud session and converge data in the background — never block boot,
-    // and never throw (offline / signed-out are normal states). Skipped entirely for
-    // no-cloud test sessions so the Supabase client is never loaded.
-    if (!getTestSession()) {
-      initSync().catch(err => console.warn('[App] cloud sync init failed:', err));
-    }
+    // initSync() is intentionally NOT called here so main.js can control whether
+    // it is awaited (needed for the ?signout=1 landing-page redirect path) or
+    // fire-and-forget (normal boot). main.js always calls it after init() resolves.
 
     setTimeout(() => {
       document.getElementById('loading-overlay').style.opacity = '0';

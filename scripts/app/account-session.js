@@ -314,13 +314,13 @@ export async function clearLocalAccountData(accountId, { keepData = false } = {}
       ['sync_account', 'sync_rev', 'sync_at', 'last_auto_backup', 'ustats', 'goal_link_migrated']
         .forEach(s => localStorage.removeItem(`lt_${s}_${u.id}`));
 
-      // Pref snapshots used by the sign-out dirty check — clear on sign-out so
+      // Content signatures used by the sign-out dirty check — clear on sign-out so
       // the next session starts fresh and stale values don't affect comparisons.
-      localStorage.removeItem(`lt_boot_pref_snap_${u.id}`);
+      Repo.clearBootSignature(u.id);
 
       if (owner) {
         const cloudPid = Repo.getCloudProfileId(u.id, owner);
-        if (cloudPid) localStorage.removeItem(`lt_cloud_pref_snap_${cloudPid}`);
+        if (cloudPid) Repo.clearCloudSignature(cloudPid);
         localStorage.removeItem(`lt_cloud_pid_${u.id}_${owner}`);
         localStorage.removeItem(`lt_sync_wm_${u.id}_${owner}`);
         localStorage.removeItem(`lt_migrated_${u.id}_${owner}`);
@@ -543,10 +543,14 @@ export async function flushPendingProfileDeletes(accountId) {
    UNSYNCED-CHANGES detection + push (req 1 — sign-out backup)
    ================================================================ */
 
-// Scan every profile for changes that haven't reached the cloud. A profile is
-// "dirty" if it has ANY outbox ops (entries/goals/achievements AND prefs, so
-// theme/accent/goal edits count), OR it has no cloud row yet (created locally),
-// OR a pending rename / default marker is set for it.
+// Scan every profile for changes that haven't reached the cloud. Dirtiness is
+// decided by a *content signature* diff: we compute a signature of the profile's
+// whole syncable dataset and compare it to a reference one — the cloud signature
+// (last-synced, refreshed by the sync engine) when known, else the boot signature
+// (captured at session start). Any record whose hash differs is a real net change,
+// so net-zero sequences (create-then-delete, edit-then-revert, accent→revert) no
+// longer false-positive. A profile is also dirty if it has no cloud row yet
+// (created locally), or a pending rename / default marker is set for it.
 export async function collectUnsyncedChanges() {
   const activeId  = UserManager.getActiveId();
   const accountId = state.syncSession?.user?.id || null;
@@ -554,59 +558,47 @@ export async function collectUnsyncedChanges() {
   for (const u of UserManager.getUsers()) {
     try {
       await Storage.init(u.id);
-      const ops      = await Storage.getAllOutboxOps();
       const cloudPid = accountId ? Repo.getCloudProfileId(u.id, accountId) : null;
       const noCloudRow     = !cloudPid;
       const pendingRename  = cloudPid  && !!localStorage.getItem(`lt_pending_rename_${cloudPid}`);
       const pendingDefault = accountId && localStorage.getItem(`lt_pending_default_${accountId}`) === u.id;
-      // Exclude auto-generated housekeeping ops (categories replace-all from
-      // ensureCategoryColors on every boot — not a real user change).
-      const userOps    = ops.filter(o => !(o.kind === 'categories' && o.op === 'replace-all'));
-      const nonPrefOps = userOps.filter(o => o.kind !== 'pref');
-      const prefOps    = userOps.filter(o => o.kind === 'pref');
 
-      // Net-change detection for prefs: compare each op's current value against a
-      // known-good snapshot. Prefer the cloud snapshot (saved after each successful
-      // drain/pull); fall back to the boot snapshot (saved at session start from IDB)
-      // which works even when cloudAutoBackup has never been ON.
-      let hasPrefChange = false;
-      if (prefOps.length) {
-        const cloudSnap = cloudPid
-          ? JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${cloudPid}`) || '{}')
-          : {};
-        const bootSnap = JSON.parse(localStorage.getItem(`lt_boot_pref_snap_${u.id}`) || '{}');
-        // Boot snap covers all keys; cloud snap overrides with last-synced values.
-        // Merging means a key absent from cloud (e.g. customAccentHex never synced)
-        // still has a reference value from session start.
-        const snap = { ...bootSnap, ...cloudSnap };
-        console.log('[SignOut] pref snap check', {
-          cloudPid,
-          cloudSnapKeys: Object.keys(cloudSnap),
-          bootSnapKeys:  Object.keys(bootSnap),
-          prefOps: prefOps.map(o => ({
-            key: o.recordId,
-            opVal:   o.payload?.value,
-            snapVal: snap[o.recordId],
-            match:   JSON.stringify(snap[o.recordId]) === JSON.stringify(o.payload?.value),
-          })),
-        });
-        hasPrefChange = prefOps.some(op =>
-          !(op.recordId in snap) ||
-          JSON.stringify(snap[op.recordId]) !== JSON.stringify(op.payload?.value)
-        );
-      }
+      const exportData  = (await Storage.exportAll()).data;
+      const curSig      = Repo.computeSyncSignature(exportData);
+      const bootSig     = Repo.getBootSignature(u.id);
+      const cloudSig    = cloudPid ? Repo.getCloudSignature(cloudPid) : {};
+      const hasCloud    = cloudPid && Object.keys(cloudSig).length > 0;
 
-      const logicalCount = nonPrefOps.length + (hasPrefChange ? 1 : 0);
-      const isDirty = logicalCount || noCloudRow || pendingRename || pendingDefault;
-      console.log('[SignOut] profile:', u.name, u.id, {
-        outboxOps:      ops.map(o => ({ kind: o.kind, op: o.op, recordId: o.recordId })),
-        noCloudRow,
-        pendingRename:  pendingRename  ? localStorage.getItem(`lt_pending_rename_${cloudPid}`) : false,
-        pendingDefault: pendingDefault ? localStorage.getItem(`lt_pending_default_${accountId}`) : false,
-        isDirty,
+      // When the cloud sig is available, only count keys that ALSO differ from
+      // the boot sig (i.e., the user actually changed them this session). This
+      // prevents a stale cloud sig (e.g., refreshCloudSignature bailed while an
+      // entry op was in the outbox, then a pull overwrote a pref) from producing
+      // false positives for prefs the user never touched.
+      const allCloudDiff = Repo.diffSignatures(hasCloud ? cloudSig : bootSig, curSig);
+      const bootDiffSet  = new Set(Repo.diffSignatures(bootSig, curSig));
+      const changedKeys  = hasCloud
+        ? allCloudDiff.filter(k => bootDiffSet.has(k))
+        : allCloudDiff; // boot is already the ref — no filtering needed
+      const changeCount  = changedKeys.length;
+
+      // Debug helpers: actual values for any changed pref keys.
+      const changedPrefValues = {};
+      changedKeys.filter(k => k.startsWith('pref:')).forEach(k => {
+        changedPrefValues[k.slice(5)] = exportData.preferences?.[k.slice(5)];
       });
+      console.log('[SignOut] signature diff', {
+        profile: u.name, userId: u.id, cloudPid,
+        refSource:         hasCloud ? 'cloud' : 'boot',
+        changeCount,
+        changedKeys,
+        changedPrefValues, // actual current values for changed pref:* keys
+        cloudOnlyDiff:     hasCloud ? allCloudDiff.filter(k => !bootDiffSet.has(k)) : [], // filtered-out spurious keys
+        noCloudRow, pendingRename, pendingDefault,
+      });
+
+      const isDirty = changeCount > 0 || noCloudRow || pendingRename || pendingDefault;
       if (isDirty) {
-        dirty.push({ id: u.id, name: u.name, count: logicalCount || 1 });
+        dirty.push({ id: u.id, name: u.name, count: changeCount || 1 });
       }
     } catch { /* skip an unreadable profile */ }
   }

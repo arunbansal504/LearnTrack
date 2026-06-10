@@ -66,6 +66,26 @@ async function refreshState() {
   updateSidebarUser();
 }
 
+/* ---- Cloud signature (sign-out dirty check) ------------------- */
+// After a fully-flushed drain or a pull, local state matches the cloud for this
+// profile — record a fresh content signature as the "last-synced" reference used
+// by collectUnsyncedChanges() at sign-out. Skipped while the outbox still holds
+// pending ops (local would differ from cloud), leaving the previous reference in
+// place so sign-out stays conservative (may prompt) rather than losing data.
+async function refreshCloudSignature(pid) {
+  if (!pid) return;
+  try {
+    const pending = await Storage.getAllOutboxOps();
+    if (pending.length) {
+      console.log('[Sync] refreshCloudSignature skipped — outbox still has ops', pending.map(o => ({ kind: o.kind, op: o.op, recordId: o.recordId })));
+      return;
+    }
+    const sig = Repo.computeSyncSignature((await Storage.exportAll()).data);
+    Repo.setCloudSignature(pid, sig);
+    console.log('[Sync] cloud signature refreshed', { pid, recordCount: Object.keys(sig).length });
+  } catch { /* non-fatal */ }
+}
+
 /* ---- Outbox drain --------------------------------------------- */
 // Reads all pending ops and flushes them to the normalized Supabase tables.
 // Ops that succeed are removed from the outbox; failures are left in place
@@ -79,7 +99,6 @@ export async function drainOutbox({ manual = false } = {}) {
   const sb  = await getClient();
   const pid = cloudProfileId();
   const aid = accountId();
-  const drainedPrefSnap = {}; // accumulates successfully synced pref values for snapshot
 
   for (const op of ops) {
     try {
@@ -152,7 +171,6 @@ export async function drainOutbox({ manual = false } = {}) {
           const row = Repo.prefToCloudRow(op.payload, pid, aid);
           const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
           if (error) throw error;
-          drainedPrefSnap[op.recordId] = op.payload?.value; // track for snapshot
         }
 
       } else if (op.kind === 'categories') {
@@ -178,14 +196,9 @@ export async function drainOutbox({ manual = false } = {}) {
     }
   }
 
-  // Persist snapshot of all successfully drained pref values so the sign-out
-  // dirty check can detect net-no-change (e.g. accent changed then reverted).
-  if (Object.keys(drainedPrefSnap).length && pid) {
-    try {
-      const existing = JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${pid}`) || '{}');
-      localStorage.setItem(`lt_cloud_pref_snap_${pid}`, JSON.stringify({ ...existing, ...drainedPrefSnap }));
-    } catch { /* non-fatal */ }
-  }
+  // If the queue fully flushed, local now matches the cloud — record the
+  // last-synced signature for the sign-out dirty check.
+  await refreshCloudSignature(pid);
 }
 
 /* ---- Pull deltas ---------------------------------------------- */
@@ -283,20 +296,11 @@ export async function pullDeltas({ manual = false, force = false, silent = false
     const pendingPrefKeys = new Set(
       outboxOps.filter(op => op.kind === 'pref' && op.op === 'upsert').map(op => op.recordId)
     );
-    const pulledPrefSnap = {};
     for (const row of prefRows) {
       if (pendingPrefKeys.has(row.key)) continue; // local pending change wins
       // Use low-level put to avoid re-enqueuing an outbox op for each pulled pref.
       await Storage.put(Storage.STORES.preferences, { key: row.key, value: row.value });
-      pulledPrefSnap[row.key] = row.value; // record confirmed cloud value
       changed = true;
-    }
-    // Update snapshot with confirmed cloud values so dirty check can compare against them.
-    if (Object.keys(pulledPrefSnap).length && pid) {
-      try {
-        const existing = JSON.parse(localStorage.getItem(`lt_cloud_pref_snap_${pid}`) || '{}');
-        localStorage.setItem(`lt_cloud_pref_snap_${pid}`, JSON.stringify({ ...existing, ...pulledPrefSnap }));
-      } catch { /* non-fatal */ }
     }
   }
 
@@ -342,6 +346,10 @@ export async function pullDeltas({ manual = false, force = false, silent = false
 
   // Advance watermark after a successful (even partial) pull
   Repo.setSyncWatermark(localProfileId(), aid, pullTime);
+
+  // Local now reflects the cloud for this profile (when nothing is pending) —
+  // record the last-synced signature for the sign-out dirty check.
+  await refreshCloudSignature(pid);
 
   if (changed && !silent) await refreshState();
 }

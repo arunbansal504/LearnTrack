@@ -29,6 +29,16 @@ async function maybeRedirectToApp() {
     const sb = await getClient();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
+      const b = session.user?.banned_until;
+      const isBanned = b && (b === 'infinity' || new Date(b) > new Date());
+      if (isBanned) {
+        try { await sb.auth.signOut(); } catch { /* ignore */ }
+        try { localStorage.removeItem(SB_AUTH_KEY); } catch { /* ignore */ }
+        openSigninModal();
+        showStatus(document.getElementById('modal-auth-status'),
+          'Your account has been suspended. Contact support if you believe this is a mistake.', 'error');
+        return;
+      }
       showSignedInLanding(session, sb);
     }
   } catch { /* offline — stay on landing */ }
@@ -59,11 +69,10 @@ function showSignedInLanding(session, sb) {
     signOutBtn.textContent = 'Sign Out';
     navActions.appendChild(signOutBtn);
 
-    signOutBtn.addEventListener('click', async () => {
-      try { await sb.auth.signOut(); } catch { /* ignore */ }
-      try { localStorage.removeItem(SB_AUTH_KEY); } catch {}
-      // Reload so the page resets cleanly to signed-out state
-      window.location.reload();
+    signOutBtn.addEventListener('click', () => {
+      // Redirect to the app so handleSignOut() runs there — it checks for
+      // unsynced changes and offers a cloud backup before wiping local data.
+      window.location.href = 'app.html?signout=1';
     });
   }
 }
@@ -550,6 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
   wireTheme();
   wireAuth();
   wireModal();
+
+  // Show suspension error if app.html detected a banned account and redirected here.
+  const banNotice = sessionStorage.getItem('lt_ban_notice');
+  if (banNotice) {
+    sessionStorage.removeItem('lt_ban_notice');
+    openSigninModal();
+    showStatus(document.getElementById('modal-auth-status'),
+      'Your account has been suspended. Contact support if you believe this is a mistake.', 'error');
+  }
+
   maybeRedirectToApp();
   wirePreview();
   wireReveal();
