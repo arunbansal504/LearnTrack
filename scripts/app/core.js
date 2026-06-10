@@ -8,7 +8,7 @@ import { backupCurrentProfile, configureBackupFolder, ensureCategoryColors, setu
 import { UserManager, setupUserPicker, createCloudProfileRow } from './users.js';
 import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
-import { initSync, queueCloudPush } from './sync.js';
+import { initSync, queueCloudPush, getLastCloudSync } from './sync.js';
 import { getClient } from './sync.js';
 import { loadEntitlements, canUse } from './entitlements.js';
 import { getTestSession, testAccountId } from './test-accounts.js';
@@ -313,17 +313,7 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
     applyCompact(state.prefs.compact);
     _syncSidebarAccentSwatches();
 
-    // Enforce a data-safety choice on first launch: a local backup folder OR cloud sync.
-    // (Cloud sync is the path for non-Chromium browsers, where showDirectoryPicker is absent.)
-    const existingHandle = await Storage.getDirectoryHandle();
-    const backupSkipped  = localStorage.getItem('lt_backup_skipped') === 'true';
-    const cloudOptIn     = localStorage.getItem('lt_cloud_optin') === 'true';
-    if (!existingHandle && !backupSkipped && !cloudOptIn) {
-      const modal = document.getElementById('backup-required-modal');
-      if (modal) { modal.style.display = 'flex'; _openModal(modal); }
-      await waitForBackupFolderSetup();
-      if (modal) { _closeModal(modal, true); modal.style.display = 'none'; }
-    }
+    showBackupNudge();
 
     updateSidebarUser();
     navigateTo('dashboard');
@@ -521,52 +511,125 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
 
   export function updateSidebarBackupStatus(fresh = false) {
     const folderName = localStorage.getItem('lt_backupFolderName');
+    const hasCloud   = !!state.prefs.cloudAutoBackup;
     const warnEl     = document.getElementById('sidebar-backup-warning');
     const el         = document.getElementById('sidebar-backup-status');
+    const labelEl    = el?.querySelector('.sbs-label');
     const time       = document.getElementById('sidebar-backup-time');
 
     const setWarn = (label, sub, title) => {
       if (!warnEl) return;
       warnEl.style.display = 'flex';
-      const labelEl = warnEl.querySelector('.sbs-label');
-      const subEl   = warnEl.querySelector('.sbs-warn-text');
-      if (labelEl) labelEl.textContent = label;
-      if (subEl)   subEl.textContent   = sub;
+      const wLabelEl = warnEl.querySelector('.sbs-label');
+      const subEl    = warnEl.querySelector('.sbs-warn-text');
+      if (wLabelEl) wLabelEl.textContent = label;
+      if (subEl)    subEl.textContent    = sub;
       warnEl.setAttribute('title', title);
       warnEl.setAttribute('aria-label', title);
     };
 
-    if (!folderName) {
-      // No folder configured — always show warning, never show auto-backup status
-      setWarn('Local Backup off', 'Set up folder', 'Local backup not configured — click to set up');
+    const localFailing = state.backupFailing;
+    const cloudFailing = hasCloud && state.syncStatus === 'error';
+
+    // Nothing configured at all
+    if (!folderName && !hasCloud) {
+      setWarn('Local & Cloud Backup off', 'Set up backup', 'No backup configured — click to set up');
       if (el) el.style.display = 'none';
+      showBackupNudge();
       return;
     }
 
-    // Folder configured but auto-backup keeps failing — keep a sticky warning so the
-    // user doesn't assume their data is safe when it isn't.
-    if (state.backupFailing) {
-      setWarn('Backup failing', 'Check folder', 'Auto-backup is failing repeatedly — click to reconnect your backup folder');
+    // Both failing (regardless of configuration)
+    if (localFailing && cloudFailing) {
+      setWarn('Local & Cloud Backup failing', 'Check both', 'Both backup methods are failing — click to investigate');
       if (el) el.style.display = 'none';
+      showBackupNudge();
       return;
     }
 
-    // Folder configured — warning never shows, status shows if a backup has run
+    // Local failing (even if cloud is on and healthy — still warn)
+    if (localFailing) {
+      setWarn('Local Backup failing', 'Check folder', 'Auto-backup is failing repeatedly — click to reconnect your backup folder');
+      if (el) el.style.display = 'none';
+      showBackupNudge();
+      return;
+    }
+
+    // Cloud failing (even if local is on and healthy — still warn)
+    if (cloudFailing) {
+      setWarn('Cloud Backup failing', 'Check sync', 'Cloud sync is failing — click to go to Backup settings');
+      if (el) el.style.display = 'none';
+      showBackupNudge();
+      return;
+    }
+
+    // All configured methods are healthy — hide warning
     if (warnEl) warnEl.style.display = 'none';
-    if (!el || !state.lastAutoBackup) return;
 
-    const diffMin = Math.floor((Date.now() - state.lastAutoBackup) / 60000);
+    const lastLocal = state.lastAutoBackup;
+    const lastCloud = getLastCloudSync();
+    const hasLocalBacked = !!folderName && lastLocal > 0;
+    const hasCloudBacked = hasCloud && lastCloud > 0;
+
+    if (!hasLocalBacked && !hasCloudBacked) {
+      if (el) el.style.display = 'none';
+      showBackupNudge();
+      return;
+    }
+
+    let chipLabel = 'Auto-backed up';
+    let timestamp = 0;
+    if (hasLocalBacked && hasCloudBacked) {
+      chipLabel = 'Backed up locally & cloud';
+      timestamp = Math.max(lastLocal, lastCloud);
+    } else if (hasLocalBacked) {
+      chipLabel = 'Backed up locally';
+      timestamp = lastLocal;
+    } else {
+      chipLabel = 'Backed up to cloud';
+      timestamp = lastCloud;
+    }
+
+    if (labelEl) labelEl.textContent = chipLabel;
+
+    const diffMin = Math.floor((Date.now() - timestamp) / 60000);
     const diffHr  = Math.floor(diffMin / 60);
     if (time) time.textContent = diffMin < 1  ? 'Just now'
                                : diffMin < 60 ? `${diffMin}m ago`
                                : diffHr < 24  ? `${diffHr}h ago`
                                : 'Over a day ago';
 
+    if (!el) { showBackupNudge(); return; }
     el.style.display = 'flex';
 
     if (fresh) {
       el.classList.remove('sbs-pop');
       void el.offsetWidth;
       el.classList.add('sbs-pop');
+    }
+
+    showBackupNudge();
+  }
+
+  export function showBackupNudge() {
+    const nudge = document.getElementById('backup-nudge');
+    if (!nudge) return;
+    const hasFolder = !!localStorage.getItem('lt_backupFolderName');
+    const hasCloud  = !!state.prefs.cloudAutoBackup;
+    const dismissed = localStorage.getItem('lt_backup_nudge_dismissed') === 'true';
+    if (hasFolder || hasCloud || dismissed) { nudge.style.display = 'none'; return; }
+    nudge.style.display = 'flex';
+    const setupBtn   = document.getElementById('backup-nudge-setup');
+    const dismissBtn = document.getElementById('backup-nudge-dismiss');
+    if (setupBtn && !setupBtn.dataset.wired) {
+      setupBtn.dataset.wired = '1';
+      setupBtn.addEventListener('click', () => navigateTo('backup'));
+    }
+    if (dismissBtn && !dismissBtn.dataset.wired) {
+      dismissBtn.dataset.wired = '1';
+      dismissBtn.addEventListener('click', () => {
+        localStorage.setItem('lt_backup_nudge_dismissed', 'true');
+        nudge.style.display = 'none';
+      });
     }
   }

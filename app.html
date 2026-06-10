@@ -42,7 +42,7 @@
   <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
   <link rel="stylesheet" href="styles/calendar.css?v=1" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
-  <link rel="stylesheet" href="styles/chrome.css?v=1" />
+  <link rel="stylesheet" href="styles/chrome.css?v=2" />
   <link rel="stylesheet" href="styles/responsive.css?v=1" />
   <link rel="stylesheet" href="styles/profiles-users.css?v=3" />
   <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
@@ -201,6 +201,14 @@
 
   <!-- MAIN CONTENT -->
   <main class="main-content" id="main-content">
+
+    <!-- Backup nudge — one-time info bar shown until backup is configured or dismissed -->
+    <div id="backup-nudge" class="backup-nudge" style="display:none" role="status" aria-live="polite">
+      <span class="backup-nudge-icon">🔒</span>
+      <span class="backup-nudge-text">Keep your data safe — enable <strong>Auto Cloud Backup</strong> or set up a <strong>local backup folder</strong>.</span>
+      <button class="btn backup-nudge-btn" id="backup-nudge-setup">Set up</button>
+      <button class="backup-nudge-close" id="backup-nudge-dismiss" aria-label="Dismiss">&#x2715;</button>
+    </div>
 
     <!-- ===== PAGE: DASHBOARD ===== -->
     <section id="page-dashboard" class="page active" aria-label="Dashboard">
@@ -2358,7 +2366,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=44"></script>
+<script type="module" src="scripts/main.js?v=50"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

@@ -1,7 +1,7 @@
 /* ===== settings.js — extracted from app.js ===== */
 import { state, DEFAULT_PREFS, CATEGORY_PALETTE } from './state.js';
 import { checkAchievements } from './achievements.js';
-import { triggerAutoBackup, updateSidebarBackupStatus } from './core.js';
+import { triggerAutoBackup, updateSidebarBackupStatus, showBackupNudge } from './core.js';
 import { navigateTo, renderPage, updateSidebarUser } from './nav.js';
 import { UserManager, openUserPicker, renderUsersManagement, switchUser } from './users.js';
 import { escapeHtml, setCheckbox, setEl, setInputVal, showConfirm, showToast } from './utils.js';
@@ -1271,6 +1271,26 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
       if (autoChk) autoChk.checked = true;
       try { await Storage.setPref('cloudAutoBackup', true); } catch {}
 
+      // Direct upsert to Supabase — mirrors the OFF path. The outbox entry written
+      // by setPref above may not drain before the next pull overwrites it with the
+      // stale cloud value (false). Pushing immediately guarantees the cloud reflects
+      // the new state before the engine's first tick.
+      if (Sync.isSignedIn() && state.syncSession) {
+        try {
+          const sb  = await Sync.getClient();
+          const aid = state.syncSession.user.id;
+          const lid = UserManager.getActive()?.id || 'default';
+          const pid = getCloudProfileId(lid, aid);
+          if (pid) {
+            await sb.from('profile_prefs').upsert(
+              { profile_id: pid, account_id: aid, key: 'cloudAutoBackup', value: true, updated_at: new Date().toISOString() },
+              { onConflict: 'profile_id,key' }
+            );
+            await sb.from('profiles').update({ cloud_auto_backup: true }).eq('id', pid);
+          }
+        } catch { /* non-critical — outbox will retry */ }
+      }
+
       // Push the ACTIVE profile's structure (name/colour/appearance/default) and
       // flush any deletions queued while backup was off, so the cloud matches local.
       try {
@@ -1307,6 +1327,7 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
               { profile_id: pid, account_id: aid, key: 'cloudAutoBackup', value: false, updated_at: new Date().toISOString() },
               { onConflict: 'profile_id,key' }
             );
+            await sb.from('profiles').update({ cloud_auto_backup: false }).eq('id', pid);
           }
         } catch { /* non-critical */ }
       }
@@ -1315,6 +1336,7 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
       showToast('Cloud backup disabled.', 'info');
     }
     renderCloudSyncCard();
+    showBackupNudge();
   }
 
   /* ---- FSA-unavailable JSON download fallback -------------------- */

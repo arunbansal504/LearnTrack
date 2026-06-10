@@ -579,6 +579,44 @@
 .mt-6 { margin-top: var(--s-6); }
 .mb-4 { margin-bottom: var(--s-4); }
 
+/* ---- BACKUP NUDGE BANNER ------------------------- */
+.backup-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.backup-nudge-icon { flex-shrink: 0; font-size: 0.95rem; }
+.backup-nudge-text { flex: 1; }
+.backup-nudge-text strong { color: var(--text-primary); font-weight: 600; }
+.backup-nudge-btn {
+  flex-shrink: 0;
+  padding: 0.2rem 0.7rem !important;
+  font-size: var(--text-xs) !important;
+  height: auto !important;
+  line-height: 1.4 !important;
+}
+.backup-nudge-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.1rem 0.2rem;
+  border-radius: var(--radius-sm);
+}
+.backup-nudge-close:hover { color: var(--text-secondary); background: var(--surface-3); }
+
 /* ---- SCROLLBAR GLOBAL ---------------------------- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
