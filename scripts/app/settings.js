@@ -1286,7 +1286,6 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
               { profile_id: pid, account_id: aid, key: 'cloudAutoBackup', value: true, updated_at: new Date().toISOString() },
               { onConflict: 'profile_id,key' }
             );
-            await sb.from('profiles').update({ cloud_auto_backup: true }).eq('id', pid);
           }
         } catch { /* non-critical — outbox will retry */ }
       }
@@ -1327,7 +1326,6 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
               { profile_id: pid, account_id: aid, key: 'cloudAutoBackup', value: false, updated_at: new Date().toISOString() },
               { onConflict: 'profile_id,key' }
             );
-            await sb.from('profiles').update({ cloud_auto_backup: false }).eq('id', pid);
           }
         } catch { /* non-critical */ }
       }
