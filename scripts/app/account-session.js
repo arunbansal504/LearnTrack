@@ -205,10 +205,24 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
     // Seed username from the cloud profile name when profile_prefs has no
     // username entry (profile prefs were never synced to cloud). Uses low-level
     // put so no outbox op is created for this fallback write.
+    // After seeding, patch both the boot sig and cloud sig for this profile so
+    // the sign-out dirty check doesn't count this housekeeping write as a user
+    // change (non-active profiles never go through loadAndShowApp, which normally
+    // re-captures the boot sig after hydration for the active profile only).
     try {
       const uname = await Storage.getPref('username');
       if (!uname) {
         await Storage.put(Storage.STORES.preferences, { key: 'username', value: cp.name });
+        try {
+          const newFullSig   = Repo.computeSyncSignature((await Storage.exportAll()).data);
+          const usernameHash = newFullSig['pref:username'];
+          if (usernameHash !== undefined) {
+            const bootSig   = Repo.getBootSignature(localId);
+            const cloudSig  = Repo.getCloudSignature(cp.id);
+            if (Object.keys(bootSig).length)  Repo.setBootSignature(localId, { ...bootSig,  'pref:username': usernameHash });
+            if (Object.keys(cloudSig).length) Repo.setCloudSignature(cp.id,  { ...cloudSig, 'pref:username': usernameHash });
+          }
+        } catch { /* non-fatal — dirty check is advisory only */ }
       }
     } catch { /* non-fatal */ }
 
@@ -576,9 +590,14 @@ export async function collectUnsyncedChanges() {
       // false positives for prefs the user never touched.
       const allCloudDiff = Repo.diffSignatures(hasCloud ? cloudSig : bootSig, curSig);
       const bootDiffSet  = new Set(Repo.diffSignatures(bootSig, curSig));
-      const changedKeys  = hasCloud
+      const rawChangedKeys = hasCloud
         ? allCloudDiff.filter(k => bootDiffSet.has(k))
         : allCloudDiff; // boot is already the ref — no filtering needed
+      // Achievement revocations (revokeStaleAchievements → Storage.remove, no outbox op)
+      // remove ach: keys from local DB without any cloud sync. They will be re-pulled on
+      // the next sign-in, so they are never user-data loss and must not trigger the modal.
+      // A key present in curSig is a new earn (keep it); absent means it was revoked (skip).
+      const changedKeys = rawChangedKeys.filter(k => !k.startsWith('ach:') || curSig[k] !== undefined);
       const changeCount  = changedKeys.length;
 
       // Debug helpers: actual values for any changed pref keys.
@@ -593,6 +612,7 @@ export async function collectUnsyncedChanges() {
         changedKeys,
         changedPrefValues, // actual current values for changed pref:* keys
         cloudOnlyDiff:     hasCloud ? allCloudDiff.filter(k => !bootDiffSet.has(k)) : [], // filtered-out spurious keys
+        revokedAch:        rawChangedKeys.filter(k => k.startsWith('ach:') && curSig[k] === undefined), // achievement revocations (ignored)
         noCloudRow, pendingRename, pendingDefault,
       });
 
