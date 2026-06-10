@@ -598,7 +598,12 @@ export async function collectUnsyncedChanges() {
       // the next sign-in, so they are never user-data loss and must not trigger the modal.
       // A key present in curSig is a new earn (keep it); absent means it was revoked (skip).
       const changedKeys = rawChangedKeys.filter(k => !k.startsWith('ach:') || curSig[k] !== undefined);
-      const changeCount  = changedKeys.length;
+      // All pref/settings changes (pref:*, cat:all) are grouped as one "settings change"
+      // so companion writes from a single user action (e.g. accent + themeAccentOverrides)
+      // don't inflate the count shown to the user.
+      const prefChanged    = changedKeys.some(k => k.startsWith('pref:') || k === 'cat:all');
+      const nonPrefChanges = changedKeys.filter(k => !k.startsWith('pref:') && k !== 'cat:all');
+      const changeCount    = nonPrefChanges.length + (prefChanged ? 1 : 0);
 
       // Debug helpers: actual values for any changed pref keys.
       const changedPrefValues = {};

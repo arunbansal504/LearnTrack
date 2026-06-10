@@ -168,9 +168,17 @@ export async function drainOutbox({ manual = false } = {}) {
 
       } else if (op.kind === 'pref') {
         if (op.op === 'upsert') {
-          const row = Repo.prefToCloudRow(op.payload, pid, aid);
-          const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
-          if (error) throw error;
+          if (op.payload?.value === null) {
+            // null means "reset to default" — remove the cloud row rather than upserting null
+            // (profile_prefs.value has a NOT NULL constraint)
+            const { error } = await sb.from('profile_prefs')
+              .delete().eq('profile_id', pid).eq('key', op.payload.key);
+            if (error) throw error;
+          } else {
+            const row = Repo.prefToCloudRow(op.payload, pid, aid);
+            const { error } = await sb.from('profile_prefs').upsert(row, { onConflict: 'profile_id,key' });
+            if (error) throw error;
+          }
         }
 
       } else if (op.kind === 'categories') {

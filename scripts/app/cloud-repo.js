@@ -262,6 +262,7 @@ export function computeSyncSignature(data = {}) {
   map['cat:all'] = hashRow(categoriesToCloudRows(prefs.categories || [], prefs.categoryColors || {}, '', ''));
   Object.keys(prefs).forEach(k => {
     if (SIG_SKIP_PREFS.has(k)) return;
+    if (prefs[k] === null) return; // null == "not set" / default; treat as absent so revert-to-null is net zero
     map['pref:' + k] = hashRow(prefToCloudRow({ key: k, value: prefs[k] }, '', ''));
   });
   return map;
