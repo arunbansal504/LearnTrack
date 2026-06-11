@@ -30,8 +30,33 @@ import * as Repo       from './cloud-repo.js';
 import { checkAchievements } from './achievements.js';
 import { renderPage, updateSidebarUser } from './nav.js';
 import { applyAccent, applyCompact, applyTheme } from './widgets.js';
+import { showToast } from './utils.js';
 
 const TICK_INTERVAL = 30_000; // 30 s — periodic pull while online
+
+/* ---- Quota / rate-limit notices ------------------------------- */
+// The server enforces per-account entry/goal caps + an insert velocity limit via
+// triggers (see migration add_entry_quota_and_rate_limit). When one trips, the
+// upsert errors and the op stays in the outbox to retry — entries are never lost
+// locally, and a rate-limit pause auto-recovers next hour. Surface a friendly,
+// de-duplicated toast so the user understands why cloud backup paused.
+const LIMIT_NOTICES = {
+  entry_limit_reached: { type: 'warning', text: "You've reached your plan's cloud entry limit. Your entries are still saved on this device — delete old entries or upgrade to resume cloud backup." },
+  goal_limit_reached:  { type: 'warning', text: "You've reached your plan's goal limit. Your goals are still saved on this device — upgrade to resume cloud backup." },
+  rate_limit_exceeded: { type: 'info',    text: "You're adding entries very quickly — cloud backup paused briefly and will catch up automatically." },
+};
+const _limitNoticeAt = {}; // key -> last-shown timestamp (dedupe window)
+
+function maybeShowLimitNotice(err) {
+  const haystack = `${err?.message || ''} ${err?.hint || ''} ${err?.details || ''}`;
+  const key = Object.keys(LIMIT_NOTICES).find(k => haystack.includes(k));
+  if (!key) return;
+  const now = Date.now();
+  if (now - (_limitNoticeAt[key] || 0) < 10 * 60_000) return; // at most once / 10 min
+  _limitNoticeAt[key] = now;
+  const n = LIMIT_NOTICES[key];
+  try { showToast(n.text, n.type, 7000); } catch { /* toast unavailable */ }
+}
 
 let _drainTimer    = null;
 let _tickerHandle  = null;
@@ -200,6 +225,10 @@ export async function drainOutbox({ manual = false } = {}) {
       await Storage.removeOutboxOp(op.id);
     } catch (err) {
       // Leave in outbox; the next drain (online event or ticker) will retry.
+      // A quota/rate-limit rejection surfaces a one-off toast so the user knows
+      // cloud backup paused (the op stays queued and resumes when under the cap
+      // again, or — for the velocity limit — next hour).
+      maybeShowLimitNotice(err);
       console.warn('[SyncEngine] drain op failed, will retry:', op.kind, op.op, err?.message || err);
     }
   }
