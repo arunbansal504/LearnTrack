@@ -1815,12 +1815,15 @@
     <div class="modal-body">
       <p id="signout-unsynced-intro"></p>
       <div id="signout-unsynced-list" class="signout-profile-list"></div>
+      <p id="signout-unsynced-note" style="margin-top:1rem;padding:.75rem .875rem;border-radius:var(--r-sm,6px);background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35);font-size:.8125rem;line-height:1.5;color:var(--text-2,#555)">
+        ⚠️ Signing out removes the profiles and data linked to your account from this device — other data on this browser isn't touched. Profiles you back up are restored from the cloud the next time you sign in. Any changes you don't back up will be lost, unless you have a local backup file you can load after signing back in.
+      </p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="signout-unsynced-cancel">Cancel</button>
       <div class="modal-footer-right">
         <button class="btn btn-secondary" id="signout-unsynced-no">Sign out without backing up</button>
-        <button class="btn btn-primary" id="signout-unsynced-yes">Back up selected &amp; sign out</button>
+        <button class="btn btn-primary" id="signout-unsynced-yes">Back up selected to cloud &amp; sign out</button>
       </div>
     </div>
   </div>
@@ -2366,7 +2369,7 @@
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=53"></script>
+<script type="module" src="scripts/main.js?v=59"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

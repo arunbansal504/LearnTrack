@@ -226,20 +226,16 @@ export async function hydrateAllProfilesFromCloud(session, onProgress) {
       }
     } catch { /* non-fatal */ }
 
-    // Apply a rename that was saved offline (cloud update failed, then sign-out
-    // wiped lt_users before connectivity returned). The key survives clearLocalAccountData
-    // because it is keyed by cloud UUID, not local profile id.
+    // Restore a rename made while Auto Cloud Backup was OFF. Only apply it
+    // locally — never push to cloud here, because the key is only written when
+    // backup is off and the user may still want it off. reconcileProfileStructure
+    // (called when backup is enabled or during a manual sync) will push the name
+    // and clear this key at the right time.
     const pendingRename = localStorage.getItem(`lt_pending_rename_${cp.id}`);
     if (pendingRename && pendingRename !== cp.name) {
       const _users = UserManager.getUsers();
       const _idx   = _users.findIndex(u => u.id === localId);
       if (_idx >= 0) { _users[_idx].name = pendingRename; UserManager.saveUsers(_users); }
-      try {
-        const { getClient: _gc } = await import('./sync.js');
-        const _sb = await _gc();
-        await _sb.from('profiles').update({ name: pendingRename }).eq('id', cp.id);
-        localStorage.removeItem(`lt_pending_rename_${cp.id}`);
-      } catch { /* leave key; will retry on next hydration */ }
     }
 
     if (cp.is_default) {
@@ -287,24 +283,13 @@ export async function clearLocalAccountData(accountId, { keepData = false } = {}
   // everything in lt_users.
   const owner = accountId || getAccountOwner();
 
-  // Test accounts: never delete browser data. Their profiles stay in lt_users
-  // so hydrateAllProfilesFromCloud's orphan-stash logic can hide them while a
-  // real account is active and restore them on real-account sign-out. Only
-  // reset in-memory state and the session ownership marker.
-  if (owner && owner.startsWith('test:')) {
-    localStorage.removeItem(ACCOUNT_OWNER_KEY);
-    state.entries   = [];
-    state.goals     = [];
-    state.earnedAch = [];
-    state.prefs     = { ...DEFAULT_PREFS };
-    state.syncSession = null;
-    state.badgeQueue.length = 0;
-    state.badgeShowing      = false;
-    clearTimeout(state.autoBackupTimer);
-    clearTimeout(state.cloudPushTimer);
-    try { Storage.close(); } catch { /* ignore */ }
-    return;
-  }
+  // Test accounts NEVER have their browser data deleted — their profiles and
+  // entries stay on-device so the next sign-in resumes exactly where they left
+  // off. Force keepData so the deletion loop below is skipped, while the rest of
+  // this function still runs: it restores any profiles hidden during the test
+  // session (foreign accounts stashed on test sign-in), rebuilds lt_users, and
+  // clears the session-owner marker — without touching the test account's data.
+  if (owner && owner.startsWith('test:')) keepData = true;
 
   // A profile is linked to `owner` if it has a cloud mapping for that account,
   // or it was bound to that account (lt_sync_account_<id>). Either signal alone
@@ -319,6 +304,24 @@ export async function clearLocalAccountData(accountId, { keepData = false } = {}
   const others = users.filter(u => !isLinked(u)); // orphans / other accounts
 
   if (!keepData) {
+    // Collect every cloud profile UUID OWNED BY THIS ACCOUNT before the
+    // lt_cloud_pid_* mapping keys are deleted below. We need these to clean up
+    // lt_pending_rename_* keys (which are keyed by cloud UUID, not local id).
+    // Scanning the mapping keys (lt_cloud_pid_<localId>_<owner>) — rather than
+    // only `mine` — also catches a profile whose lt_users entry is already gone
+    // but whose mapping lingers, while staying strictly scoped to `owner` so
+    // ANOTHER account's profiles (orphans on this device) are never touched.
+    const cloudPidsToClean = new Set();
+    if (owner) {
+      const ownerSuffix = `_${owner}`;
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('lt_cloud_pid_') && key.endsWith(ownerSuffix)) {
+          const cid = localStorage.getItem(key);
+          if (cid) cloudPidsToClean.add(cid);
+        }
+      }
+    }
+
     for (const u of mine) {
       const dbName = u.id === 'default' ? 'LearnTrackDB' : `LearnTrackDB_${u.id}`;
       try { indexedDB.deleteDatabase(dbName); } catch { /* ignore */ }
@@ -339,6 +342,13 @@ export async function clearLocalAccountData(accountId, { keepData = false } = {}
         localStorage.removeItem(`lt_sync_wm_${u.id}_${owner}`);
         localStorage.removeItem(`lt_migrated_${u.id}_${owner}`);
       }
+    }
+
+    // Clean up this account's lt_pending_rename_<cloudPid> markers only. Keys for
+    // any other account's profiles (e.g. stashed orphans) are intentionally left
+    // untouched — they still belong to that account and must survive this sign-out.
+    for (const cid of cloudPidsToClean) {
+      localStorage.removeItem(`lt_pending_rename_${cid}`);
     }
   }
 
@@ -371,7 +381,11 @@ export async function clearLocalAccountData(accountId, { keepData = false } = {}
   }
 
   localStorage.removeItem(ACCOUNT_OWNER_KEY);
-  if (owner) localStorage.removeItem(`lt_default_profile_${owner}`);
+  if (owner) {
+    localStorage.removeItem(`lt_default_profile_${owner}`);
+    localStorage.removeItem(`lt_pending_default_${owner}`);
+    localStorage.removeItem(`lt_pending_profile_deletes_${owner}`);
+  }
 
   // Reset in-memory state so nothing leaks into the next session.
   state.entries   = [];
@@ -716,7 +730,14 @@ export async function handleSignOut() {
   // bindings) so re-login with the same test email resumes exactly where they
   // left off. No cloud modal — nothing was ever pushed to the cloud.
   if (isTestSession()) {
+    // End the local session but KEEP all browser data so re-login resumes exactly
+    // where they left off. Still restore any profiles hidden during this test
+    // session and clear the owner marker — clearLocalAccountData does both without
+    // deleting test data (it forces keepData for test owners).
+    const testOwner = getAccountOwner();
     endTestSession();
+    try { await clearLocalAccountData(testOwner, { keepData: true }); }
+    catch (err) { console.warn('[AccountSession] test sign-out cleanup failed:', err?.message || err); }
     window.location.replace('landing.html');
     return;
   }
@@ -778,9 +799,9 @@ async function runSyncThenSignOut(accountId, selected) {
       if (!stillDirty.length) { await finalizeSignOut(accountId); return; }
       await runSyncThenSignOut(accountId, stillDirty);
     } else if (choice === 'skip') {
-      // Push failed — keep local data so the user doesn't lose anything.
-      // The outbox will drain automatically on the next sign-in.
-      await finalizeSignOut(accountId, { keepLocalData: true });
+      // User explicitly chose "Sign out without backing up" — clear this account's
+      // local data exactly like the choice === 'no' path in handleSignOut.
+      await finalizeSignOut(accountId);
     }
     // 'abort' (Esc) → stay signed in, data intact
   }

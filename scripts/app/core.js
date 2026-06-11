@@ -96,6 +96,7 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
     // isolate it from any other (real or test) account previously used here.
     if (testEmail && !hasStoredSession && !hasAuthCallback) {
       const tid = testAccountId(testEmail);
+      let stashedForeign = false;
       try {
         const { getAccountOwner, setAccountOwner, clearLocalAccountData } = await import('./account-session.js');
         const owner = getAccountOwner();
@@ -103,11 +104,18 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
           await clearLocalAccountData(owner);
         }
         setAccountOwner(tid);
+        // Symmetric isolation: hide any profile owned by a DIFFERENT account (a real
+        // cloud account or another test account) so the test session shows only its
+        // own. Data is preserved on-device and restored on sign-out by
+        // clearLocalAccountData. Mirrors hydrateAllProfilesFromCloud's orphan stash.
+        stashedForeign = stashForeignTestProfiles(tid);
       } catch (err) {
         console.warn('[App] test-session setup failed:', err);
       }
       await loadEntitlements();              // grants Family via the test branch
-      await ensureTestProfile(tid);          // create + bind a profile if none
+      // noDefault: a stashed profile may still hold the 'default' IndexedDB slot, so
+      // force a fresh DB id for a newly-created test profile to avoid inheriting it.
+      await ensureTestProfile(tid, { noDefault: stashedForeign }); // create + bind a profile if none
       const activeId = UserManager.getActiveId() || UserManager.getUsers()[0]?.id;
       if (activeId) UserManager.setActiveId(activeId);
       await loadAndShowApp(activeId);
@@ -223,10 +231,39 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
   // No-cloud test session: make sure at least one profile exists and every local
   // profile is bound to the synthetic test account id (so the data is linked to
   // the test email and never treated as an orphan).
-  async function ensureTestProfile(testAccId) {
+  // Hide profiles owned by another account (lt_sync_account ≠ this test id) while a
+  // test session is active. Stashed into lt_offline_profiles (merged, never
+  // clobbered) and restored on sign-out by clearLocalAccountData. Profiles with NO
+  // owner are left for the test account to adopt. Returns true if anything was
+  // stashed (the caller then forces a fresh DB id so a stashed 'default' slot isn't
+  // inherited).
+  function stashForeignTestProfiles(tid) {
+    const all     = UserManager.getUsers();
+    const foreign = all.filter(u => {
+      const acc = localStorage.getItem(`lt_sync_account_${u.id}`);
+      if (acc) return acc !== tid;   // bound to an account → foreign unless it's this test id
+      // No sync_account binding: still foreign if it carries a cloud-profile mapping
+      // to ANY real account (defensive — a real profile should always have both).
+      return Object.keys(localStorage).some(k => k.startsWith(`lt_cloud_pid_${u.id}_`));
+    });
+    if (!foreign.length) return false;
+
+    let existing = [];
+    try { existing = JSON.parse(localStorage.getItem('lt_offline_profiles') || '[]'); } catch { /* ignore */ }
+    const byId = new Map(existing.map(u => [u.id, u]));
+    for (const u of foreign) byId.set(u.id, u);
+    localStorage.setItem('lt_offline_profiles', JSON.stringify([...byId.values()]));
+
+    const foreignIds = new Set(foreign.map(u => u.id));
+    UserManager.saveUsers(all.filter(u => !foreignIds.has(u.id)));
+    if (foreignIds.has(UserManager.getActiveId())) localStorage.removeItem('lt_active_user');
+    return true;
+  }
+
+  async function ensureTestProfile(testAccId, { noDefault = false } = {}) {
     let users = UserManager.getUsers();
     if (users.length === 0) {
-      const first = UserManager.createUser('Me');
+      const first = UserManager.createUser('Me', { noDefault });
       UserManager.setActiveId(first.id);
       users = [first];
     }
