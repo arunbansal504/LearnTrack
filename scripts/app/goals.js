@@ -6,7 +6,7 @@ import { renderGoalsDashboardWidget } from './dashboard.js';
 
 import { openEntryModal } from './log.js';
 import { clearLogFilters, navigateTo, renderPage, updateDgFilterToggleState, updateSidebarUser } from './nav.js';
-import { populateCategorySelects } from './settings.js';
+import { populateCategorySelects, saveNewCategory } from './settings.js';
 import { _closeModal, _openModal, capitalise, escapeHtml, formatRelativeDate, linkifyNotes, setEl, setInputVal, showConfirm, showToast } from './utils.js';
 
   export const _chevronRight = `<svg class="linked-item-nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
@@ -199,6 +199,44 @@ import { _closeModal, _openModal, capitalise, escapeHtml, formatRelativeDate, li
     document.getElementById('add-milestone-btn')?.addEventListener('click', () => {
       _addMilestoneRow('');
     });
+
+    // Inline "add new category" from the goal modal
+    document.getElementById('goal-category')?.addEventListener('change', function() {
+      const row   = document.getElementById('goal-new-category-row');
+      const input = document.getElementById('goal-new-category-input');
+      if (this.value === '__new__') {
+        this.value = '';
+        if (row) row.style.display = 'flex';
+        if (input) input.focus();
+      } else {
+        if (row) row.style.display = 'none';
+      }
+    });
+
+    const _confirmGoalNewCat = async () => {
+      const input = document.getElementById('goal-new-category-input');
+      const val   = input?.value.trim();
+      if (!val) { input?.focus(); return; }
+      const added = await saveNewCategory(val);
+      if (added) {
+        const catSel = document.getElementById('goal-category');
+        catSel.innerHTML = '<option value="">Any category</option>' +
+          (state.prefs.categories || []).map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('') +
+          '<option value="__new__" class="category-add-opt">＋ Add new category…</option>';
+        catSel.value = val;
+        document.getElementById('goal-new-category-row').style.display = 'none';
+        if (input) input.value = '';
+      }
+    };
+    document.getElementById('goal-new-category-add')?.addEventListener('click', _confirmGoalNewCat);
+    document.getElementById('goal-new-category-cancel')?.addEventListener('click', () => {
+      document.getElementById('goal-new-category-row').style.display = 'none';
+      document.getElementById('goal-new-category-input').value = '';
+    });
+    document.getElementById('goal-new-category-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); _confirmGoalNewCat(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); document.getElementById('goal-new-category-cancel').click(); }
+    });
   }
 
   export function _updateGoalTypeFields() {
@@ -225,8 +263,15 @@ import { _closeModal, _openModal, capitalise, escapeHtml, formatRelativeDate, li
     const catSel = document.getElementById('goal-category');
     if (catSel) {
       catSel.innerHTML = '<option value="">Any category</option>' +
-        (state.prefs.categories || []).map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        (state.prefs.categories || []).map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('') +
+        '<option value="__new__" class="category-add-opt">＋ Add new category…</option>';
     }
+
+    // Reset inline new-category row
+    const _ncRow = document.getElementById('goal-new-category-row');
+    const _ncInp = document.getElementById('goal-new-category-input');
+    if (_ncRow) _ncRow.style.display = 'none';
+    if (_ncInp) _ncInp.value = '';
 
     const goal = goalId ? state.goals.find(g => g.id === goalId) : null;
     document.getElementById('goal-modal-title').textContent = goal ? 'Edit Goal' : 'New Goal';

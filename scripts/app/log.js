@@ -6,7 +6,7 @@ import { _setExpandToggleContent, closeDeletedEntryDetail } from './deleted-logs
 import { closeTopicsModal, showWeekdayModal } from './dashboard.js';
 import { _persistGoalAndRefresh, closeDeletedGoalDetail, openLinkGoalModal, reopenLinkModalFromGoal, reopenLinkedGoalsModal } from './goals.js';
 import { navigateTo, renderPage, updateFilterToggleState, updateSidebarUser } from './nav.js';
-import { populateCategorySelects } from './settings.js';
+import { populateCategorySelects, saveNewCategory } from './settings.js';
 import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyState, escapeHtml, linkifyNotes, safeHref, setActiveMood, showConfirm, showToast } from './utils.js';
 
   /* ---- LOG PAGE ------------------------------------ */
@@ -534,6 +534,40 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
     // Add resource
     document.getElementById('add-resource-btn')?.addEventListener('click', addResourceRow);
 
+    // Inline "add new category" from the entry modal
+    document.getElementById('entry-category')?.addEventListener('change', function() {
+      const row   = document.getElementById('entry-new-category-row');
+      const input = document.getElementById('entry-new-category-input');
+      if (this.value === '__new__') {
+        this.value = '';           // reset select so validation still works
+        if (row) row.style.display = 'flex';
+        if (input) input.focus();
+      } else {
+        if (row) row.style.display = 'none';
+      }
+    });
+
+    const _confirmNewCat = async () => {
+      const input = document.getElementById('entry-new-category-input');
+      const val   = input?.value.trim();
+      if (!val) { input?.focus(); return; }
+      const added = await saveNewCategory(val);
+      if (added) {
+        document.getElementById('entry-category').value = val;
+        document.getElementById('entry-new-category-row').style.display = 'none';
+        if (input) input.value = '';
+      }
+    };
+    document.getElementById('entry-new-category-add')?.addEventListener('click', _confirmNewCat);
+    document.getElementById('entry-new-category-cancel')?.addEventListener('click', () => {
+      document.getElementById('entry-new-category-row').style.display = 'none';
+      document.getElementById('entry-new-category-input').value = '';
+    });
+    document.getElementById('entry-new-category-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); _confirmNewCat(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); document.getElementById('entry-new-category-cancel').click(); }
+    });
+
 
     // Keyboard: Escape to close
     document.addEventListener('keydown', e => {
@@ -587,6 +621,10 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
 
     form.reset();
     clearResourceRows();
+    const _ncRow = document.getElementById('entry-new-category-row');
+    const _ncInp = document.getElementById('entry-new-category-input');
+    if (_ncRow) _ncRow.style.display = 'none';
+    if (_ncInp) _ncInp.value = '';
 
     // Reset any lock left over from a previous "Log hours" open so normal adds/edits stay editable.
     document.getElementById('entry-topic').readOnly = false;

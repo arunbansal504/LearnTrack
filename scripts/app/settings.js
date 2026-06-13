@@ -788,19 +788,27 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
     return state.prefs.categoryColors[cat];
   }
 
+  export async function saveNewCategory(name) {
+    const cats = state.prefs.categories || [];
+    if (cats.some(c => c.toLowerCase() === name.toLowerCase())) {
+      showToast('Category already exists', 'warning');
+      return false;
+    }
+    cats.push(name);
+    state.prefs.categories = cats;
+    ensureCategoryColors(cats);
+    await Storage.saveCategories(cats, state.prefs.categoryColors);
+    renderCategories();
+    populateCategorySelects();
+    return true;
+  }
+
   export async function addCategory() {
     const input = document.getElementById('new-category-input');
     const val   = input?.value.trim();
     if (!val) return;
-    const cats = state.prefs.categories || [];
-    if (cats.includes(val)) { showToast('Category already exists', 'warning'); return; }
-    cats.push(val);
-    state.prefs.categories = cats;
-    ensureCategoryColors(cats);                          // assign a unique color to the new category
-    await Storage.saveCategories(cats, state.prefs.categoryColors);
-    if (input) input.value = '';
-    renderCategories();
-    populateCategorySelects();
+    const added = await saveNewCategory(val);
+    if (added && input) input.value = '';
   }
 
   export async function deleteCategory(cat) {
@@ -819,7 +827,8 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
       const current = sel.value;
       const defaultOpt = id === 'entry-category' ? '<option value="">Select category</option>' : '<option value="">All categories</option>';
       sel.innerHTML = defaultOpt + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-      sel.value = current;
+      if (id === 'entry-category') sel.innerHTML += '<option value="__new__" class="category-add-opt">＋ Add new category…</option>';
+      if (cats.includes(current)) sel.value = current;
     });
   }
 

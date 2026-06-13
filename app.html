@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="styles/layout.css?v=3" />
   <link rel="stylesheet" href="styles/buttons.css?v=1" />
   <link rel="stylesheet" href="styles/report-preview.css?v=1" />
-  <link rel="stylesheet" href="styles/forms.css?v=2" />
+  <link rel="stylesheet" href="styles/forms.css?v=3" />
   <link rel="stylesheet" href="styles/modals.css?v=3" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
@@ -1628,6 +1628,11 @@
             <select id="entry-category" required aria-required="true" aria-describedby="entry-category-err">
               <option value="">Select category</option>
             </select>
+            <div id="entry-new-category-row" class="entry-new-cat-row" style="display:none">
+              <input type="text" id="entry-new-category-input" class="form-control" placeholder="New category name" maxlength="40" autocomplete="off" />
+              <button type="button" id="entry-new-category-add" class="btn btn-primary btn-sm">Add</button>
+              <button type="button" id="entry-new-category-cancel" class="btn btn-ghost btn-sm">✕</button>
+            </div>
             <span id="entry-category-err" class="sr-only" role="alert"></span>
           </div>
         </div>
@@ -2295,6 +2300,11 @@
           <select id="goal-category" class="form-input">
             <option value="">Any category</option>
           </select>
+          <div id="goal-new-category-row" class="entry-new-cat-row" style="display:none">
+            <input type="text" id="goal-new-category-input" class="form-control" placeholder="New category name" maxlength="40" autocomplete="off" />
+            <button type="button" id="goal-new-category-add" class="btn btn-primary btn-sm">Add</button>
+            <button type="button" id="goal-new-category-cancel" class="btn btn-ghost btn-sm">✕</button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="goal-priority">Priority</label>
@@ -2456,7 +2466,7 @@
 
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=86"></script>
+<script type="module" src="scripts/main.js?v=88"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

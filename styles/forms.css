@@ -136,3 +136,13 @@ input:disabled {
 .toggle-switch input:checked + .toggle-thumb { background: var(--accent); }
 .toggle-switch input:checked + .toggle-thumb::before { transform: translateX(18px); }
 
+/* ---- INLINE NEW CATEGORY ROW (entry modal) ------- */
+.entry-new-cat-row {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin-top: var(--s-2);
+}
+.entry-new-cat-row .form-control { flex: 1; min-width: 0; }
+.category-add-opt { color: var(--accent); font-style: italic; }
+
