@@ -86,23 +86,30 @@ const Insights = (() => {
       icon:  '⏱️',
     });
 
-    // Top topic
-    const topicDist = Analytics.calculateTopicDistribution(entries);
-    if (topicDist.length > 0) {
+    // Most studied topic (grouped by the entry's topic field, not its category)
+    const topicMins = {};
+    for (const e of entries) {
+      const t = (e.topic || '').trim() || 'Untitled';
+      topicMins[t] = (topicMins[t] || 0) + (e.durationMinutes || 0);
+    }
+    const topTopic = Object.entries(topicMins).sort((a, b) => b[1] - a[1])[0];
+    if (topTopic) {
       insights.push({
-        label: 'Most Studied',
-        value: topicDist[0].label,
-        sub:   `${Analytics.formatDuration(topicDist[0].minutes)} total`,
+        label: 'Most Studied Topic',
+        value: topTopic[0],
+        sub:   `${Analytics.formatDuration(topTopic[1])} total`,
         icon:  '📚',
       });
     }
 
+    const topicDist = Analytics.calculateTopicDistribution(entries);
+
     // Topics explored
     if (topicDist.length > 0) {
       insights.push({
-        label:  'Topics Explored',
+        label:  'Subjects Explored',
         value:  `${topicDist.length}`,
-        sub:    'Unique subjects',
+        sub:    'Click here for details',
         icon:   '🗂️',
         action: 'topics',   // makes the card clickable → opens the subjects breakdown modal
       });
@@ -188,28 +195,61 @@ const Insights = (() => {
 
   /* ---- Next Milestone Calculation ------------------ */
 
-  function getNextMilestone(entries, streak, stats, earnedIds, consistency, goalForDate, goals) {
-    earnedIds   = earnedIds instanceof Set ? earnedIds : new Set(earnedIds || []);
-    consistency = consistency || 0;
-    goalForDate = typeof goalForDate === 'function' ? goalForDate : () => 60;
-    goals       = goals || [];
+  // 1000 milestones generated in code (not tied to the badge collection):
+  //   350 — total entries logged   (1..350 entries)
+  //   500 — total hours studied    (1..500 hours)
+  //   150 — longest streak in days (1..150 days)
+  const MILESTONES = (() => {
+    const list = [];
+    for (let i = 1; i <= 350; i++) {
+      list.push({ metric: 'entries', target: i, icon: '📝', name: `Log ${i} ${i === 1 ? 'Entry' : 'Entries'}` });
+    }
+    for (let i = 1; i <= 500; i++) {
+      list.push({ metric: 'hours', target: i, icon: '⏳', name: `Study ${i} ${i === 1 ? 'Hour' : 'Hours'} Total` });
+    }
+    for (let i = 1; i <= 150; i++) {
+      list.push({ metric: 'streak', target: i, icon: '🔥', name: `${i}-Day Streak` });
+    }
+    return list;
+  })();
 
-    const context = { entries, streak, stats, consistency, goalForDate, goals };
+  function getNextMilestone(entries, streak, stats) {
+    streak = streak || {};
+    stats  = stats  || {};
 
-    const incomplete = Rewards.ACHIEVEMENTS
-      .filter(ach => !earnedIds.has(ach.id))
-      .map(ach => {
-        const prog = ach.progress(context);
-        return { name: ach.name, icon: ach.icon, current: prog.current, max: prog.max };
-      })
-      .filter(m => m.current < m.max);
+    // Current value per metric. Hours keep one decimal so the progress bar
+    // moves within an hour; streak uses the longest ever so a milestone,
+    // once reached, stays achieved.
+    const values = {
+      entries: stats.totalEntries || 0,
+      hours:   Math.round(((stats.totalMinutes || 0) / 60) * 10) / 10,
+      streak:  Math.max(streak.longest || 0, streak.current || 0),
+    };
 
-    if (incomplete.length === 0) {
-      return { name: 'All Badges Earned!', icon: '🏆', current: 1, max: 1, allDone: true };
+    let achieved = 0;
+    let next = null;   // unachieved milestone closest to completion
+    for (const m of MILESTONES) {
+      const cur = values[m.metric];
+      if (cur >= m.target) { achieved++; continue; }
+      const ratio = cur / m.target;
+      if (!next || ratio > next.ratio) {
+        next = { name: m.name, icon: m.icon, current: cur, max: m.target, ratio };
+      }
     }
 
-    incomplete.sort((a, b) => (b.current / b.max) - (a.current / a.max));
-    return incomplete[0];
+    if (!next) {
+      return {
+        name: `Great, you have achieved all ${MILESTONES.length} milestones`,
+        icon: '🏆',
+        current: MILESTONES.length,
+        max: MILESTONES.length,
+        achieved,
+        total: MILESTONES.length,
+        allDone: true,
+      };
+    }
+
+    return { ...next, achieved, total: MILESTONES.length, allDone: false };
   }
 
   /* ---- Recommendation Cards ----------------------- */

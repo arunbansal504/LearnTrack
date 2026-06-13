@@ -100,7 +100,7 @@ function setLastSynced(rev) {
 export function markCloudSynced() {
   state.lastCloudSync = Date.now();
   localStorage.setItem(pkey('sync_at'), String(state.lastCloudSync));
-  document.dispatchEvent(new CustomEvent('lt-sync-changed'));
+  setStatus('synced'); // clears "Syncing…" and fires lt-sync-changed
 }
 
 /* ---- Status + change notification ------------------------------ */
@@ -359,17 +359,20 @@ export async function initSync() {
           .then(() => emitChange())
           .catch(() => {});
         if (canSync()) {
-          setStatus('syncing');
-          pullSnapshot()
-            .then(result => {
-              if (result.reason === 'profile-mismatch') return result;
-              return pushSnapshot();
-            })
-            .then(() => setStatus('synced'))
-            .catch(err => {
-              console.warn('[Sync] auth state sync failed:', err);
-              setStatus('error');
-            });
+          if (state.prefs.cloudAutoBackup) {
+            setStatus('syncing');
+            // Pull only — boot-time push is handled by queueCloudPush() after real
+            // data changes and by "Sync Now". Pushing here stamped sync_at on every
+            // auth-state event even when nothing changed.
+            pullSnapshot()
+              .then(() => setStatus('synced'))
+              .catch(err => {
+                console.warn('[Sync] auth state sync failed:', err);
+                setStatus('error');
+              });
+          } else {
+            setStatus('auto-off');
+          }
         } else if (!navigator.onLine) {
           setStatus('offline');
         } else {
@@ -383,10 +386,15 @@ export async function initSync() {
     });
 
     if (canSync()) {
-      setStatus('syncing');
-      const pulled = await pullSnapshot();
-      if (pulled.reason !== 'profile-mismatch') await pushSnapshot();
-      setStatus('synced');
+      if (state.prefs.cloudAutoBackup) {
+        setStatus('syncing');
+        // Pull only on boot — pushSnapshot() is for "Sync Now" / data-change path.
+        // Pushing here stamped sync_at = now on every page load even with no changes.
+        await pullSnapshot();
+        setStatus('synced');
+      } else {
+        setStatus('auto-off');
+      }
     } else {
       setStatus('signed-out');
     }

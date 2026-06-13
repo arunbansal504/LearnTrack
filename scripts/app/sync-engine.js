@@ -352,9 +352,12 @@ export async function pullDeltas({ manual = false, force = false, silent = false
   if (catErr) { console.warn('[SyncEngine] pullDeltas categories error:', catErr.message); }
   else if (catRows?.length) {
     const { names, colors } = Repo.cloudToCategories(catRows);
-    await Storage.put(Storage.STORES.preferences, { key: 'categories',     value: names  });
-    await Storage.put(Storage.STORES.preferences, { key: 'categoryColors', value: colors });
-    changed = true;
+    const localNames = state.prefs.categories || [];
+    if (JSON.stringify(names) !== JSON.stringify(localNames)) {
+      await Storage.put(Storage.STORES.preferences, { key: 'categories',     value: names  });
+      await Storage.put(Storage.STORES.preferences, { key: 'categoryColors', value: colors });
+      changed = true;
+    }
   }
 
   // --- Achievements --------------------------------------------
@@ -385,12 +388,13 @@ export async function pullDeltas({ manual = false, force = false, silent = false
   // Advance watermark after a successful (even partial) pull
   Repo.setSyncWatermark(localProfileId(), aid, pullTime);
 
-  // Local now reflects the cloud for this profile (when nothing is pending) —
-  // record the last-synced signature for the sign-out dirty check.
-  await refreshCloudSignature(pid);
-  markCloudSynced();
-
-  if (changed && !silent) await refreshState();
+  // Only update the "Last synced" timestamp when data actually changed.
+  // An idle tick with nothing new shouldn't move the clock forward.
+  if (changed) {
+    await refreshCloudSignature(pid);
+    markCloudSynced();
+    if (!silent) await refreshState();
+  }
 }
 
 /* ---- Scheduled drain (debounced) ------------------------------ */

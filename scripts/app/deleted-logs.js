@@ -520,7 +520,7 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
     const modal = document.getElementById('topics-modal');
     if (modal) modal.addEventListener('click', ev => { if (ev.target === modal) close(); });
 
-    // Delegated trigger: the "Topics Explored" insight card is rendered with
+    // Delegated trigger: the "Subjects Explored" insight card is rendered with
     // data-insight-action="topics" by Insights.renderInsightsRow.
     const row = document.getElementById('insights-row');
     if (row) {
@@ -542,9 +542,9 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
     const title = document.getElementById('topics-modal-title');
     if (!modal || !body) return;
 
-    // Match the "Topics Explored" insight grouping exactly (no knownCategories filtering).
+    // Match the "Subjects Explored" insight grouping exactly (no knownCategories filtering).
     const dist = Analytics.calculateTopicDistribution(state.entries);
-    if (title) title.textContent = `Topics Explored`;
+    if (title) title.textContent = `Subjects Explored`;
 
     if (!dist.length) {
       body.innerHTML = '<p class="topics-modal-empty">No topics logged yet.</p>';

@@ -90,34 +90,15 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
     if (monthBar) monthBar.style.width = `${monthPct}%`;
     setEl('month-goal-text', `${monthPct}% of monthly goal`);
 
-    // Next milestone — sourced from Rewards.ACHIEVEMENTS
-    const earnedIds = new Set(state.earnedAch.map(a => a.id));
-    const _goalHistory = state.prefs.goalHistory || [];
-    const _fallbackGoal = state.prefs.dailyGoalMin || 60;
-    const milGoalForDate = date => {
-      let best = null;
-      for (const g of _goalHistory) {
-        if (g.from <= date && (!best || g.from > best.from)) best = g;
-      }
-      return best ? best.goalMin : _fallbackGoal;
-    };
-    const milestone = Insights.getNextMilestone(state.entries, streak, stats, earnedIds, consistency, milGoalForDate, state.goals);
+    // Next milestone — sourced from the 1000 code-generated Insights.MILESTONES
+    const milestone = Insights.getNextMilestone(state.entries, streak, stats);
     setEl('milestone-icon', milestone.icon);
     setEl('milestone-name', milestone.name);
     const milPct = milestone.allDone ? 100 : Math.round((milestone.current / milestone.max) * 100);
     const milBar = document.getElementById('milestone-bar');
     if (milBar) milBar.style.width = `${milPct}%`;
-    setEl('milestone-meta', milestone.allDone ? 'All achievements unlocked!' : `${milestone.current} / ${milestone.max} (${milPct}%)`);
-
-    // Wire milestone card click → achievements page (once per page lifecycle)
-    const milCard = document.getElementById('milestone-card');
-    if (milCard && !milCard.dataset.wired) {
-      milCard.dataset.wired = '1';
-      milCard.addEventListener('click', () => navigateTo('achievements'));
-      milCard.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('achievements'); }
-      });
-    }
+    setEl('milestone-meta', milestone.allDone ? `${milestone.total} / ${milestone.total} (100%)` : `${milestone.current} / ${milestone.max} (${milPct}%)`);
+    setEl('milestone-count', `${milestone.achieved} of ${milestone.total} milestones achieved`);
 
     // Daily goal progress + today summary
     renderGoalProgress();

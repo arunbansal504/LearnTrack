@@ -275,8 +275,6 @@
 
 .milestone-meta { font-size: 11px; color: var(--text-3); }
 .milestone-view-all { font-size: 11px; color: var(--accent); opacity: 0.75; }
-#milestone-card { cursor: pointer; }
-#milestone-card:hover .milestone-view-all { opacity: 1; }
 
 /* ---- DAILY GOAL PROGRESS CARD -------------------- */
 .goal-row {

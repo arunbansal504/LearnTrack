@@ -866,6 +866,7 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
   const CLOUD_STATUS_TEXT = {
     disabled:    'Not configured',
     'signed-out':'Signed out',
+    'auto-off':  'Auto backup off',
     syncing:     'Syncing…',
     synced:      'Up to date',
     offline:     'Offline — will sync when back online',
@@ -1303,12 +1304,14 @@ import { isTestSession, getTestSession, testAccountId } from './test-accounts.js
       } catch (err) { console.warn('[CloudBackup] reconcile on enable failed:', err); }
 
       // Activate the per-record sync engine now that a cloud profile UUID exists
+      Sync.setSyncStatus('syncing');
       import('./sync-engine.js').then(mod => { mod.startEngine?.(); }).catch(() => {});
       showToast('Cloud backup enabled.', 'success');
     } else {
       state.prefs.cloudAutoBackup = false;
       if (autoChk) autoChk.checked = false;
       try { await Storage.setPref('cloudAutoBackup', false); } catch {}
+      Sync.setSyncStatus('auto-off');
 
       // Push directly to profile_prefs BEFORE stopping the engine.
       // The outbox drain requires cloudAutoBackup===true to run, and stopEngine() cancels

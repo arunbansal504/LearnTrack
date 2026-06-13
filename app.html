@@ -42,14 +42,14 @@
   <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
   <link rel="stylesheet" href="styles/calendar.css?v=1" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
-  <link rel="stylesheet" href="styles/chrome.css?v=2" />
+  <link rel="stylesheet" href="styles/chrome.css?v=3" />
   <link rel="stylesheet" href="styles/responsive.css?v=1" />
   <link rel="stylesheet" href="styles/profiles-users.css?v=3" />
   <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
   <link rel="stylesheet" href="styles/timer.css?v=1" />
   <link rel="stylesheet" href="styles/goals.css?v=1" />
   <link rel="stylesheet" href="styles/deleted-goals.css?v=1" />
-  <link rel="stylesheet" href="styles/dashboard.css?v=29" />
+  <link rel="stylesheet" href="styles/dashboard.css?v=30" />
   <link rel="stylesheet" href="styles/animations.css?v=17" />
 </head>
 <body>
@@ -351,9 +351,9 @@
             <div class="summary-sub" id="month-goal-text">0% of monthly goal</div>
           </div>
         </div>
-        <div class="summary-card upcoming-milestone-card" id="milestone-card" role="button" tabindex="0" aria-label="Next milestone — click to view all achievements">
+        <div class="summary-card upcoming-milestone-card" id="milestone-card">
           <div class="summary-header">
-            <h2>Next Milestone <i class="info-tip" data-tip="The closest unearned achievement from your badge collection. Click to view all achievements.">i</i></h2>
+            <h2>Next Milestone <i class="info-tip" data-tip="The closest of 1000 built-in milestones covering entries logged, total study hours, and streak days.">i</i></h2>
           </div>
           <div class="summary-body" id="next-milestone-body">
             <div class="milestone-icon" id="milestone-icon">🏆</div>
@@ -362,7 +362,7 @@
               <div class="milestone-progress-bar" id="milestone-bar" style="width:0%"></div>
             </div>
             <div class="milestone-meta" id="milestone-meta">0% complete</div>
-            <div class="milestone-view-all">View all achievements →</div>
+            <div class="milestone-view-all" id="milestone-count">0 of 1000 milestones achieved</div>
           </div>
         </div>
       </div>
@@ -1953,7 +1953,7 @@
 <div id="topics-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="topics-modal-title" style="display:none">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
-      <h2 id="topics-modal-title" style="font-size:15px;font-weight:700">Topics Explored</h2>
+      <h2 id="topics-modal-title" style="font-size:15px;font-weight:700">Subjects Explored</h2>
       <button class="modal-close" id="topics-modal-close" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2361,15 +2361,15 @@
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
 <script src="scripts/storage.js?v=21"></script>
-<script src="scripts/analytics.js?v=16"></script>
+<script src="scripts/analytics.js?v=17"></script>
 <script src="scripts/rewards.js?v=19"></script>
 <script src="scripts/charts.js?v=18"></script>
 <script src="scripts/calendar.js?v=16"></script>
-<script src="scripts/insights.js?v=17"></script>
+<script src="scripts/insights.js?v=19"></script>
 <script src="scripts/timer.js?v=15"></script>
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=60"></script>
+<script type="module" src="scripts/main.js?v=64"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

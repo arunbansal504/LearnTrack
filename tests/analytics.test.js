@@ -119,7 +119,7 @@ function calculateTopicDistribution(entries, knownCategories) {
   const catSet = knownCategories ? new Set(knownCategories) : null;
   const map = {};
   for (const e of entries) {
-    const raw = e.category || e.topic || '';
+    const raw = e.category || '';
     const key = catSet ? (catSet.has(raw) ? raw : 'Uncategorized') : (raw || 'Uncategorized');
     map[key] = (map[key] || 0) + (e.durationMinutes || 0);
   }

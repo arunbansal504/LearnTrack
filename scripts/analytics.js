@@ -258,7 +258,9 @@ const Analytics = (() => {
     const catSet = knownCategories ? new Set(knownCategories) : null;
     const map = {};
     for (const e of entries) {
-      const raw = e.category || e.topic || '';
+      // Group by subject (category) only — entry topics are freeform titles,
+      // not subjects, so entries without a category land in "Uncategorized".
+      const raw = e.category || '';
       const key = catSet ? (catSet.has(raw) ? raw : 'Uncategorized') : (raw || 'Uncategorized');
       map[key] = (map[key] || 0) + (e.durationMinutes || 0);
     }
