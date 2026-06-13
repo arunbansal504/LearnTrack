@@ -32,6 +32,50 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
       });
       const sort = document.getElementById('dl-filter-sort');
       if (sort) sort.value = 'deleted-newest';
+      state.dlLogTagFilter = [];
+      _renderDlTagChips();
+      updateDlFilterToggleState();
+      state.deletedPage = 1;
+      renderDeletedLogs();
+    });
+
+    // Tag filter widget
+    const _renderDlTagChips = () => {
+      const c = document.getElementById('dl-filter-tags-chips');
+      if (!c) return;
+      c.innerHTML = state.dlLogTagFilter.map(tag =>
+        `<span class="tag-filter-chip">${escapeHtml(tag)}<button type="button" class="tag-filter-chip-remove" data-tag="${escapeHtml(tag)}" aria-label="Remove tag">×</button></span>`
+      ).join('');
+      c.querySelectorAll('.tag-filter-chip-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.dlLogTagFilter = state.dlLogTagFilter.filter(t => t !== btn.dataset.tag);
+          _renderDlTagChips();
+          updateDlFilterToggleState();
+          state.deletedPage = 1;
+          renderDeletedLogs();
+        });
+      });
+    };
+
+    const _addDlTag = () => {
+      const inp = document.getElementById('dl-filter-tags-input');
+      if (!inp) return;
+      const val = inp.value.trim().replace(/,$/, '');
+      if (val && !state.dlLogTagFilter.some(t => t.toLowerCase() === val.toLowerCase())) {
+        state.dlLogTagFilter.push(val);
+        _renderDlTagChips();
+        updateDlFilterToggleState();
+        state.deletedPage = 1;
+        renderDeletedLogs();
+      }
+      inp.value = '';
+    };
+    document.getElementById('dl-filter-tags-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); _addDlTag(); }
+    });
+    document.getElementById('dl-filter-tags-clear')?.addEventListener('click', () => {
+      state.dlLogTagFilter = [];
+      _renderDlTagChips();
       updateDlFilterToggleState();
       state.deletedPage = 1;
       renderDeletedLogs();
@@ -163,6 +207,12 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
     if (dateTo)   list = list.filter(e => e.date <= dateTo);
     if (category) list = list.filter(e => e.category === category);
     if (diff)     list = list.filter(e => e.difficulty === diff);
+    if (state.dlLogTagFilter.length) {
+      list = list.filter(e =>
+        Array.isArray(e.tags) &&
+        state.dlLogTagFilter.every(ft => e.tags.some(t => t.toLowerCase() === ft.toLowerCase()))
+      );
+    }
 
     switch (sort) {
       case 'deleted-newest':  list.sort((a, b) => b.deletedAt - a.deletedAt); break;

@@ -72,6 +72,10 @@ export const state = {
   deletedPage:      1,
   deletedSelection: new Set(),
 
+  /* ---- Log tag filters ---- */
+  logTagFilter:   [],   // active tag chips on the log filter panel
+  dlLogTagFilter: [],   // active tag chips on the deleted-logs filter panel
+
   /* ---- Dashboard chart ranges ---- */
   dailyRange:    30,
   monthlyRange:  6,

@@ -21,6 +21,9 @@ import { setEl } from './utils.js';
     });
     const sort = document.getElementById('filter-sort');
     if (sort) sort.value = 'newest';
+    state.logTagFilter = [];
+    const chips = document.getElementById('filter-tags-chips');
+    if (chips) chips.innerHTML = '';
     state.logGoalContext = null;
     state.logLinkedGoalFilter = null;
     state.logMilestoneContext = null;
@@ -34,7 +37,8 @@ import { setEl } from './utils.js';
       (document.getElementById('filter-date-to')?.value || '') !== '' ||
       (document.getElementById('filter-category')?.value || '') !== '' ||
       (document.getElementById('filter-difficulty')?.value || '') !== '' ||
-      (document.getElementById('filter-sort')?.value || 'newest') !== 'newest';
+      (document.getElementById('filter-sort')?.value || 'newest') !== 'newest' ||
+      state.logTagFilter.length > 0;
     document.getElementById('filter-toggle')?.classList.toggle('has-filters', active);
   }
 
@@ -45,7 +49,8 @@ import { setEl } from './utils.js';
       (document.getElementById('dl-filter-date-to')?.value || '') !== '' ||
       (document.getElementById('dl-filter-category')?.value || '') !== '' ||
       (document.getElementById('dl-filter-difficulty')?.value || '') !== '' ||
-      (document.getElementById('dl-filter-sort')?.value || 'deleted-newest') !== 'deleted-newest';
+      (document.getElementById('dl-filter-sort')?.value || 'deleted-newest') !== 'deleted-newest' ||
+      state.dlLogTagFilter.length > 0;
     document.getElementById('dl-filter-toggle')?.classList.toggle('has-filters', active);
   }
 

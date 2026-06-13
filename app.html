@@ -38,7 +38,7 @@
   <link rel="stylesheet" href="styles/forms.css?v=3" />
   <link rel="stylesheet" href="styles/modals.css?v=3" />
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
-  <link rel="stylesheet" href="styles/log.css?v=1" />
+  <link rel="stylesheet" href="styles/log.css?v=2" />
   <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
   <link rel="stylesheet" href="styles/calendar.css?v=8" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
@@ -637,6 +637,18 @@
           </div>
           <button class="btn btn-ghost" id="filter-clear">Clear filters</button>
         </div>
+        <div class="filter-row filter-tags-row">
+          <div class="filter-group filter-group--tags">
+            <label>Tags</label>
+            <div class="tag-filter-wrap">
+              <div class="tag-filter-widget" id="filter-tags-widget">
+                <input type="text" id="filter-tags-input" class="tag-filter-input" placeholder="Type a tag and press Enter…" autocomplete="off" />
+                <div class="tag-filter-chips" id="filter-tags-chips"></div>
+              </div>
+              <button type="button" id="filter-tags-clear" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Log Entries List -->
@@ -712,6 +724,18 @@
             </select>
           </div>
           <button class="btn btn-ghost" id="dl-filter-clear">Clear filters</button>
+        </div>
+        <div class="filter-row filter-tags-row">
+          <div class="filter-group filter-group--tags">
+            <label>Tags</label>
+            <div class="tag-filter-wrap">
+              <div class="tag-filter-widget" id="dl-filter-tags-widget">
+                <input type="text" id="dl-filter-tags-input" class="tag-filter-input" placeholder="Type a tag and press Enter…" autocomplete="off" />
+                <div class="tag-filter-chips" id="dl-filter-tags-chips"></div>
+              </div>
+              <button type="button" id="dl-filter-tags-clear" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2466,7 +2490,7 @@
 
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=88"></script>
+<script type="module" src="scripts/main.js?v=89"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

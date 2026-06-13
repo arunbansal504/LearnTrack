@@ -417,6 +417,12 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
     if (dateTo)   list = list.filter(e => e.date <= dateTo);
     if (category) list = list.filter(e => e.category === category);
     if (diff)     list = list.filter(e => e.difficulty === diff);
+    if (state.logTagFilter.length) {
+      list = list.filter(e =>
+        Array.isArray(e.tags) &&
+        state.logTagFilter.every(ft => e.tags.some(t => t.toLowerCase() === ft.toLowerCase()))
+      );
+    }
 
     const ts = e => e.createdAt || parseInt(e.id, 10) || 0;
     switch (sort) {
@@ -444,6 +450,8 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
       });
       const sort = document.getElementById('filter-sort');
       if (sort) sort.value = 'newest';
+      state.logTagFilter = [];
+      _renderLogTagChips();
       // Also drop the "linked to goal" view so the user sees all entries again.
       state.logLinkedGoalFilter = null;
       state.logGoalContext = null;
@@ -463,6 +471,44 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
       }
     });
 
+
+    // Tag filter widget
+    const _renderLogTagChips = () => {
+      const c = document.getElementById('filter-tags-chips');
+      if (!c) return;
+      c.innerHTML = state.logTagFilter.map(tag =>
+        `<span class="tag-filter-chip">${escapeHtml(tag)}<button type="button" class="tag-filter-chip-remove" data-tag="${escapeHtml(tag)}" aria-label="Remove tag">×</button></span>`
+      ).join('');
+      c.querySelectorAll('.tag-filter-chip-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.logTagFilter = state.logTagFilter.filter(t => t !== btn.dataset.tag);
+          _renderLogTagChips();
+          updateFilterToggleState();
+          renderEntryList();
+        });
+      });
+    };
+    const _addLogTag = () => {
+      const inp = document.getElementById('filter-tags-input');
+      if (!inp) return;
+      const val = inp.value.trim().replace(/,$/, '');
+      if (val && !state.logTagFilter.some(t => t.toLowerCase() === val.toLowerCase())) {
+        state.logTagFilter.push(val);
+        _renderLogTagChips();
+        updateFilterToggleState();
+        renderEntryList();
+      }
+      inp.value = '';
+    };
+    document.getElementById('filter-tags-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); _addLogTag(); }
+    });
+    document.getElementById('filter-tags-clear')?.addEventListener('click', () => {
+      state.logTagFilter = [];
+      _renderLogTagChips();
+      updateFilterToggleState();
+      renderEntryList();
+    });
 
     document.getElementById('add-entry-btn')?.addEventListener('click', () => openEntryModal());
     document.getElementById('quick-add-btn')?.addEventListener('click', () => openEntryModal());
