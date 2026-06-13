@@ -87,7 +87,12 @@ export async function signInWithGoogle() {
   const sb = await getClient();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options:  { redirectTo: appUrl() },
+    options:  {
+      redirectTo: appUrl(),
+      // Force Google's account chooser every time, otherwise it silently
+      // reuses the last-signed-in account after a sign-out / re-sign-in.
+      queryParams: { prompt: 'select_account' },
+    },
   });
   if (error) throw error;
 }
