@@ -1,6 +1,7 @@
 /* ===== core.js — extracted from app.js ===== */
 import { state, BACKUP_FAILURE_LIMIT, DELETED_RETENTION_DAYS, DEFAULT_PREFS } from './state.js';
-import { setupDeletedLogsPage, setupTopicsModal } from './deleted-logs.js';
+import { setupDeletedLogsPage } from './deleted-logs.js';
+import { setupTopicsModal, setupWeekdayModal } from './dashboard.js';
 import { _setupLogPromptModal, setupGoalModal, setupLinkGoalModal } from './goals.js';
 import { setupEntryModal, setupFilterPanel } from './log.js';
 import { navigateTo, setupMobileNav, setupNavigation, setupSidebar, updateSidebarUser } from './nav.js';
@@ -8,6 +9,7 @@ import { backupCurrentProfile, configureBackupFolder, ensureCategoryColors, setu
 import { UserManager, setupUserPicker, createCloudProfileRow } from './users.js';
 import { _closeModal, _openModal, setupModalScrollTrap, showToast } from './utils.js';
 import { applyAccent, applyCompact, applyTheme, setupClock, setupPomodoro, setupReminder, setupThemeToggle } from './widgets.js';
+import { openMilestoneListModal, setupTopTopicsModal } from './dashboard.js';
 import { initSync, queueCloudPush, getLastCloudSync } from './sync.js';
 import { getClient } from './sync.js';
 import { loadEntitlements, canUse } from './entitlements.js';
@@ -49,6 +51,10 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
     document.getElementById('loading-overlay').style.display = 'flex';
 
     // One-time event-handler setup
+    const milestoneCard = document.getElementById('milestone-card');
+    milestoneCard?.addEventListener('click', openMilestoneListModal);
+    milestoneCard?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMilestoneListModal(); } });
+    setupTopTopicsModal();
     setupNavigation();
     setupSidebar();
     setupMobileNav();
@@ -56,6 +62,7 @@ import { computeSyncSignature, setBootSignature, getBootSignature } from './clou
     setupGoalModal();
     setupLinkGoalModal();
     setupTopicsModal();
+    setupWeekdayModal();
     setupModalScrollTrap();
     _setupLogPromptModal();
     setupFilterPanel();

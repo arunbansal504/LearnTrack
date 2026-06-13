@@ -100,10 +100,10 @@ const Charts = (() => {
 
   /* ---- Daily Time Line Chart ----------------------- */
 
-  function renderDailyTimeChart(canvasId, data) {
+  function renderDailyTimeChart(canvasId, data, onPointClick) {
     if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
-    _recreators[canvasId] = () => renderDailyTimeChart(canvasId, data);
+    _recreators[canvasId] = () => renderDailyTimeChart(canvasId, data, onPointClick);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -144,6 +144,14 @@ const Charts = (() => {
       },
       options: {
         ...CHART_DEFAULTS,
+        onClick: onPointClick ? (event, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          if (data[idx]) onPointClick(data[idx].date, data[idx].label);
+        } : undefined,
+        onHover: onPointClick ? (event, elements) => {
+          if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        } : undefined,
         scales: {
           x: {
             ticks: {
@@ -180,9 +188,10 @@ const Charts = (() => {
 
   /* ---- Topic Distribution Doughnut Chart ----------- */
 
-  function renderTopicChart(canvasId, data) {
+  function renderTopicChart(canvasId, data, onSliceClick) {
     if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
+    _recreators[canvasId] = () => renderTopicChart(canvasId, data, onSliceClick);
     const canvas = document.getElementById(canvasId);
     if (!canvas || data.length === 0) return;
 
@@ -226,6 +235,15 @@ const Charts = (() => {
       },
       options: {
         ...CHART_DEFAULTS,
+        onClick: onSliceClick ? (event, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          const slice = data.slice(0, 10)[idx];
+          if (slice) onSliceClick(slice.label);
+        } : undefined,
+        onHover: onSliceClick ? (event, elements) => {
+          if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        } : undefined,
         cutout: '65%',
         plugins: {
           ...CHART_DEFAULTS.plugins,
@@ -254,10 +272,10 @@ const Charts = (() => {
 
   /* ---- Monthly Progress Bar Chart ------------------ */
 
-  function renderMonthlyChart(canvasId, data) {
+  function renderMonthlyChart(canvasId, data, onBarClick) {
     if (!_chartLibReady(canvasId)) return;
     destroyChart(canvasId);
-    _recreators[canvasId] = () => renderMonthlyChart(canvasId, data);
+    _recreators[canvasId] = () => renderMonthlyChart(canvasId, data, onBarClick);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -296,6 +314,14 @@ const Charts = (() => {
       },
       options: {
         ...CHART_DEFAULTS,
+        onClick: onBarClick ? (event, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          if (data[idx]) onBarClick(data[idx].from, data[idx].to, data[idx].label);
+        } : undefined,
+        onHover: onBarClick ? (event, elements) => {
+          if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        } : undefined,
         scales: {
           x: {
             ticks: {
@@ -526,7 +552,7 @@ const Charts = (() => {
 
   /* ---- GitHub-style Heatmap ------------------------ */
 
-  function renderHeatmap(containerId, cells) {
+  function renderHeatmap(containerId, cells, onCellClick) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -631,15 +657,21 @@ const Charts = (() => {
           el.title     = cell.label;
           el.setAttribute('role', 'gridcell');
           el.setAttribute('aria-label', cell.label);
-          el.style.cursor = 'pointer';
-          el.addEventListener('click', e => { e.stopPropagation(); _showHeatTip(cell.label, el); });
 
           if (cell.level === 0) {
             el.style.background = 'var(--border)';
+            el.style.cursor = 'default';
+            el.addEventListener('click', e => { e.stopPropagation(); _showHeatTip(cell.label, el); });
           } else {
-            const opacities = [0, 0.35, 0.55, 0.75, 1];
+            const opacities = [0, 0.10, 0.19, 0.28, 0.37, 0.46, 0.55, 0.64, 0.73, 0.82, 1.0];
             el.style.background = accent;
-            el.style.opacity = opacities[cell.level];
+            el.style.opacity    = opacities[cell.level];
+            el.style.cursor     = 'pointer';
+            el.addEventListener('click', e => {
+              e.stopPropagation();
+              if (onCellClick) onCellClick(cell.date);
+              else _showHeatTip(cell.label, el);
+            });
           }
         }
         col.appendChild(el);

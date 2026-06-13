@@ -2,7 +2,7 @@
 import { state } from './state.js';
 import { renderAchievements } from './achievements.js';
 import { init } from './core.js';
-import { cacheActiveUserStats, renderDashboard } from './dashboard.js';
+import { cacheActiveUserStats, openMilestoneListModal, openTopTopicsModal, renderDashboard, renderDashboardHeatmap, showTopicsModal, showWeekdayModal } from './dashboard.js';
 import { renderDeletedLogs } from './deleted-logs.js';
 import { renderDeletedGoals, renderGoals, setupDeletedGoalsPage } from './goals.js';
 import { openEntryModal, renderLog } from './log.js';
@@ -23,6 +23,7 @@ import { setEl } from './utils.js';
     if (sort) sort.value = 'newest';
     state.logGoalContext = null;
     state.logLinkedGoalFilter = null;
+    state.logMilestoneContext = null;
     updateFilterToggleState();
   }
 
@@ -114,7 +115,7 @@ import { setEl } from './utils.js';
     if (target) target.classList.add('active');
 
     // Clear goal-context breadcrumb and link filter when leaving the log page
-    if (page !== 'log') { state.logGoalContext = null; state.logLinkedGoalFilter = null; }
+    if (page !== 'log') { state.logGoalContext = null; state.logLinkedGoalFilter = null; state.logMilestoneContext = null; }
     // Clear the "back to link modal" chips when leaving the goals page
     if (page !== 'goals') {
       state.linkModalReturnEntryId = null; state.linkModalReturnGoalId = null;
@@ -165,7 +166,7 @@ import { setEl } from './utils.js';
         setTimeout(() => {
           Charts.resizeAllCharts();
           if (state.currentPage === 'dashboard') {
-            Charts.renderHeatmap('heatmap-container', Analytics.calculateHeatmapData(state.entries));
+            renderDashboardHeatmap();
           }
         }, 300);
       }
@@ -174,6 +175,72 @@ import { setEl } from './utils.js';
     ['sidebar-level', 'sidebar-xp-bar', 'sidebar-xp-text', 'sidebar-level-title'].forEach(id => {
       document.getElementById(id)?.addEventListener('click', () => navigateTo('achievements'));
     });
+    const statLevelCard = document.getElementById('stat-level-card');
+    if (statLevelCard) {
+      statLevelCard.addEventListener('click', () => { state.achievementsReturnTo = 'dashboard'; navigateTo('achievements'); });
+      statLevelCard.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); statLevelCard.click(); } });
+    }
+
+    // Total Hours, Streak, Total Entries → drill into log
+    function _statCardToLog(label, buildStreakDates, source) {
+      let streakDates;
+      if (buildStreakDates) {
+        const info = Analytics.calculateStreaks(state.entries);
+        streakDates = new Set();
+        if (info.current > 0) {
+          const allDates = [...info.activeDates].sort().reverse();
+          const latest   = allDates[0];
+          let d = new Date(latest + 'T12:00:00');
+          for (let i = 0; i < info.current; i++) {
+            streakDates.add(d.toISOString().split('T')[0]);
+            d.setDate(d.getDate() - 1);
+          }
+        }
+      }
+      state.logStatContext  = { label, streakDates, source };
+      state.logForceExpand  = true;
+      navigateTo('log');
+    }
+    [
+      { id: 'stat-hours-card',   label: 'Total Hours',    streak: false, source: 'stat-hours'   },
+      { id: 'stat-streak-card',  label: 'Current Streak', streak: true,  source: 'stat-streak'  },
+      { id: 'stat-entries-card', label: 'Total Entries',  streak: false, source: 'stat-entries' },
+    ].forEach(({ id, label, streak, source }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click',   ()  => _statCardToLog(label, streak, source));
+      el.addEventListener('keydown', e   => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
+    });
+
+    const todayCard = document.getElementById('today-summary-card');
+    if (todayCard) {
+      todayCard.addEventListener('click', e => {
+        if (e.target.closest('.today-log-btn')) return;
+        state.logStatContext = { label: 'Today', streakDates: new Set([Analytics.today()]), source: 'today-card' };
+        state.logForceExpand = true;
+        navigateTo('log');
+      });
+    }
+
+    const weekCard = document.getElementById('summary-week-card');
+    if (weekCard) {
+      weekCard.addEventListener('click', () => {
+        const w = Analytics.calculateWeeklySummary(state.entries);
+        state.logStatContext = { label: 'This Week', dateFrom: w.from, dateTo: w.to, source: 'weekly-chart' };
+        state.logForceExpand = true;
+        navigateTo('log');
+      });
+    }
+
+    const monthCard = document.getElementById('summary-month-card');
+    if (monthCard) {
+      monthCard.addEventListener('click', () => {
+        const m = Analytics.calculateMonthlySummary(state.entries);
+        state.logStatContext = { label: 'This Month', dateFrom: m.from, dateTo: m.to, source: 'monthly-chart' };
+        state.logForceExpand = true;
+        navigateTo('log');
+      });
+    }
     document.getElementById('mobile-sidebar-overlay')?.addEventListener('click', closeMobileSidebar);
 
     // Swipe left on the sidebar to close it on mobile
@@ -277,7 +344,27 @@ import { setEl } from './utils.js';
 
   export function renderPage(page) {
     switch (page) {
-      case 'dashboard':      renderDashboard();      break;
+      case 'dashboard':
+        renderDashboard();
+        if (state.dashboardReopenMilestoneModal) { state.dashboardReopenMilestoneModal = false; openMilestoneListModal(); }
+        if (state.dashboardReopenWeekdayModal)   { state.dashboardReopenWeekdayModal = false;   showWeekdayModal(); }
+        if (state.dashboardReopenTopicsModal)    { state.dashboardReopenTopicsModal   = false;   openTopTopicsModal(); }
+        if (state.dashboardReopenSubjectsModal)  { state.dashboardReopenSubjectsModal = false;   showTopicsModal(); }
+        if (state.dashboardScrollToCardId) {
+          const cardId = state.dashboardScrollToCardId;
+          state.dashboardScrollToCardId = null;
+          setTimeout(() => {
+            const card = document.getElementById(cardId);
+            if (card) {
+              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              card.classList.remove('chart-card--flash');
+              void card.offsetWidth;
+              card.classList.add('chart-card--flash');
+              card.addEventListener('animationend', () => card.classList.remove('chart-card--flash'), { once: true });
+            }
+          }, 120);
+        }
+        break;
       case 'log':            renderLog();            break;
       case 'deleted-logs':   renderDeletedLogs();    break;
       case 'reports':        renderReports();        break;

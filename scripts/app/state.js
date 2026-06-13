@@ -31,6 +31,13 @@ export const state = {
   /* ---- Log ↔ goal context ---- */
   logGoalContext:        null, // { id, title } — set when navigating to log from a goal card
   logLinkedGoalFilter:   null, // goalId — Daily Log shows only entries linked to this goal
+  logMilestoneContext:        null,  // { metric, target, name } — set when navigating to log from a milestone row
+  logWeekdayFilter:           null,  // { day: 'Sunday', index: 0 } — set when drilling into a weekday from the Best Day modal
+  logStatContext:             null,  // { label: string, streakDates?: Set } — set when navigating to log from a dashboard stat card
+  dashboardReopenWeekdayModal: false, // reopen the weekday modal after returning from log drill-down
+  logForceExpand:             false, // expand all month groups on next renderEntryList call
+  dashboardReopenMilestoneModal: false, // reopen the milestone modal after returning to dashboard
+  milestoneActiveTab:            null,  // last active tab in the milestone modal ('all'|'entries'|'hours'|'streak')
   pendingEntryGoalId:    null, // goalId — auto-link a brand-new entry to this goal on save
   pendingCompleteGoalId: null, // goalId — complete this goal after the prompted entry saves
   linkModalReturnEntryId: null, // set when user jumps to Goals via "View"; re-opens link modal on back
@@ -76,6 +83,14 @@ export const state = {
 
   /* ---- Achievements ---- */
   achievementFilterMode: 'all',
+  achievementsReturnTo:  null,  // 'dashboard' when navigating from the XP stat card
+  dashboardScrollToCardId:      null,    // card id to scroll-to + flash when returning from a drill-down
+  dashboardReopenTopicsModal:   false,   // reopen Top Topics modal after returning from a topic drill-down
+  topicsModalFlashTopic:        null,    // topic name to scroll+flash in the modal on reopen
+  dashboardReopenSubjectsModal: false,   // reopen Subjects Explored modal after returning from a category drill-down
+  subjectsModalFlashCategory:   null,    // category name to scroll+flash in the modal on reopen
+  milestoneModalFlashName:      null,    // milestone name to scroll+flash in the milestone modal on reopen
+  weekdayModalFlashDay:         null,    // day name to scroll+flash in the weekday modal on reopen
 
   /* ---- Pending badge queue ---- */
   badgeQueue:   [],

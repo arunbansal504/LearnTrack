@@ -219,7 +219,7 @@ const Analytics = (() => {
       const totalMin     = monthEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
       const label        = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 
-      result.push({ label, minutes: totalMin, hours: parseFloat((totalMin / 60).toFixed(1)) });
+      result.push({ label, from, to, minutes: totalMin, hours: parseFloat((totalMin / 60).toFixed(1)) });
     }
 
     return result;
@@ -290,10 +290,16 @@ const Analytics = (() => {
       const dayEntries = dateMap[dCursor] || [];
       const minutes    = dayEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
       const level      = minutes === 0 ? 0
-                       : minutes < maxMinutes * 0.25 ? 1
-                       : minutes < maxMinutes * 0.5  ? 2
-                       : minutes < maxMinutes * 0.75 ? 3
-                       : 4;
+                       : minutes < maxMinutes * 0.10 ?  1
+                       : minutes < maxMinutes * 0.20 ?  2
+                       : minutes < maxMinutes * 0.30 ?  3
+                       : minutes < maxMinutes * 0.40 ?  4
+                       : minutes < maxMinutes * 0.50 ?  5
+                       : minutes < maxMinutes * 0.60 ?  6
+                       : minutes < maxMinutes * 0.70 ?  7
+                       : minutes < maxMinutes * 0.80 ?  8
+                       : minutes < maxMinutes * 0.90 ?  9
+                       : 10;
       const weekday    = new Date(dCursor + 'T12:00:00').getDay();
 
       cells.push({ date: dCursor, minutes, level, weekday, label: `${dCursor}: ${formatDuration(minutes)}` });
@@ -406,6 +412,26 @@ const Analytics = (() => {
     return dayNames[bestDay];
   }
 
+  /* ---- Weekday Breakdown ----------------------------- */
+
+  function weekdayBreakdown(entries) {
+    const names  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const short  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const totals = Array(7).fill(0);
+    const counts = Array(7).fill(0);
+    for (const e of entries) {
+      const d = new Date(e.date + 'T12:00:00').getDay();
+      totals[d] += (e.durationMinutes || 0);
+      counts[d]++;
+    }
+    return Array.from({ length: 7 }, (_, i) => ({
+      day:   names[i],
+      short: short[i],
+      avg:   counts[i] > 0 ? Math.round(totals[i] / counts[i]) : 0,
+      count: counts[i],
+    })).sort((a, b) => b.avg - a.avg);
+  }
+
   /* ---- Missed Days (last 30) ------------------------- */
 
   function missedDays(entries, days = 30) {
@@ -512,6 +538,7 @@ const Analytics = (() => {
     calculateHeatmapData,
     calculateLearningCurve,
     bestLearningDay,
+    weekdayBreakdown,
     missedDays,
     goalProgress,
     daysUntil,

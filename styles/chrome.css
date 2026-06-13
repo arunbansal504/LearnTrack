@@ -306,6 +306,8 @@
   border-bottom: 1px solid var(--border);
 }
 .topics-modal-item:last-child { border-bottom: none; }
+.topics-modal-item--clickable { cursor: pointer; }
+.topics-modal-item--clickable:hover { background: var(--surface-3, rgba(255,255,255,.05)); border-radius: var(--r-1); }
 
 /* Rank badge */
 .topics-modal-rank {
@@ -351,6 +353,10 @@
 .topics-modal-footer span:last-child { font-weight: 700; color: var(--text-1); }
 
 .topics-modal-empty { font-size: 13px; color: var(--text-2); text-align: center; padding: var(--s-6) 0; }
+
+/* Weekday modal — overrides the 5-col grid to fit avg time + session count */
+.weekday-modal-grid { grid-template-columns: 30px 1fr 80px 52px 36px; }
+.topics-modal-list [data-day-index]:hover { background: var(--surface-3, rgba(255,255,255,.05)); border-radius: var(--r-1); }
 
 .charts-grid {
   display: grid;
@@ -451,10 +457,16 @@
   border-radius: 3px;
   background: var(--border);
 }
-.heatmap-cell[data-level="1"] { background: var(--accent); opacity: 0.3; }
-.heatmap-cell[data-level="2"] { background: var(--accent); opacity: 0.5; }
-.heatmap-cell[data-level="3"] { background: var(--accent); opacity: 0.7; }
-.heatmap-cell[data-level="4"] { background: var(--accent); opacity: 1; }
+.heatmap-cell[data-level="1"]  { background: var(--accent); opacity: 0.10; }
+.heatmap-cell[data-level="2"]  { background: var(--accent); opacity: 0.19; }
+.heatmap-cell[data-level="3"]  { background: var(--accent); opacity: 0.28; }
+.heatmap-cell[data-level="4"]  { background: var(--accent); opacity: 0.37; }
+.heatmap-cell[data-level="5"]  { background: var(--accent); opacity: 0.46; }
+.heatmap-cell[data-level="6"]  { background: var(--accent); opacity: 0.55; }
+.heatmap-cell[data-level="7"]  { background: var(--accent); opacity: 0.64; }
+.heatmap-cell[data-level="8"]  { background: var(--accent); opacity: 0.73; }
+.heatmap-cell[data-level="9"]  { background: var(--accent); opacity: 0.82; }
+.heatmap-cell[data-level="10"] { background: var(--accent); opacity: 1.00; }
 
 .learning-curve-insights {
   display: flex;

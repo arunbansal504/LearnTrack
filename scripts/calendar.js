@@ -141,16 +141,21 @@ const Calendar = (() => {
   }
 
   function createDayCell(dayNum, ds, dateMap, todayStr, isOtherMonth) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-day';
+
+    if (isOtherMonth) {
+      cell.classList.add('other-month');
+      return cell;
+    }
+
     const entries = dateMap[ds] || [];
     const totalMin = entries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
     const hasEntry = entries.length > 0;
 
-    const cell = document.createElement('div');
-    cell.className = 'cal-day';
-    if (isOtherMonth) cell.classList.add('other-month');
-    if (ds === todayStr)   cell.classList.add('today');
+    if (ds === todayStr)      cell.classList.add('today');
     if (ds === _selectedDate) cell.classList.add('selected');
-    if (hasEntry) cell.classList.add('has-entry');
+    if (hasEntry)             cell.classList.add('has-entry');
 
     // Day number
     const numEl = document.createElement('span');
@@ -158,18 +163,32 @@ const Calendar = (() => {
     numEl.textContent = dayNum;
     cell.appendChild(numEl);
 
-    // Activity indicator
+    // Heatmap level + entry count
     if (hasEntry && !isOtherMonth) {
       const maxMin = 300;
       const level  = totalMin === 0 ? 0
-                   : totalMin < maxMin * 0.25 ? 1
-                   : totalMin < maxMin * 0.5  ? 2
-                   : totalMin < maxMin * 0.75 ? 3
-                   : 4;
+                   : totalMin < maxMin * 0.05 ?  1
+                   : totalMin < maxMin * 0.10 ?  2
+                   : totalMin < maxMin * 0.15 ?  3
+                   : totalMin < maxMin * 0.20 ?  4
+                   : totalMin < maxMin * 0.25 ?  5
+                   : totalMin < maxMin * 0.30 ?  6
+                   : totalMin < maxMin * 0.35 ?  7
+                   : totalMin < maxMin * 0.40 ?  8
+                   : totalMin < maxMin * 0.45 ?  9
+                   : totalMin < maxMin * 0.50 ? 10
+                   : totalMin < maxMin * 0.55 ? 11
+                   : totalMin < maxMin * 0.60 ? 12
+                   : totalMin < maxMin * 0.65 ? 13
+                   : totalMin < maxMin * 0.70 ? 14
+                   : totalMin < maxMin * 0.75 ? 15
+                   : totalMin < maxMin * 0.80 ? 16
+                   : totalMin < maxMin * 0.85 ? 17
+                   : totalMin < maxMin * 0.90 ? 18
+                   : totalMin < maxMin * 0.95 ? 19
+                   : 20;
 
-      const dot = document.createElement('div');
-      dot.className = `cal-activity-dot level-${level}`;
-      cell.appendChild(dot);
+      cell.classList.add(`heat-${level}`);
 
       const countEl = document.createElement('div');
       countEl.className   = 'cal-entry-count';
@@ -210,10 +229,13 @@ const Calendar = (() => {
 
     const date     = new Date(ds + 'T12:00:00');
     const label    = date.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-    headerEl.textContent = label;
-
     const ts = e => e.createdAt || parseInt(e.id, 10) || 0;
     const dayEntries = _entries.filter(e => e.date === ds).sort((a, b) => ts(b) - ts(a));
+    const totalMin   = dayEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
+    headerEl.innerHTML = totalMin > 0
+      ? `<span class="cal-day-header-date">${label}</span><span class="cal-day-header-total"><span class="cal-day-header-total-val">${Analytics.formatDuration(totalMin)}</span><span class="cal-day-header-total-lbl">Total Hours</span></span>`
+      : `<span class="cal-day-header-date">${label}</span>`;
+
     listEl.innerHTML = '';
 
     if (dayEntries.length === 0) {

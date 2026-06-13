@@ -358,6 +358,26 @@
   75% { content: '...'; }
 }
 
+/* ---- DAILY CHART CARD FLASH ---------------------- */
+@keyframes chartCardFlash {
+  0%   { box-shadow: 0 0 0 2px var(--accent), 0 0 28px var(--accent-glow); }
+  55%  { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 14px var(--accent-glow); }
+  100% { box-shadow: none; }
+}
+.chart-card--flash {
+  animation: chartCardFlash 1.4s ease-out;
+}
+
+/* ---- TOPICS MODAL ROW FLASH ---------------------- */
+@keyframes topicsRowFlash {
+  0%   { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  100% { background: transparent; }
+}
+.topics-modal-item--flash {
+  animation: topicsRowFlash 1.3s ease-out;
+  border-radius: var(--r-1, 6px);
+}
+
 /* ---- REDUCED MOTION SUPPORT ---------------------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

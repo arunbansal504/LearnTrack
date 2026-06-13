@@ -1,11 +1,37 @@
 /* ===== achievements.js — extracted from app.js ===== */
 import { state } from './state.js';
 import { renderMedals } from './dashboard.js';
-import { _closeModal, _openModal, animateCounter, setEl } from './utils.js';
+import { navigateTo } from './nav.js';
+import { _closeModal, _openModal, animateCounter, escapeHtml, setEl } from './utils.js';
 
   /* ---- ACHIEVEMENTS PAGE --------------------------- */
 
   export async function renderAchievements() {
+    // Back-to-dashboard breadcrumb when arriving from the XP stat card
+    const breadcrumb = document.getElementById('achievements-back-breadcrumb');
+    if (breadcrumb) {
+      if (state.achievementsReturnTo === 'dashboard') {
+        breadcrumb.innerHTML = `
+          <button type="button" class="log-goal-back-chip" id="achievements-back-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Dashboard
+          </button>`;
+        const goBack = () => { state.achievementsReturnTo = null; breadcrumb.innerHTML = ''; state.dashboardScrollToCardId = 'stat-level-card'; navigateTo('dashboard'); };
+        document.getElementById('achievements-back-btn')?.addEventListener('click', goBack);
+        const onEsc = e => { if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); goBack(); } };
+        document.addEventListener('keydown', onEsc);
+        // Open the level progression section and scroll the "YOU" row into view
+        requestAnimationFrame(() => {
+          const details = document.querySelector('.rewards-guide');
+          if (details) details.open = true;
+          const currentRow = document.querySelector('.current-level-row');
+          if (currentRow) currentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      } else {
+        breadcrumb.innerHTML = '';
+      }
+    }
+
     const streak      = Analytics.calculateStreaks(state.entries);
     const stats       = Analytics.calculateTotalStats(state.entries);
     const consistency = Analytics.calculateConsistency(state.entries);

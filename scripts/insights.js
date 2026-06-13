@@ -70,12 +70,15 @@ const Insights = (() => {
     if (entries.length === 0) return insights;
 
     // Best learning day
-    const bestDay = Analytics.bestLearningDay(entries);
+    const bestDay     = Analytics.bestLearningDay(entries);
+    const bestDayData = Analytics.weekdayBreakdown(entries)[0];
+    const bestDayAvg  = bestDayData?.avg > 0 ? Analytics.formatDuration(bestDayData.avg) : null;
     insights.push({
-      label: 'Best Day to Learn',
-      value: bestDay,
-      sub:   'Highest average session',
-      icon:  '📅',
+      label:  'Best Day to Learn',
+      value:  bestDay,
+      sub:    bestDayAvg ? `Avg ${bestDayAvg} per session` : 'Highest average session',
+      icon:   '📅',
+      action: 'best-day',
     });
 
     // Average session
@@ -95,10 +98,11 @@ const Insights = (() => {
     const topTopic = Object.entries(topicMins).sort((a, b) => b[1] - a[1])[0];
     if (topTopic) {
       insights.push({
-        label: 'Most Studied Topic',
-        value: topTopic[0],
-        sub:   `${Analytics.formatDuration(topTopic[1])} total`,
-        icon:  '📚',
+        label:  'Most Studied Topic',
+        value:  topTopic[0],
+        sub:    `${Analytics.formatDuration(topTopic[1])} total`,
+        icon:   '📚',
+        action: 'top-topics',
       });
     }
 
@@ -109,7 +113,7 @@ const Insights = (() => {
       insights.push({
         label:  'Subjects Explored',
         value:  `${topicDist.length}`,
-        sub:    'Click here for details',
+        sub:    '',
         icon:   '🗂️',
         action: 'topics',   // makes the card clickable → opens the subjects breakdown modal
       });
@@ -254,6 +258,30 @@ const Insights = (() => {
 
   /* ---- Recommendation Cards ----------------------- */
 
+  function getAllMilestonesWithStatus(entries, streak, stats) {
+    streak = streak || {};
+    stats  = stats  || {};
+    const values = {
+      entries: stats.totalEntries || 0,
+      hours:   Math.round(((stats.totalMinutes || 0) / 60) * 10) / 10,
+      streak:  Math.max(streak.longest || 0, streak.current || 0),
+    };
+    let nextM = null;
+    for (const m of MILESTONES) {
+      const cur = values[m.metric];
+      if (cur >= m.target) continue;
+      const ratio = cur / m.target;
+      if (!nextM || ratio > nextM.ratio) nextM = { metric: m.metric, target: m.target, ratio };
+    }
+    return MILESTONES.map(m => {
+      const cur     = values[m.metric];
+      const achieved = cur >= m.target;
+      const isNext  = !achieved && nextM && m.metric === nextM.metric && m.target === nextM.target;
+      const pct     = achieved ? 100 : Math.min(99.99, Math.floor((cur / m.target) * 10000) / 100);
+      return { ...m, current: cur, achieved, isNext, pct };
+    });
+  }
+
   function generateRecommendations(entries, streak, stats, consistency) {
     const recs = [];
 
@@ -301,6 +329,7 @@ const Insights = (() => {
     renderCurveInsights,
     getStreakInsight,
     getNextMilestone,
+    getAllMilestonesWithStatus,
     generateRecommendations,
   };
 

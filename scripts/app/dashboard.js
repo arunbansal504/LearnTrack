@@ -4,7 +4,8 @@ import { _goalStatusOf } from './goals.js';
 import { openEntryModal } from './log.js';
 import { navigateTo } from './nav.js';
 import { UserManager } from './users.js';
-import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl } from './utils.js';
+import { getCategoryColor } from './settings.js';
+import { _closeModal, _openModal, animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl, showToast } from './utils.js';
 
   /* ---- DASHBOARD ----------------------------------- */
 
@@ -98,7 +99,7 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
     const milBar = document.getElementById('milestone-bar');
     if (milBar) milBar.style.width = `${milPct}%`;
     setEl('milestone-meta', milestone.allDone ? `${milestone.total} / ${milestone.total} (100%)` : `${milestone.current} / ${milestone.max} (${milPct}%)`);
-    setEl('milestone-count', `${milestone.achieved} of ${milestone.total} milestones achieved`);
+    setEl('milestone-count', `${milestone.achieved} milestones achieved`);
 
     // Daily goal progress + today summary
     renderGoalProgress();
@@ -232,6 +233,19 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
           ringWrap.classList.add('goal-ring-tapped');
           setTimeout(() => ringWrap.classList.remove('goal-ring-tapped'), 1200);
         }, { passive: true });
+
+        // Click → drill into today's log entries
+        ringWrap.setAttribute('role', 'button');
+        ringWrap.setAttribute('tabindex', '0');
+        ringWrap.addEventListener('click', () => {
+          const today = Analytics.today();
+          state.logStatContext = { label: 'Today', dateFrom: today, dateTo: today, source: 'daily-goal-ring' };
+          state.logForceExpand = true;
+          navigateTo('log');
+        });
+        ringWrap.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ringWrap.click(); }
+        });
       }
 
       // Fire confetti whenever pct crosses (or arrives at) 100%.
@@ -273,11 +287,25 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
         : hasData ? `<span class="goal-circle-pct">${dayPct}%</span>` : '';
       return `
         <div class="goal-day-item ${stateClass}${d.isToday ? ' is-today' : ''}"
+             ${hasData ? `data-date="${d.date}"` : ''}
              title="${d.label}: ${Analytics.formatDuration(d.minutes)} / ${Analytics.formatDuration(dayGoal)} (${dayPct}%)">
           <div class="goal-day-label">${d.label}</div>
           <div class="goal-day-circle">${inner}</div>
         </div>`;
     }).join('');
+
+    if (!container.dataset.clickWired) {
+      container.dataset.clickWired = '1';
+      container.addEventListener('click', e => {
+        const item = e.target.closest('[data-date]');
+        if (!item) return;
+        const date  = item.dataset.date;
+        const label = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        state.logStatContext = { label, streakDates: new Set([date]), source: 'week-rings' };
+        state.logForceExpand = true;
+        navigateTo('log');
+      });
+    }
   }
 
   export function renderTodaySummary() {
@@ -399,18 +427,42 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
 
   export function renderDashboardDailyChart() {
     const days = state.dailyRange === 'all' ? 3650 : parseInt(state.dailyRange, 10);
-    Charts.renderDailyTimeChart('daily-time-chart',
-      Analytics.calculateDailyTimeSeries(_scopedEntries(state.dailyRange), Math.min(days, 90)));
+    const data = Analytics.calculateDailyTimeSeries(_scopedEntries(state.dailyRange), Math.min(days, 90));
+    Charts.renderDailyTimeChart('daily-time-chart', data, (date, label) => {
+      if (!date) return;
+      state.logStatContext = { label, streakDates: new Set([date]), source: 'daily-chart' };
+      state.logForceExpand = true;
+      navigateTo('log');
+    });
   }
 
   export function renderDashboardMonthlyChart() {
-    Charts.renderMonthlyChart('monthly-progress-chart',
-      Analytics.calculateMonthlyTotals(state.entries, parseInt(state.monthlyRange, 10)));
+    const data = Analytics.calculateMonthlyTotals(state.entries, parseInt(state.monthlyRange, 10));
+    Charts.renderMonthlyChart('monthly-progress-chart', data, (from, to, label) => {
+      if (!from) return;
+      state.logStatContext = { label, dateFrom: from, dateTo: to, source: 'monthly-bar' };
+      state.logForceExpand = true;
+      navigateTo('log');
+    });
   }
 
   export function renderDashboardCategoryChart() {
-    Charts.renderTopicChart('topic-distribution-chart',
-      Analytics.calculateTopicDistribution(_scopedEntries(state.categoryRange), state.prefs.categories || DEFAULT_PREFS.categories));
+    const data = Analytics.calculateTopicDistribution(_scopedEntries(state.categoryRange), state.prefs.categories || DEFAULT_PREFS.categories);
+    Charts.renderTopicChart('topic-distribution-chart', data, (category) => {
+      if (!category) return;
+      state.logStatContext = { label: category, category, source: 'category-chart' };
+      state.logForceExpand = true;
+      navigateTo('log');
+    });
+  }
+
+  export function renderDashboardHeatmap() {
+    Charts.renderHeatmap('heatmap-container', Analytics.calculateHeatmapData(state.entries), (date) => {
+      const label = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      state.logStatContext = { label, streakDates: new Set([date]), source: 'heatmap' };
+      state.logForceExpand = true;
+      navigateTo('log');
+    });
   }
 
   export function renderDashboardAnalytics() {
@@ -425,7 +477,7 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
       renderDashboardDailyChart();
       renderDashboardMonthlyChart();
       renderDashboardCategoryChart();
-      Charts.renderHeatmap('heatmap-container', Analytics.calculateHeatmapData(state.entries));
+      renderDashboardHeatmap();
     }, 50);
 
     _wireChartTabs('daily-range-tabs',
@@ -569,4 +621,483 @@ import { animateCounter, escapeHtml, formatDateRange, formatRelativeDate, setEl 
         navigateTo('goals');
       });
     });
+  }
+
+  /* ---- Milestone List Modal ------------------------ */
+
+  export function openMilestoneListModal() {
+    try {
+      const overlay = document.getElementById('milestone-list-overlay');
+      if (!overlay) { showToast('Milestone overlay not found', 'error'); return; }
+
+      const streak  = Analytics.calculateStreaks(state.entries);
+      const stats   = Analytics.calculateTotalStats(state.entries);
+      const all     = Insights.getAllMilestonesWithStatus(state.entries, streak, stats);
+
+      const body   = document.getElementById('milestone-list-body');
+      const tabsEl = document.getElementById('milestone-list-tabs');
+
+      function activate(tab) {
+        state.milestoneActiveTab = tab;
+        tabsEl.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        _renderMilestoneTab(body, all, tab);
+      }
+
+      tabsEl.querySelectorAll('[data-tab]').forEach(btn => { btn.onclick = () => activate(btn.dataset.tab); });
+      activate(state.milestoneActiveTab || 'all');
+
+      const closeBtn = document.getElementById('milestone-list-close');
+      if (closeBtn) closeBtn.onclick = () => closeMilestoneListModal();
+      overlay.onclick = e => { if (e.target === overlay) closeMilestoneListModal(); };
+
+      const onKey = e => { if (e.key === 'Escape') { closeMilestoneListModal(); document.removeEventListener('keydown', onKey); } };
+      document.addEventListener('keydown', onKey);
+
+      overlay.style.display = 'flex';
+      _openModal(overlay);
+
+      if (state.milestoneModalFlashName) {
+        const flashName = state.milestoneModalFlashName;
+        state.milestoneModalFlashName = null;
+        requestAnimationFrame(() => {
+          for (const row of overlay.querySelectorAll('[data-name]')) {
+            if (row.dataset.name === flashName) {
+              row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              row.classList.add('topics-modal-item--flash');
+              row.addEventListener('animationend', () => row.classList.remove('topics-modal-item--flash'), { once: true });
+              break;
+            }
+          }
+        });
+      }
+
+      if (closeBtn) setTimeout(() => closeBtn.focus(), 0);
+    } catch (err) {
+      showToast(`Milestone modal error: ${err.message}`, 'error');
+      console.error('[Milestone modal]', err);
+    }
+  }
+
+  function closeMilestoneListModal() {
+    const overlay = document.getElementById('milestone-list-overlay');
+    _closeModal(overlay);
+    overlay.style.display = 'none';
+  }
+
+  function _renderMilestoneTab(container, all, tab) {
+    const items      = tab === 'all' ? all : all.filter(m => m.metric === tab);
+    const globalNext = all.filter(m => m.isNext);   // always from ALL, survives tab switches
+    const done       = items.filter(m => m.achieved);
+
+    const UNIT   = { entries: 'entries', hours: 'hrs', streak: 'days' };
+    const fmtCur = m => m.metric === 'hours' ? m.current.toFixed(1) : m.current;
+
+    const rowHtml = (m, cls) => {
+      const detail = `${fmtCur(m)} / ${m.target} ${UNIT[m.metric]}`;
+      return `
+        <div class="ml-row ${cls} ml-row-clickable" role="button" tabindex="0"
+             data-metric="${m.metric}" data-target="${m.target}" data-name="${escapeHtml(m.name)}">
+          <span class="ml-icon">${m.icon}</span>
+          <div class="ml-info">
+            <span class="ml-name">${escapeHtml(m.name)}</span>
+            ${!m.achieved
+              ? `<div class="ml-bar"><div class="ml-bar-fill" style="width:${m.pct}%"></div></div>
+                 <span class="ml-progress-detail">${detail}</span>`
+              : ''}
+          </div>
+          <span class="ml-badge">${m.achieved ? '✓' : `${m.pct}%`}</span>
+        </div>`;
+    };
+
+    // Up Next — pinned panel above the scrollable body
+    const upnextPanel = document.getElementById('milestone-list-upnext');
+    if (upnextPanel) {
+      upnextPanel.innerHTML = globalNext.length
+        ? `<div class="ml-group-header">Up Next</div>${globalNext.map(m => rowHtml(m, 'ml-next')).join('')}`
+        : '';
+    }
+
+    // Achieved — scrollable body
+    container.innerHTML = done.length
+      ? `<div class="ml-group-header">Milestones — ${done.length} achieved</div>${done.map(m => rowHtml(m, 'ml-done')).join('')}`
+      : '<p class="ml-empty">No milestones achieved yet in this category.</p>';
+
+    // Wire up click handlers on both panels
+    [container, upnextPanel].forEach(root => {
+      if (!root) return;
+      root.querySelectorAll('.ml-row-clickable').forEach(row => {
+        const open = () => {
+          state.logMilestoneContext = {
+            metric: row.dataset.metric,
+            target: Number(row.dataset.target),
+            name:   row.dataset.name,
+          };
+          state.logForceExpand = true;
+          closeMilestoneListModal();
+          navigateTo('log');
+        };
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      });
+    });
+  }
+
+  /* ---- Top Topics Modal ---------------------------- */
+
+  export function setupTopTopicsModal() {
+    document.getElementById('top-topics-close')?.addEventListener('click', closeTopTopicsModal);
+    document.getElementById('top-topics-close-btn')?.addEventListener('click', closeTopTopicsModal);
+    const overlay = document.getElementById('top-topics-overlay');
+    if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeTopTopicsModal(); });
+
+    const row = document.getElementById('insights-row');
+    if (row) {
+      row.addEventListener('click', e => {
+        if (e.target.closest('[data-insight-action="top-topics"]')) openTopTopicsModal();
+      });
+      row.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-insight-action="top-topics"]')) {
+          e.preventDefault(); openTopTopicsModal();
+        }
+      });
+    }
+  }
+
+  export function openTopTopicsModal() {
+    const overlay = document.getElementById('top-topics-overlay');
+    const body    = document.getElementById('top-topics-body');
+    if (!overlay || !body) return;
+
+    const topicMins = {};
+    for (const e of state.entries) {
+      const t = (e.topic || '').trim() || 'Untitled';
+      topicMins[t] = (topicMins[t] || 0) + (e.durationMinutes || 0);
+    }
+    const sorted    = Object.entries(topicMins).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const totalMins = sorted.reduce((s, [, m]) => s + m, 0);
+    const maxMins   = sorted[0]?.[1] || 1;
+
+    if (!sorted.length) {
+      body.innerHTML = '<p class="topics-modal-empty">No topics logged yet.</p>';
+    } else {
+      const rows = sorted.map(([topic, mins], i) => {
+        const barPct   = Math.round((mins / maxMins) * 100);
+        const rawPct   = totalMins > 0 ? (mins / totalMins) * 100 : 0;
+        const pct      = rawPct > 0 && rawPct < 1 ? '<1%' : `${Math.round(rawPct)}%`;
+        const color    = getCategoryColor(topic);
+        const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+        return `<li class="topics-modal-item topics-modal-item--clickable" data-topic="${escapeHtml(topic)}" role="button" tabindex="0" title="View log entries for ${escapeHtml(topic)}">
+          <span class="topics-modal-rank" style="background:${color}22;color:${color}">${rankLabel}</span>
+          <span class="topics-modal-name">${escapeHtml(topic)}</span>
+          <span class="topics-modal-bar-wrap">
+            <span class="topics-modal-bar" style="width:${barPct}%;background:${color}"></span>
+          </span>
+          <span class="topics-modal-pct">${pct}</span>
+          <span class="topics-modal-time">${escapeHtml(Analytics.formatDuration(mins))}</span>
+        </li>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="topics-modal-header-row">
+          <span class="topics-modal-col-rank">#</span>
+          <span class="topics-modal-col-name">Topic</span>
+          <span class="topics-modal-col-bar"></span>
+          <span class="topics-modal-col-pct">Share</span>
+          <span class="topics-modal-col-time">Time</span>
+        </div>
+        <ul class="topics-modal-list">${rows}</ul>
+        <div class="topics-modal-footer">
+          <span>${sorted.length} topic${sorted.length !== 1 ? 's' : ''}</span>
+          <span>${escapeHtml(Analytics.formatDuration(totalMins))} total</span>
+        </div>`;
+    }
+
+    overlay.style.display = 'flex';
+    _openModal(overlay);
+    const onKey = e => { if (e.key === 'Escape') { closeTopTopicsModal(); document.removeEventListener('keydown', onKey); } };
+    document.addEventListener('keydown', onKey);
+
+    if (!body.dataset.clickWired) {
+      body.dataset.clickWired = '1';
+      body.addEventListener('click', e => {
+        const item = e.target.closest('[data-topic]');
+        if (!item) return;
+        const topic = item.dataset.topic;
+        state.logStatContext = { label: topic, topic, source: 'topics-modal' };
+        state.logForceExpand = true;
+        closeTopTopicsModal();
+        navigateTo('log');
+      });
+      body.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-topic]')) {
+          e.preventDefault();
+          e.target.closest('[data-topic]').click();
+        }
+      });
+    }
+
+    if (state.topicsModalFlashTopic) {
+      const flashTopic = state.topicsModalFlashTopic;
+      state.topicsModalFlashTopic = null;
+      requestAnimationFrame(() => {
+        for (const item of body.querySelectorAll('[data-topic]')) {
+          if (item.dataset.topic === flashTopic) {
+            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            item.classList.add('topics-modal-item--flash');
+            item.addEventListener('animationend', () => item.classList.remove('topics-modal-item--flash'), { once: true });
+            break;
+          }
+        }
+      });
+    }
+
+    requestAnimationFrame(() => body.focus());
+  }
+
+  function closeTopTopicsModal() {
+    const overlay = document.getElementById('top-topics-overlay');
+    if (!overlay) return;
+    _closeModal(overlay);
+    overlay.style.display = 'none';
+  }
+
+  /* ---- Subjects Explored Modal --------------------- */
+
+  export function setupTopicsModal() {
+    const close = closeTopicsModal;
+    document.getElementById('topics-modal-close')?.addEventListener('click', close);
+    document.getElementById('topics-modal-close-btn')?.addEventListener('click', close);
+    const modal = document.getElementById('topics-modal');
+    if (modal) modal.addEventListener('click', ev => { if (ev.target === modal) close(); });
+
+    const row = document.getElementById('insights-row');
+    if (row) {
+      row.addEventListener('click', e => {
+        if (e.target.closest('[data-insight-action="topics"]')) showTopicsModal();
+      });
+      row.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-insight-action="topics"]')) {
+          e.preventDefault();
+          showTopicsModal();
+        }
+      });
+    }
+  }
+
+  export function showTopicsModal() {
+    const modal = document.getElementById('topics-modal');
+    const body  = document.getElementById('topics-modal-body');
+    const title = document.getElementById('topics-modal-title');
+    if (!modal || !body) return;
+
+    const dist = Analytics.calculateTopicDistribution(state.entries);
+    if (title) title.textContent = `Subjects Explored`;
+
+    if (!dist.length) {
+      body.innerHTML = '<p class="topics-modal-empty">No topics logged yet.</p>';
+      modal.style.display = 'flex';
+      return;
+    }
+
+    const totalMins = dist.reduce((s, t) => s + t.minutes, 0);
+    const maxMins   = dist[0].minutes;
+
+    const rows = dist.map((t, i) => {
+      const barPct  = Math.round((t.minutes / maxMins) * 100);
+      const rawPct  = totalMins > 0 ? (t.minutes / totalMins) * 100 : 0;
+      const pct     = rawPct > 0 && rawPct < 1 ? '<1%' : `${Math.round(rawPct)}%`;
+      const color     = getCategoryColor(t.label);
+      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+      return `<li class="topics-modal-item topics-modal-item--clickable" data-category="${escapeHtml(t.label)}" role="button" tabindex="0" title="View log entries for ${escapeHtml(t.label)}">
+        <span class="topics-modal-rank" style="background:${color}22;color:${color}">${rankLabel}</span>
+        <span class="topics-modal-name">${escapeHtml(t.label)}</span>
+        <span class="topics-modal-bar-wrap">
+          <span class="topics-modal-bar" style="width:${barPct}%;background:${color}"></span>
+        </span>
+        <span class="topics-modal-pct">${pct}</span>
+        <span class="topics-modal-time">${escapeHtml(Analytics.formatDuration(t.minutes))}</span>
+      </li>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="topics-modal-header-row">
+        <span class="topics-modal-col-rank">#</span>
+        <span class="topics-modal-col-name">Subject</span>
+        <span class="topics-modal-col-bar"></span>
+        <span class="topics-modal-col-pct">Share</span>
+        <span class="topics-modal-col-time">Time</span>
+      </div>
+      <ul class="topics-modal-list">${rows}</ul>
+      <div class="topics-modal-footer">
+        <span>${dist.length} subject${dist.length !== 1 ? 's' : ''}</span>
+        <span>${escapeHtml(Analytics.formatDuration(totalMins))} total</span>
+      </div>`;
+
+    modal.style.display = 'flex';
+    _openModal(modal);
+    document.body.style.overflow = 'hidden';
+
+    if (!body.dataset.clickWired) {
+      body.dataset.clickWired = '1';
+      body.addEventListener('click', e => {
+        const item = e.target.closest('[data-category]');
+        if (!item) return;
+        const category = item.dataset.category;
+        state.logStatContext = { label: category, category, source: 'subjects-modal' };
+        state.logForceExpand = true;
+        closeTopicsModal();
+        navigateTo('log');
+      });
+      body.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-category]')) {
+          e.preventDefault();
+          e.target.closest('[data-category]').click();
+        }
+      });
+    }
+
+    if (state.subjectsModalFlashCategory) {
+      const flashCat = state.subjectsModalFlashCategory;
+      state.subjectsModalFlashCategory = null;
+      requestAnimationFrame(() => {
+        for (const item of body.querySelectorAll('[data-category]')) {
+          if (item.dataset.category === flashCat) {
+            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            item.classList.add('topics-modal-item--flash');
+            item.addEventListener('animationend', () => item.classList.remove('topics-modal-item--flash'), { once: true });
+            break;
+          }
+        }
+      });
+    }
+
+    requestAnimationFrame(() => body.focus());
+  }
+
+  export function closeTopicsModal() {
+    const modal = document.getElementById('topics-modal');
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  /* ---- Best Day to Learn Modal --------------------- */
+
+  export function setupWeekdayModal() {
+    const close = closeWeekdayModal;
+    document.getElementById('weekday-modal-close')?.addEventListener('click', close);
+    document.getElementById('weekday-modal-close-btn')?.addEventListener('click', close);
+    const modal = document.getElementById('weekday-modal');
+    if (modal) modal.addEventListener('click', ev => { if (ev.target === modal) close(); });
+
+    const row = document.getElementById('insights-row');
+    if (row) {
+      row.addEventListener('click', e => {
+        if (e.target.closest('[data-insight-action="best-day"]')) showWeekdayModal();
+      });
+      row.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-insight-action="best-day"]')) {
+          e.preventDefault();
+          showWeekdayModal();
+        }
+      });
+    }
+  }
+
+  export function showWeekdayModal() {
+    const modal = document.getElementById('weekday-modal');
+    const body  = document.getElementById('weekday-modal-body');
+    if (!modal || !body) return;
+
+    const data          = Analytics.weekdayBreakdown(state.entries);
+    const totalSessions = data.reduce((s, d) => s + d.count, 0);
+
+    if (!totalSessions) {
+      body.innerHTML = '<p class="topics-modal-empty">No entries logged yet.</p>';
+      modal.style.display = 'flex';
+      _openModal(modal);
+      return;
+    }
+
+    const maxAvg = data.find(d => d.avg > 0)?.avg || 1;
+    let ranked = 0;
+    const rows = data.map((d, i) => {
+      const hasData  = d.count > 0;
+      const barPct   = hasData ? Math.round((d.avg / maxAvg) * 100) : 0;
+      ranked++;
+      const rankLabel = !hasData ? '—' : ranked === 1 ? '🥇' : ranked === 2 ? '🥈' : ranked === 3 ? '🥉' : ranked;
+      const avgLabel  = hasData ? escapeHtml(Analytics.formatDuration(d.avg)) : '—';
+      const clickable = hasData ? `data-day-index="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(d.day)}" data-day-name="${escapeHtml(d.day)}" role="button" tabindex="0" style="cursor:pointer"` : '';
+      return `<li class="topics-modal-item weekday-modal-grid" ${clickable}>
+        <span class="topics-modal-rank" style="${hasData ? '' : 'opacity:0.35'}">${rankLabel}</span>
+        <span class="topics-modal-name" style="${hasData ? '' : 'opacity:0.4'}">${escapeHtml(d.day)}</span>
+        <span class="topics-modal-bar-wrap">
+          <span class="topics-modal-bar" style="width:${barPct}%;background:var(--accent)"></span>
+        </span>
+        <span class="topics-modal-pct">${avgLabel}</span>
+        <span class="topics-modal-time">${d.count}</span>
+      </li>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="topics-modal-header-row weekday-modal-grid">
+        <span class="topics-modal-col-rank">#</span>
+        <span class="topics-modal-col-name">Day</span>
+        <span class="topics-modal-col-bar"></span>
+        <span class="topics-modal-col-pct">Avg</span>
+        <span class="topics-modal-col-time">Logs</span>
+      </div>
+      <ul class="topics-modal-list">${rows}</ul>
+      <div class="topics-modal-footer" style="justify-content:flex-end;padding-top:0;padding-bottom:0">
+        <span>${totalSessions} session${totalSessions !== 1 ? 's' : ''} total</span>
+      </div>`;
+
+    body.querySelector('.topics-modal-list')?.addEventListener('click', e => {
+      const item = e.target.closest('[data-day-index]');
+      if (!item) return;
+      state.logWeekdayFilter = { day: item.dataset.dayName, index: parseInt(item.dataset.dayIndex, 10) };
+      state.logForceExpand   = true;
+      closeWeekdayModal();
+      navigateTo('log');
+    });
+    body.querySelector('.topics-modal-list')?.addEventListener('keydown', e => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-day-index]')) {
+        e.preventDefault();
+        e.target.closest('[data-day-index]').click();
+      }
+    });
+
+    modal.style.display = 'flex';
+    _openModal(modal);
+    document.body.style.overflow = 'hidden';
+    const onKey = e => { if (e.key === 'Escape') { closeWeekdayModal(); document.removeEventListener('keydown', onKey); } };
+    document.addEventListener('keydown', onKey);
+
+    if (state.weekdayModalFlashDay) {
+      const flashDay = state.weekdayModalFlashDay;
+      state.weekdayModalFlashDay = null;
+      requestAnimationFrame(() => {
+        const list = body.querySelector('.topics-modal-list');
+        if (!list) return;
+        for (const item of list.querySelectorAll('[data-day-name]')) {
+          if (item.dataset.dayName === flashDay) {
+            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            item.classList.add('topics-modal-item--flash');
+            item.addEventListener('animationend', () => item.classList.remove('topics-modal-item--flash'), { once: true });
+            break;
+          }
+        }
+      });
+    }
+
+    requestAnimationFrame(() => body.focus());
+  }
+
+  export function closeWeekdayModal() {
+    const modal = document.getElementById('weekday-modal');
+    if (!modal) return;
+    _closeModal(modal);
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
   }

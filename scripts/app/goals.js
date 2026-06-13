@@ -3,7 +3,7 @@ import { state, DEFAULT_PREFS, debounce } from './state.js';
 import { checkAchievements } from './achievements.js';
 import { triggerAutoBackup } from './core.js';
 import { renderGoalsDashboardWidget } from './dashboard.js';
-import { applyDeletedGoalFilters } from './deleted-logs.js';
+
 import { openEntryModal } from './log.js';
 import { clearLogFilters, navigateTo, renderPage, updateDgFilterToggleState, updateSidebarUser } from './nav.js';
 import { populateCategorySelects } from './settings.js';
@@ -1294,6 +1294,31 @@ import { _closeModal, _openModal, capitalise, escapeHtml, formatRelativeDate, li
   }
 
   /* ---- Deleted Goals -------------------------------- */
+
+  function applyDeletedGoalFilters(goals) {
+    let list = [...goals];
+
+    const search   = (document.getElementById('dg-search')?.value || '').toLowerCase().trim();
+    const category = document.getElementById('dg-filter-category')?.value;
+    const type     = document.getElementById('dg-filter-type')?.value;
+    const sort     = document.getElementById('dg-filter-sort')?.value || 'deleted-newest';
+
+    if (search)   list = list.filter(g =>
+      g.title?.toLowerCase().includes(search) ||
+      (g.description || '').toLowerCase().includes(search) ||
+      (g.category || '').toLowerCase().includes(search)
+    );
+    if (category) list = list.filter(g => g.category === category);
+    if (type)     list = list.filter(g => g.type === type);
+
+    switch (sort) {
+      case 'deleted-newest': list.sort((a, b) => b.deletedAt - a.deletedAt); break;
+      case 'deleted-oldest': list.sort((a, b) => a.deletedAt - b.deletedAt); break;
+      case 'az':             list.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break;
+      case 'za':             list.sort((a, b) => (b.title || '').localeCompare(a.title || '')); break;
+    }
+    return list;
+  }
 
   export async function renderDeletedGoals() {
     const container = document.getElementById('dg-goals-container');

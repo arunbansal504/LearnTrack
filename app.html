@@ -40,17 +40,17 @@
   <link rel="stylesheet" href="styles/feedback.css?v=1" />
   <link rel="stylesheet" href="styles/log.css?v=1" />
   <link rel="stylesheet" href="styles/settings-backup.css?v=7" />
-  <link rel="stylesheet" href="styles/calendar.css?v=1" />
+  <link rel="stylesheet" href="styles/calendar.css?v=8" />
   <link rel="stylesheet" href="styles/achievements.css?v=1" />
-  <link rel="stylesheet" href="styles/chrome.css?v=3" />
+  <link rel="stylesheet" href="styles/chrome.css?v=6" />
   <link rel="stylesheet" href="styles/responsive.css?v=1" />
   <link rel="stylesheet" href="styles/profiles-users.css?v=3" />
   <link rel="stylesheet" href="styles/compact-mode.css?v=1" />
   <link rel="stylesheet" href="styles/timer.css?v=1" />
   <link rel="stylesheet" href="styles/goals.css?v=1" />
   <link rel="stylesheet" href="styles/deleted-goals.css?v=1" />
-  <link rel="stylesheet" href="styles/dashboard.css?v=30" />
-  <link rel="stylesheet" href="styles/animations.css?v=17" />
+  <link rel="stylesheet" href="styles/dashboard.css?v=36" />
+  <link rel="stylesheet" href="styles/animations.css?v=20" />
 </head>
 <body>
 
@@ -231,7 +231,7 @@
 
       <!-- Stats Grid -->
       <div class="stats-grid" id="stats-grid">
-        <div class="stat-card" data-stat="total-hours">
+        <div class="stat-card stat-card--clickable" id="stat-hours-card" data-stat="total-hours" role="button" tabindex="0" aria-label="View all entries by total hours">
           <div class="stat-icon">⏱️</div>
           <div class="stat-body">
             <div class="stat-value" id="stat-total-hours">0</div>
@@ -239,7 +239,7 @@
           </div>
           <div class="stat-trend" id="stat-trend-hours"></div>
         </div>
-        <div class="stat-card highlight" data-stat="streak">
+        <div class="stat-card stat-card--clickable highlight" id="stat-streak-card" data-stat="streak" role="button" tabindex="0" aria-label="View entries from your current streak">
           <div class="stat-icon">🔥</div>
           <div class="stat-body">
             <div class="stat-value" id="stat-streak">0</div>
@@ -247,7 +247,7 @@
             <div class="stat-sub" id="stat-longest-streak">Longest: 0 days</div>
           </div>
         </div>
-        <div class="stat-card" data-stat="entries">
+        <div class="stat-card stat-card--clickable" id="stat-entries-card" data-stat="entries" role="button" tabindex="0" aria-label="View all entries">
           <div class="stat-icon">📝</div>
           <div class="stat-body">
             <div class="stat-value" id="stat-entries">0</div>
@@ -269,7 +269,7 @@
             <div class="stat-sub">Last 30 days</div>
           </div>
         </div>
-        <div class="stat-card" data-stat="level">
+        <div class="stat-card stat-card--clickable" id="stat-level-card" data-stat="level" role="button" tabindex="0" aria-label="View achievements and XP">
           <div class="stat-icon">⚡</div>
           <div class="stat-body">
             <div class="stat-value" id="stat-level">1</div>
@@ -324,7 +324,7 @@
 
       <!-- Weekly / Monthly Summary Row -->
       <div class="summary-row">
-        <div class="summary-card">
+        <div class="summary-card summary-card--clickable" id="summary-week-card">
           <div class="summary-header">
             <h2>This Week <i class="info-tip" data-tip="Total logged time for the current Mon–Sun week. Bar heights are proportional to each day's duration relative to the week's peak day.">i</i></h2>
             <span class="summary-period" id="week-period"></span>
@@ -337,7 +337,7 @@
             </div>
           </div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card summary-card--clickable" id="summary-month-card">
           <div class="summary-header">
             <h2>This Month <i class="info-tip" data-tip="Total logged time for the current calendar month vs your monthly goal (set in Settings). Progress bar shows % of monthly goal reached.">i</i></h2>
             <span class="summary-period" id="month-period"></span>
@@ -351,7 +351,7 @@
             <div class="summary-sub" id="month-goal-text">0% of monthly goal</div>
           </div>
         </div>
-        <div class="summary-card upcoming-milestone-card" id="milestone-card">
+        <div class="summary-card upcoming-milestone-card summary-card--clickable" id="milestone-card" role="button" tabindex="0">
           <div class="summary-header">
             <h2>Next Milestone <i class="info-tip" data-tip="The closest of 1000 built-in milestones covering entries logged, total study hours, and streak days.">i</i></h2>
           </div>
@@ -362,14 +362,14 @@
               <div class="milestone-progress-bar" id="milestone-bar" style="width:0%"></div>
             </div>
             <div class="milestone-meta" id="milestone-meta">0% complete</div>
-            <div class="milestone-view-all" id="milestone-count">0 of 1000 milestones achieved</div>
+            <div class="milestone-view-all-row"><span id="milestone-count">0 milestones achieved</span></div>
           </div>
         </div>
       </div>
 
       <!-- Charts -->
       <div class="charts-grid">
-        <div class="chart-card">
+        <div class="chart-card" id="daily-chart-card">
           <div class="chart-header">
             <h2>Daily Learning Time</h2>
             <div class="chart-range-tabs" id="daily-range-tabs">
@@ -384,7 +384,7 @@
             <canvas id="daily-time-chart"></canvas>
           </div>
         </div>
-        <div class="chart-card">
+        <div class="chart-card" id="monthly-chart-card">
           <div class="chart-header">
             <h2>Monthly Progress</h2>
             <div class="chart-range-tabs" id="monthly-range-tabs">
@@ -397,7 +397,7 @@
             <canvas id="monthly-progress-chart"></canvas>
           </div>
         </div>
-        <div class="chart-card">
+        <div class="chart-card" id="category-chart-card">
           <div class="chart-header">
             <h2>Category Distribution</h2>
             <div class="chart-range-tabs" id="category-range-tabs">
@@ -411,7 +411,7 @@
             <canvas id="topic-distribution-chart"></canvas>
           </div>
         </div>
-        <div class="chart-card full-width">
+        <div class="chart-card full-width" id="heatmap-chart-card">
           <div class="chart-header">
             <h2>Activity Heatmap</h2>
             <span class="chart-hint" id="heatmap-hint">Last 52 weeks</span>
@@ -425,6 +425,12 @@
               <div class="heatmap-cell" data-level="2"></div>
               <div class="heatmap-cell" data-level="3"></div>
               <div class="heatmap-cell" data-level="4"></div>
+              <div class="heatmap-cell" data-level="5"></div>
+              <div class="heatmap-cell" data-level="6"></div>
+              <div class="heatmap-cell" data-level="7"></div>
+              <div class="heatmap-cell" data-level="8"></div>
+              <div class="heatmap-cell" data-level="9"></div>
+              <div class="heatmap-cell" data-level="10"></div>
             </div>
             <span>More</span>
           </div>
@@ -792,6 +798,31 @@
           <div class="calendar-grid" id="calendar-grid">
             <!-- Rendered by calendar.js -->
           </div>
+          <div class="cal-heatmap-legend">
+            <span>Less</span>
+            <span class="heat-swatch heat-0"></span>
+            <span class="heat-swatch heat-1"></span>
+            <span class="heat-swatch heat-2"></span>
+            <span class="heat-swatch heat-3"></span>
+            <span class="heat-swatch heat-4"></span>
+            <span class="heat-swatch heat-5"></span>
+            <span class="heat-swatch heat-6"></span>
+            <span class="heat-swatch heat-7"></span>
+            <span class="heat-swatch heat-8"></span>
+            <span class="heat-swatch heat-9"></span>
+            <span class="heat-swatch heat-10"></span>
+            <span class="heat-swatch heat-11"></span>
+            <span class="heat-swatch heat-12"></span>
+            <span class="heat-swatch heat-13"></span>
+            <span class="heat-swatch heat-14"></span>
+            <span class="heat-swatch heat-15"></span>
+            <span class="heat-swatch heat-16"></span>
+            <span class="heat-swatch heat-17"></span>
+            <span class="heat-swatch heat-18"></span>
+            <span class="heat-swatch heat-19"></span>
+            <span class="heat-swatch heat-20"></span>
+            <span>More</span>
+          </div>
         </div>
         <div class="calendar-sidebar">
           <div class="cal-day-panel" id="cal-day-panel">
@@ -957,6 +988,7 @@
 
     <!-- ===== PAGE: ACHIEVEMENTS ===== -->
     <section id="page-achievements" class="page" aria-label="Achievements">
+      <div id="achievements-back-breadcrumb"></div>
       <div class="page-header">
         <div class="page-title-group">
           <h1 class="page-title">Achievements</h1>
@@ -1592,19 +1624,15 @@
             <span id="entry-topic-err" class="sr-only" role="alert"></span>
           </div>
           <div class="form-group">
-            <label for="entry-category">Category</label>
-            <select id="entry-category">
+            <label for="entry-category">Category <span class="required" aria-hidden="true">*</span></label>
+            <select id="entry-category" required aria-required="true" aria-describedby="entry-category-err">
               <option value="">Select category</option>
             </select>
+            <span id="entry-category-err" class="sr-only" role="alert"></span>
           </div>
         </div>
 
         <div class="form-row">
-          <div class="form-group">
-            <label for="entry-date">Date <span class="required">*</span></label>
-            <input type="date" id="entry-date" readonly aria-describedby="entry-date-err" />
-            <span id="entry-date-err" class="sr-only" role="alert"></span>
-          </div>
           <div class="form-group">
             <label>Duration <span class="required">*</span></label>
             <div class="duration-inputs">
@@ -1626,6 +1654,11 @@
               <span class="duration-unit">m</span>
             </div>
             <span id="entry-duration-err" class="sr-only" role="alert"></span>
+          </div>
+          <div class="form-group">
+            <label for="entry-date">Date <span class="required">*</span></label>
+            <input type="date" id="entry-date" readonly aria-describedby="entry-date-err" />
+            <span id="entry-date-err" class="sr-only" role="alert"></span>
           </div>
         </div>
 
@@ -1963,6 +1996,24 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="topics-modal-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WEEKDAY AVG SESSION MODAL ===== -->
+<div id="weekday-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="weekday-modal-title" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2 id="weekday-modal-title" style="font-size:15px;font-weight:700">Best Day to Learn</h2>
+      <button class="modal-close" id="weekday-modal-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="weekday-modal-body" tabindex="-1" style="overflow-y:auto;max-height:62vh;padding:var(--s-3) 0 0;outline:none">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="weekday-modal-close-btn">Close</button>
     </div>
   </div>
 </div>
@@ -2361,15 +2412,51 @@
      (Storage, Analytics, Charts, Rewards, Calendar, Insights, PomodoroTimer)
      are available to the app/* modules by the time main.js runs. -->
 <script src="scripts/storage.js?v=21"></script>
-<script src="scripts/analytics.js?v=17"></script>
+<script src="scripts/analytics.js?v=20"></script>
 <script src="scripts/rewards.js?v=19"></script>
-<script src="scripts/charts.js?v=18"></script>
-<script src="scripts/calendar.js?v=16"></script>
-<script src="scripts/insights.js?v=19"></script>
+<script src="scripts/charts.js?v=23"></script>
+<script src="scripts/calendar.js?v=22"></script>
+<script src="scripts/insights.js?v=21"></script>
 <script src="scripts/timer.js?v=15"></script>
+
+<!-- Milestone list modal -->
+<div id="milestone-list-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="milestone-list-title" style="display:none">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h2 id="milestone-list-title">Achieved Milestones</h2>
+      <button class="modal-close" id="milestone-list-close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="ml-tabs" id="milestone-list-tabs">
+      <button class="ml-tab active" data-tab="all">All</button>
+      <button class="ml-tab" data-tab="entries">📝 Entries</button>
+      <button class="ml-tab" data-tab="hours">⏳ Hours</button>
+      <button class="ml-tab" data-tab="streak">🔥 Streak</button>
+    </div>
+    <div id="milestone-list-upnext" class="ml-upnext-panel"></div>
+    <div class="modal-body ml-body" id="milestone-list-body"></div>
+  </div>
+</div>
+<!-- Top Topics modal -->
+<div id="top-topics-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="top-topics-title" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2 id="top-topics-title" style="font-size:15px;font-weight:700">Top 10 Topics</h2>
+      <button class="modal-close" id="top-topics-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="top-topics-body" tabindex="-1" style="overflow-y:auto;max-height:62vh;padding:var(--s-3) 0 0;outline:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="top-topics-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- App entry point. app.js was split into ES modules under scripts/app/;
      main.js imports them. Requires serving over http(s)/localhost (not file://). -->
-<script type="module" src="scripts/main.js?v=64"></script>
+<script type="module" src="scripts/main.js?v=86"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
 

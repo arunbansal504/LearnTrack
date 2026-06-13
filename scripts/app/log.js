@@ -2,7 +2,8 @@
 import { state, debounce } from './state.js';
 import { checkAchievements, closeBadgeModal } from './achievements.js';
 import { triggerAutoBackup } from './core.js';
-import { _setExpandToggleContent, closeDeletedEntryDetail, closeTopicsModal } from './deleted-logs.js';
+import { _setExpandToggleContent, closeDeletedEntryDetail } from './deleted-logs.js';
+import { closeTopicsModal, showWeekdayModal } from './dashboard.js';
 import { _persistGoalAndRefresh, closeDeletedGoalDetail, openLinkGoalModal, reopenLinkModalFromGoal, reopenLinkedGoalsModal } from './goals.js';
 import { navigateTo, renderPage, updateFilterToggleState, updateSidebarUser } from './nav.js';
 import { populateCategorySelects } from './settings.js';
@@ -19,6 +20,91 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
   export function _renderLogGoalBreadcrumb() {
     const el = document.getElementById('log-goal-breadcrumb');
     if (!el) return;
+
+    if (state.logStatContext) {
+      const { label } = state.logStatContext;
+      el.innerHTML = `
+        <button type="button" class="log-goal-back-chip" id="log-stat-back-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Dashboard
+        </button>
+        <div class="log-goal-linked-header">
+          <span>Showing entries for: <strong>${escapeHtml(label)}</strong></span>
+        </div>`;
+      const goBack = () => {
+        const cardMap = {
+          'daily-chart':    'daily-chart-card',
+          'monthly-bar':    'monthly-chart-card',
+          'category-chart': 'category-chart-card',
+          'heatmap':        'heatmap-chart-card',
+          'week-rings':     'goal-progress-card',
+          'daily-goal-ring': 'goal-progress-card',
+          'weekly-chart':   'summary-week-card',
+          'monthly-chart':  'summary-month-card',
+          'stat-hours':     'stat-hours-card',
+          'stat-streak':    'stat-streak-card',
+          'stat-entries':   'stat-entries-card',
+          'today-card':     'today-summary-card',
+        };
+        const src = state.logStatContext?.source;
+        if (src === 'topics-modal') {
+          state.dashboardReopenTopicsModal = true;
+          state.topicsModalFlashTopic = state.logStatContext.topic;
+        } else if (src === 'subjects-modal') {
+          state.dashboardReopenSubjectsModal = true;
+          state.subjectsModalFlashCategory = state.logStatContext.category;
+        } else {
+          const cardId = cardMap[src];
+          if (cardId) state.dashboardScrollToCardId = cardId;
+        }
+        state.logStatContext = null;
+        navigateTo('dashboard');
+      };
+      document.getElementById('log-stat-back-btn')?.addEventListener('click', goBack);
+      const onEsc = e => { if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); goBack(); } };
+      document.addEventListener('keydown', onEsc);
+      return;
+    }
+
+    if (state.logWeekdayFilter) {
+      const { day } = state.logWeekdayFilter;
+      el.innerHTML = `
+        <button type="button" class="log-goal-back-chip" id="log-weekday-back-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Best Day to Learn
+        </button>
+        <div class="log-goal-linked-header">
+          <span>Showing entries for: <strong>${escapeHtml(day)}</strong></span>
+        </div>`;
+      const goBack = () => {
+        state.weekdayModalFlashDay = state.logWeekdayFilter.day;
+        state.logWeekdayFilter = null;
+        state.dashboardReopenWeekdayModal = true;
+        navigateTo('dashboard');
+      };
+      document.getElementById('log-weekday-back-btn')?.addEventListener('click', goBack);
+      const onEsc = e => { if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); goBack(); } };
+      document.addEventListener('keydown', onEsc);
+      return;
+    }
+
+    if (state.logMilestoneContext) {
+      const { name } = state.logMilestoneContext;
+      el.innerHTML = `
+        <button type="button" class="log-goal-back-chip" id="log-milestone-back-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Milestones
+        </button>
+        <div class="log-goal-linked-header">
+          <span>Entries counted toward: <strong>${escapeHtml(name)}</strong></span>
+        </div>`;
+      const goBack = () => { state.milestoneModalFlashName = state.logMilestoneContext.name; state.logMilestoneContext = null; state.dashboardReopenMilestoneModal = true; navigateTo('dashboard'); };
+      document.getElementById('log-milestone-back-btn')?.addEventListener('click', goBack);
+      const onEsc = e => { if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); goBack(); } };
+      document.addEventListener('keydown', onEsc);
+      return;
+    }
+
     if (!state.logGoalContext) { el.innerHTML = ''; return; }
     const linkedHeader = state.logLinkedGoalFilter
       ? `<div class="log-goal-linked-header">
@@ -95,9 +181,11 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
       const count    = entries.length;
       const label    = new Date(key + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-      const isCollapsed = key in state.monthCollapsedState
-        ? state.monthCollapsedState[key]
-        : key !== currentMonth;
+      const isCollapsed = state.logForceExpand
+        ? false
+        : key in state.monthCollapsedState
+          ? state.monthCollapsedState[key]
+          : key !== currentMonth;
 
       return `
         <div class="month-group${isCollapsed ? ' collapsed' : ''}" data-month="${key}">
@@ -119,6 +207,7 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
         </div>`;
     }).join('');
 
+    state.logForceExpand = false;
     container.innerHTML = groupsHtml;
     if (emptyState) container.appendChild(emptyState);
 
@@ -249,9 +338,64 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
   export function applyFilters(entries, filter = {}) {
     let list = [...entries];
 
+    // Stat-card drill-down: date-range, streak-date, or category filter.
+    if (state.logStatContext?.dateFrom) list = list.filter(e => e.date >= state.logStatContext.dateFrom);
+    if (state.logStatContext?.dateTo)   list = list.filter(e => e.date <= state.logStatContext.dateTo);
+    if (state.logStatContext?.streakDates?.size) {
+      list = list.filter(e => state.logStatContext.streakDates.has(e.date));
+    }
+    if (state.logStatContext?.category) {
+      const cat = state.logStatContext.category;
+      list = cat === 'Uncategorized'
+        ? list.filter(e => !e.category || e.category === '')
+        : list.filter(e => e.category === cat);
+    }
+    if (state.logStatContext?.topic) {
+      list = list.filter(e => e.topic === state.logStatContext.topic);
+    }
+
+    // Weekday drill-down: restrict to entries on that day of week.
+    if (state.logWeekdayFilter !== null) {
+      list = list.filter(e => new Date(e.date + 'T12:00:00').getDay() === state.logWeekdayFilter.index);
+    }
+
     // "View logged entries" from a goal: restrict to entries explicitly linked to it.
     if (state.logLinkedGoalFilter) {
       list = list.filter(e => Array.isArray(e.goalIds) && e.goalIds.includes(state.logLinkedGoalFilter));
+    }
+
+    // Milestone context: show only entries that count toward reaching this milestone.
+    if (state.logMilestoneContext) {
+      const { metric, target } = state.logMilestoneContext;
+      const ts = e => e.createdAt || parseInt(e.id, 10) || 0;
+      const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date) || ts(a) - ts(b));
+      if (metric === 'entries') {
+        const ids = new Set(sorted.slice(0, target).map(e => e.id));
+        list = list.filter(e => ids.has(e.id));
+      } else if (metric === 'hours') {
+        let acc = 0;
+        const ids = new Set();
+        for (const e of sorted) {
+          if (acc >= target * 60) break;
+          acc += e.durationMinutes || 0;
+          ids.add(e.id);
+        }
+        list = list.filter(e => ids.has(e.id));
+      } else if (metric === 'streak') {
+        const uniqueDates = [...new Set(sorted.map(e => e.date))].sort();
+        const streakDates = new Set();
+        let run = [uniqueDates[0]];
+        for (let i = 1; i < uniqueDates.length; i++) {
+          const gap = (new Date(uniqueDates[i]) - new Date(uniqueDates[i - 1])) / 86400000;
+          if (gap === 1) { run.push(uniqueDates[i]); }
+          else {
+            if (run.length >= target) run.forEach(d => streakDates.add(d));
+            run = [uniqueDates[i]];
+          }
+        }
+        if (run.length >= target) run.forEach(d => streakDates.add(d));
+        list = list.filter(e => streakDates.has(e.date));
+      }
     }
 
     const search   = (document.getElementById('log-search')?.value || '').toLowerCase().trim();
@@ -629,6 +773,15 @@ import { _closeModal, _openModal, capitalise, closeConfirmModal, createEmptyStat
       fld?.setAttribute('aria-invalid', 'true');
       const err = document.getElementById('entry-topic-err'); if (err) err.textContent = 'Topic is required.';
       showToast('Please enter a topic.', 'warning');
+      fld?.focus();
+      return;
+    }
+
+    if (!category) {
+      const fld = document.getElementById('entry-category');
+      fld?.setAttribute('aria-invalid', 'true');
+      const err = document.getElementById('entry-category-err'); if (err) err.textContent = 'Category is required.';
+      showToast('Please select a category.', 'warning');
       fld?.focus();
       return;
     }

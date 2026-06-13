@@ -4,7 +4,7 @@ import { checkAchievements } from './achievements.js';
 import { triggerAutoBackup } from './core.js';
 import { showLinkedGoalsPopover } from './goals.js';
 import { updateDlFilterToggleState, updateSidebarUser } from './nav.js';
-import { getCategoryColor, populateCategorySelects } from './settings.js';
+import { populateCategorySelects } from './settings.js';
 import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref, showConfirm, showToast } from './utils.js';
 
   /* ---- DELETED LOGS PAGE --------------------------- */
@@ -175,30 +175,6 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
     return list;
   }
 
-  export function applyDeletedGoalFilters(goals) {
-    let list = [...goals];
-
-    const search   = (document.getElementById('dg-search')?.value || '').toLowerCase().trim();
-    const category = document.getElementById('dg-filter-category')?.value;
-    const type     = document.getElementById('dg-filter-type')?.value;
-    const sort     = document.getElementById('dg-filter-sort')?.value || 'deleted-newest';
-
-    if (search)   list = list.filter(g =>
-      g.title?.toLowerCase().includes(search) ||
-      (g.description || '').toLowerCase().includes(search) ||
-      (g.category || '').toLowerCase().includes(search)
-    );
-    if (category) list = list.filter(g => g.category === category);
-    if (type)     list = list.filter(g => g.type === type);
-
-    switch (sort) {
-      case 'deleted-newest': list.sort((a, b) => b.deletedAt - a.deletedAt); break;
-      case 'deleted-oldest': list.sort((a, b) => a.deletedAt - b.deletedAt); break;
-      case 'az':             list.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break;
-      case 'za':             list.sort((a, b) => (b.title || '').localeCompare(a.title || '')); break;
-    }
-    return list;
-  }
 
   export function createDeletedEntryCard(entry) {
     const linkTitles = Array.isArray(entry.goalIds)
@@ -513,90 +489,4 @@ import { _closeModal, _openModal, capitalise, escapeHtml, linkifyNotes, safeHref
     modal.style.display = 'none';
   }
 
-  export function setupTopicsModal() {
-    const close = closeTopicsModal;
-    document.getElementById('topics-modal-close')?.addEventListener('click', close);
-    document.getElementById('topics-modal-close-btn')?.addEventListener('click', close);
-    const modal = document.getElementById('topics-modal');
-    if (modal) modal.addEventListener('click', ev => { if (ev.target === modal) close(); });
 
-    // Delegated trigger: the "Subjects Explored" insight card is rendered with
-    // data-insight-action="topics" by Insights.renderInsightsRow.
-    const row = document.getElementById('insights-row');
-    if (row) {
-      row.addEventListener('click', e => {
-        if (e.target.closest('[data-insight-action="topics"]')) showTopicsModal();
-      });
-      row.addEventListener('keydown', e => {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-insight-action="topics"]')) {
-          e.preventDefault();
-          showTopicsModal();
-        }
-      });
-    }
-  }
-
-  export function showTopicsModal() {
-    const modal = document.getElementById('topics-modal');
-    const body  = document.getElementById('topics-modal-body');
-    const title = document.getElementById('topics-modal-title');
-    if (!modal || !body) return;
-
-    // Match the "Subjects Explored" insight grouping exactly (no knownCategories filtering).
-    const dist = Analytics.calculateTopicDistribution(state.entries);
-    if (title) title.textContent = `Subjects Explored`;
-
-    if (!dist.length) {
-      body.innerHTML = '<p class="topics-modal-empty">No topics logged yet.</p>';
-      modal.style.display = 'flex';
-      return;
-    }
-
-    const totalMins = dist.reduce((s, t) => s + t.minutes, 0);
-    const maxMins   = dist[0].minutes;   // already sorted desc
-
-    const rows = dist.map((t, i) => {
-      const barPct  = Math.round((t.minutes / maxMins) * 100);
-      const rawPct  = totalMins > 0 ? (t.minutes / totalMins) * 100 : 0;
-      const pct     = rawPct > 0 && rawPct < 1 ? '<1%' : `${Math.round(rawPct)}%`;
-      const color     = getCategoryColor(t.label);
-      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
-      return `<li class="topics-modal-item">
-        <span class="topics-modal-rank" style="background:${color}22;color:${color}">${rankLabel}</span>
-        <span class="topics-modal-name">${escapeHtml(t.label)}</span>
-        <span class="topics-modal-bar-wrap">
-          <span class="topics-modal-bar" style="width:${barPct}%;background:${color}"></span>
-        </span>
-        <span class="topics-modal-pct">${pct}</span>
-        <span class="topics-modal-time">${escapeHtml(Analytics.formatDuration(t.minutes))}</span>
-      </li>`;
-    }).join('');
-
-    body.innerHTML = `
-      <div class="topics-modal-header-row">
-        <span class="topics-modal-col-rank">#</span>
-        <span class="topics-modal-col-name">Subject</span>
-        <span class="topics-modal-col-bar"></span>
-        <span class="topics-modal-col-pct">Share</span>
-        <span class="topics-modal-col-time">Time</span>
-      </div>
-      <ul class="topics-modal-list">${rows}</ul>
-      <div class="topics-modal-footer">
-        <span>${dist.length} subject${dist.length !== 1 ? 's' : ''}</span>
-        <span>${escapeHtml(Analytics.formatDuration(totalMins))} total</span>
-      </div>`;
-
-    modal.style.display = 'flex';
-    _openModal(modal);
-    document.body.style.overflow = 'hidden';
-    // Focus the scrollable body so arrow keys scroll the list, not the page.
-    requestAnimationFrame(() => body.focus());
-  }
-
-  export function closeTopicsModal() {
-    const modal = document.getElementById('topics-modal');
-    if (!modal) return;
-    _closeModal(modal);
-    modal.style.display = 'none';
-    document.body.style.overflow = '';
-  }
